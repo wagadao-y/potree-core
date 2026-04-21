@@ -1,0 +1,11 @@
+{
+  "name": "@own-potree-core/root",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "pnpm --filter playground dev",
+    "build": "pnpm --filter playground build",
+    "preview": "pnpm --filter playground preview"
+  },
+  "packageManager": "pnpm@10.33.0"
+}
