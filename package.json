@@ -4,6 +4,7 @@
   "type": "module",
   "scripts": {
     "dev": "pnpm --filter playground dev",
+    "benchmark:decode": "pnpm --filter benchmark-decode dev",
     "build": "pnpm --filter playground build",
     "typecheck": "pnpm --filter potree-core typecheck && pnpm --filter playground typecheck",
     "lint": "biome lint .",

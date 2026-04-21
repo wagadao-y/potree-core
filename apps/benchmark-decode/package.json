@@ -11,5 +11,8 @@
   "devDependencies": {
     "typescript": "~6.0.2",
     "vite": "^8.0.9"
+  },
+  "dependencies": {
+    "brotli-dec-wasm": "^2.3.2"
   }
 }
