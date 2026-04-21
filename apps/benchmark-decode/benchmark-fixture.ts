@@ -1,6 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
-import { BrotliDecode } from "../../packages/core/src/loading2/libs/brotli/decode.js";
+import { BrotliDecode } from "./src/legacy-brotli/decode.js";
 
 export interface BenchmarkFixtureNode {
   name: string;

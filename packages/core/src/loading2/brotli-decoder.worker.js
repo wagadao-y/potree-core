@@ -1,4 +1,4 @@
-import { BrotliDecode } from "./libs/brotli/decode.js";
+import brotliPromise from "brotli-dec-wasm";
 import { PointAttribute, PointAttributeTypes } from "./PointAttributes.ts";
 
 const typedArrayMapping = {
@@ -67,18 +67,26 @@ const mask_b0 = new Uint8Array([
   2, 3, 2, 3, 2, 3, 0, 1, 0, 1, 0, 1, 0, 1, 2, 3, 2, 3, 2, 3, 2, 3,
 ]);
 
-onmessage = function (event) {
+onmessage = async function (event) {
   const { pointAttributes, scale, name, min, max, size, offset, numPoints } =
     event.data;
 
   const tStart = performance.now();
 
   let buffer;
-  if (numPoints == 0) {
+  if (numPoints == 0 || event.data.buffer.byteLength === 0) {
     buffer = { buffer: new ArrayBuffer(0) };
   } else {
     try {
-      buffer = BrotliDecode(new Int8Array(event.data.buffer));
+      const brotli = await brotliPromise;
+      const decoded = brotli.decompress(new Uint8Array(event.data.buffer));
+      buffer = {
+        buffer:
+          decoded.byteOffset === 0 &&
+          decoded.byteLength === decoded.buffer.byteLength
+            ? decoded.buffer
+            : decoded.slice().buffer,
+      };
     } catch (e) {
       buffer = {
         buffer: new ArrayBuffer(numPoints * (pointAttributes.byteSize + 12)),
