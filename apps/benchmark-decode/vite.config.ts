@@ -1,9 +1,12 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { searchForWorkspaceRoot, type Plugin, defineConfig } from "vite";
-import { createPumpBenchmarkAssets } from "./benchmark-fixture";
+import { createBenchmarkAssets } from "./benchmark-fixture";
 
-const FIXTURE_BASE_PATH = "/fixtures/pump";
+const FIXTURE_PATHS = {
+  brotli: "/fixtures/brotli",
+  zstd: "/fixtures/zstd",
+} as const;
 
 export default defineConfig(({ mode }) => {
   return {
@@ -22,10 +25,10 @@ export default defineConfig(({ mode }) => {
 function pumpFixturePlugin(): Plugin {
   let appRoot = process.cwd();
   let outDir = "dist";
-  let fixturePromise: ReturnType<typeof createPumpBenchmarkAssets> | undefined;
+  let fixturePromise: ReturnType<typeof createBenchmarkAssets> | undefined;
 
   const getFixture = () => {
-    fixturePromise ??= createPumpBenchmarkAssets(appRoot);
+    fixturePromise ??= createBenchmarkAssets(appRoot);
     return fixturePromise;
   };
 
@@ -37,15 +40,23 @@ function pumpFixturePlugin(): Plugin {
       end(chunk?: Uint8Array | string): void;
     },
   ) => {
-    if (url !== `${FIXTURE_BASE_PATH}/index.json` && url !== `${FIXTURE_BASE_PATH}/payload.bin`) {
+    const requestUrl = url ?? "";
+    const suite = Object.entries(FIXTURE_PATHS).find(([, basePath]) => {
+      return (
+        requestUrl === `${basePath}/index.json` ||
+        requestUrl === `${basePath}/payload.bin`
+      );
+    })?.[0] as keyof typeof FIXTURE_PATHS | undefined;
+
+    if (suite === undefined) {
       return false;
     }
 
-    const fixture = await getFixture();
+    const fixture = (await getFixture())[suite];
     response.statusCode = 200;
     response.setHeader("Cache-Control", "no-store");
 
-    if (url.endsWith("index.json")) {
+    if (requestUrl.endsWith("index.json")) {
       response.setHeader("Content-Type", "application/json; charset=utf-8");
       response.end(fixture.indexJson);
     } else {
@@ -93,14 +104,20 @@ function pumpFixturePlugin(): Plugin {
       });
     },
     async writeBundle() {
-      const fixture = await getFixture();
-      const fixtureDir = resolve(outDir, "fixtures/pump");
+      const fixtures = await getFixture();
 
-      await mkdir(fixtureDir, { recursive: true });
-      await Promise.all([
-        writeFile(resolve(fixtureDir, "index.json"), fixture.indexJson),
-        writeFile(resolve(fixtureDir, "payload.bin"), fixture.payload),
-      ]);
+      await Promise.all(
+        Object.keys(FIXTURE_PATHS).map(async (suite) => {
+          const fixtureDir = resolve(outDir, "fixtures", suite);
+          const fixture = fixtures[suite as keyof typeof fixtures];
+
+          await mkdir(fixtureDir, { recursive: true });
+          await Promise.all([
+            writeFile(resolve(fixtureDir, "index.json"), fixture.indexJson),
+            writeFile(resolve(fixtureDir, "payload.bin"), fixture.payload),
+          ]);
+        }),
+      );
     },
   };
 }

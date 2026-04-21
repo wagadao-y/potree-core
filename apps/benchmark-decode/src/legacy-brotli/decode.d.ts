@@ -1,0 +1,1 @@
+export function BrotliDecode(input: Int8Array): Int8Array;

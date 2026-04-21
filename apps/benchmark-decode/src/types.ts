@@ -25,7 +25,7 @@ export interface BenchmarkFixtureIndex {
   nodes: BenchmarkFixtureNode[];
 }
 
-export type BenchmarkSuite = "js" | "wasm";
+export type BenchmarkSuite = "js" | "brotli" | "zstd";
 
 export interface BenchmarkRoundResult {
   durationMs: number;

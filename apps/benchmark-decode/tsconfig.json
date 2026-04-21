@@ -19,5 +19,5 @@
     "erasableSyntaxOnly": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["src"]
+  "include": ["src", "benchmark-fixture.ts", "vite.config.ts", "zstddec.d.ts"]
 }

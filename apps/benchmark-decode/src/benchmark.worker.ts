@@ -1,4 +1,5 @@
 import brotliPromise from "brotli-dec-wasm";
+import { ZSTDDecoder } from "zstddec";
 import { BrotliDecode } from "./core-brotli";
 import type {
   BenchmarkFixtureIndex,
@@ -12,6 +13,7 @@ const fixtureCache = new Map<
   string,
   Promise<{ index: BenchmarkFixtureIndex; payload: Uint8Array }>
 >();
+const zstdDecoder = new ZSTDDecoder();
 
 self.onmessage = async (event: MessageEvent<BenchmarkRequest>) => {
   const request = event.data;
@@ -125,9 +127,16 @@ async function loadFixture(indexUrl: string, payloadUrl: string) {
 }
 
 async function warmDecoder(suite: BenchmarkSuite) {
-  if (suite === "wasm") {
-    await brotliPromise;
+  if (suite === "js") {
+    return;
   }
+
+  if (suite === "brotli") {
+    await brotliPromise;
+    return;
+  }
+
+  await zstdDecoder.init();
 }
 
 async function runPass(
@@ -166,17 +175,22 @@ async function runPass(
 
 async function getDecoder(suite: BenchmarkSuite) {
   if (suite === "js") {
-    return decodeWithJs;
+    return (input: Uint8Array) => {
+      const output = BrotliDecode(
+        new Int8Array(input.buffer, input.byteOffset, input.byteLength),
+      );
+
+      return new Uint8Array(output.buffer, output.byteOffset, output.byteLength);
+    };
   }
 
-  const brotli = await brotliPromise;
-  return (input: Uint8Array) => brotli.decompress(input);
-}
+  if (suite === "brotli") {
+    const brotli = await brotliPromise;
+    return (input: Uint8Array) => brotli.decompress(input);
+  }
 
-function decodeWithJs(input: Uint8Array): Uint8Array {
-  const output = BrotliDecode(new Int8Array(input.buffer, input.byteOffset, input.byteLength));
-
-  return new Uint8Array(output.buffer, output.byteOffset, output.byteLength);
+  await zstdDecoder.init();
+  return (input: Uint8Array) => zstdDecoder.decode(input);
 }
 
 function sampleChecksum(bytes: Uint8Array): number {

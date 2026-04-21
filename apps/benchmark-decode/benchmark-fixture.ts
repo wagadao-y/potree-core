@@ -1,6 +1,8 @@
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
+// @ts-ignore Legacy JS module is used as a benchmark baseline.
 import { BrotliDecode } from "./src/legacy-brotli/decode.js";
+import { ZSTDDecoder } from "zstddec";
 
 export interface BenchmarkFixtureNode {
   name: string;
@@ -54,18 +56,71 @@ export interface BenchmarkFixtureAssets {
   payload: Uint8Array;
 }
 
-export async function createPumpBenchmarkAssets(
+type FixtureSuite = "brotli" | "zstd";
+
+interface FixtureDefinition {
+  suite: FixtureSuite;
+  algorithm: BenchmarkFixtureIndex["compression"]["algorithm"];
+  metadataPath: string;
+  octreePath: string;
+  sourceMetadataPath: string;
+  sourceOctreePath: string;
+}
+
+export async function createBenchmarkAssets(
   appRoot: string,
+) {
+  const zstdDecoder = new ZSTDDecoder();
+  await zstdDecoder.init();
+
+  const definitions: Record<FixtureSuite, FixtureDefinition> = {
+    brotli: {
+      suite: "brotli",
+      algorithm: "brotli",
+      metadataPath: resolve(appRoot, "../playground/public/data/pump/metadata.json"),
+      octreePath: resolve(appRoot, "../playground/public/data/pump/octree.bin"),
+      sourceMetadataPath: "apps/playground/public/data/pump/metadata.json",
+      sourceOctreePath: "apps/playground/public/data/pump/octree.bin",
+    },
+    zstd: {
+      suite: "zstd",
+      algorithm: "zstd",
+      metadataPath: resolve(
+        appRoot,
+        "../playground/public/data/pump_zstd/metadata.json",
+      ),
+      octreePath: resolve(
+        appRoot,
+        "../playground/public/data/pump_zstd/octree.bin",
+      ),
+      sourceMetadataPath: "apps/playground/public/data/pump_zstd/metadata.json",
+      sourceOctreePath: "apps/playground/public/data/pump_zstd/octree.bin",
+    },
+  };
+
+  const entries = await Promise.all(
+    Object.entries(definitions).map(async ([suite, definition]) => {
+      const assets = await createFixtureAssets(definition, zstdDecoder);
+      return [suite, assets] as const;
+    }),
+  );
+
+  return Object.fromEntries(entries) as Record<
+    FixtureSuite,
+    BenchmarkFixtureAssets
+  >;
+}
+
+async function createFixtureAssets(
+  definition: FixtureDefinition,
+  zstdDecoder: ZSTDDecoder,
 ): Promise<BenchmarkFixtureAssets> {
-  const pumpDir = resolve(appRoot, "../playground/public/data/pump");
-  const metadataPath = resolve(pumpDir, "metadata.json");
-  const hierarchyPath = resolve(pumpDir, "hierarchy.bin");
-  const octreePath = resolve(pumpDir, "octree.bin");
+  const hierarchyPath = resolve(definition.metadataPath, "../hierarchy.bin");
 
   const [metadataText, hierarchyBuffer, octreeBuffer] = await Promise.all([
-    readFile(metadataPath, "utf8"),
+    readFile(definition.metadataPath, "utf8"),
     readFile(hierarchyPath),
-    readFile(octreePath),
+    readFile(definition.octreePath),
   ]);
 
   const metadata = JSON.parse(metadataText) as Metadata;
@@ -90,13 +145,7 @@ export async function createPumpBenchmarkAssets(
     const rawSize =
       compressedSize === 0
         ? 0
-        : BrotliDecode(
-            new Int8Array(
-              compressedChunk.buffer,
-              compressedChunk.byteOffset,
-              compressedChunk.byteLength,
-            ),
-          ).byteLength;
+        : decodeChunk(definition.algorithm, compressedChunk, zstdDecoder).byteLength;
 
     nodes.push({
       name: node.name,
@@ -113,11 +162,11 @@ export async function createPumpBenchmarkAssets(
 
   const index: BenchmarkFixtureIndex = {
     datasetName: metadata.name,
-    sourceMetadataPath: "apps/playground/public/data/pump/metadata.json",
+    sourceMetadataPath: definition.sourceMetadataPath,
     originalEncoding: metadata.encoding,
     compression: {
-      algorithm: "brotli",
-      source: "apps/playground/public/data/pump/octree.bin",
+      algorithm: definition.algorithm,
+      source: definition.sourceOctreePath,
     },
     totals: {
       nodes: nodes.length,
@@ -135,6 +184,24 @@ export async function createPumpBenchmarkAssets(
     indexJson: `${JSON.stringify(index, null, 2)}\n`,
     payload: octreeBuffer,
   };
+}
+
+function decodeChunk(
+  algorithm: FixtureDefinition["algorithm"],
+  compressedChunk: Uint8Array,
+  zstdDecoder: ZSTDDecoder,
+) {
+  if (algorithm === "brotli") {
+    return BrotliDecode(
+      new Int8Array(
+        compressedChunk.buffer,
+        compressedChunk.byteOffset,
+        compressedChunk.byteLength,
+      ),
+    );
+  }
+
+  return zstdDecoder.decode(compressedChunk);
 }
 
 function collectHierarchyNodes(
