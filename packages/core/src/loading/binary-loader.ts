@@ -9,7 +9,7 @@ import { PointAttributeName, PointAttributeType } from "../point-attributes";
 import { PointCloudOctreeGeometryNode } from "../point-cloud-octree-geometry-node";
 import { Version } from "../version";
 import { GetUrlFn, XhrRequest } from "./types";
-import BinaryDecoderWorker from "../workers/binary-decoder.worker.js?worker";
+import BinaryDecoderWorker from "../workers/binary-decoder.worker.js?worker&inline";
 
 interface AttributeData {
   attribute: {

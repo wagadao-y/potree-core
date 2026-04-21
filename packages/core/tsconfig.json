@@ -1,12 +1,13 @@
 {
   "compileOnSave": false,
   "compilerOptions": {
-    "baseUrl": "./source/",
+    "baseUrl": "./src/",
     "sourceMap": true,
     "declaration": true,
     "declarationDir": "dist",
-    "module": "es2020",
-    "moduleResolution": "node",
+    "emitDeclarationOnly": true,
+    "module": "esnext",
+    "moduleResolution": "bundler",
     "strict": false,
     "noImplicitAny": false,
     "noImplicitReturns": false,
@@ -16,10 +17,10 @@
     "alwaysStrict": false,
     "target": "es2020",
     "experimentalDecorators": true,
-    "typeRoots": ["node_modules/@types"],
-    "lib": ["es2017", "dom"],
+    "types": ["vite/client"],
+    "lib": ["es2020", "dom"],
     "plugins": []
   },
-  "include": ["source/**/*.ts"],
+  "include": ["src/**/*.ts"],
   "exclude": ["node_modules"]
 }

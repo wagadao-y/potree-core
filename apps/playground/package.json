@@ -4,9 +4,12 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "tsc && vite build",
+    "dev": "pnpm --filter potree-core build && vite",
+    "build": "pnpm --filter potree-core build && tsc && vite build",
     "preview": "vite preview"
+  },
+  "dependencies": {
+    "potree-core": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^25.6.0",

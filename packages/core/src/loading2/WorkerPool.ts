@@ -1,5 +1,5 @@
-import BrotliDecoderWorker from "./brotli-decoder.worker.js?worker";
-import DecoderWorker from "./decoder.worker.js?worker";
+import BrotliDecoderWorker from "./brotli-decoder.worker.js?worker&inline";
+import DecoderWorker from "./decoder.worker.js?worker&inline";
 
 /**
  * Enumerates the types of workers available in the worker pool.
