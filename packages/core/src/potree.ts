@@ -17,7 +17,6 @@ import {
   PERSPECTIVE_CAMERA,
 } from "./constants";
 import { getFeatures } from "./features";
-import { loadPOC } from "./loading";
 import { loadOctree } from "./loading2/load-octree";
 import type { OctreeGeometry } from "./loading2/OctreeGeometry";
 import type { RequestManager } from "./loading2/RequestManager";
@@ -103,15 +102,7 @@ export class Potree implements IPotree {
       // Handle RequestManager case
       const requestManager = reqManager;
 
-      if (url.endsWith("cloud.js")) {
-        return await loadPOC(
-          url,
-          requestManager.getUrl,
-          requestManager.fetch,
-        ).then((geometry) => {
-          return new PointCloudOctree(this, geometry, material);
-        });
-      } else if (url.endsWith("metadata.json")) {
+      if (url.endsWith("metadata.json")) {
         return await loadOctree(url, requestManager).then(
           (geometry: OctreeGeometry) => {
             return new PointCloudOctree(this, geometry, material);
@@ -119,7 +110,7 @@ export class Potree implements IPotree {
         );
       }
 
-      throw new Error("Unsupported file type");
+      throw new Error("Unsupported file type. Use metadata.json.");
     }
   }
 

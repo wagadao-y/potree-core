@@ -44,7 +44,7 @@ const pointClouds = [];
 
 const baseUrl = "data/test/";
 const potree = new Potree();
-potree.loadPointCloud("cloud.js", url => `${baseUrl}${url}`,).then(function(pco) {
+potree.loadPointCloud("metadata.json", baseUrl).then(function(pco) {
    scene.add(pco);
 	pointClouds.push(pco);
 });

@@ -261,27 +261,7 @@ document.body.onload = () => {
     }
   };
 
-  // Load point clouds: lion and pump
-  loadPointCloud(
-    "/data/lion_takanawa/",
-    "cloud.js",
-    new Vector3(-10, -2, 5),
-    new Euler(-Math.PI / 2, 0, 0),
-    undefined,
-    false,
-    true,
-    false,
-  );
-  loadPointCloud(
-    "/data/lion_takanawa/",
-    "cloud.js",
-    new Vector3(0, -2, 10),
-    new Euler(-Math.PI / 2, 0, 0),
-    undefined,
-    true,
-    false,
-    false,
-  );
+  // Load point cloud: pump
   loadPointCloud(
     "/data/pump/",
     "metadata.json",
