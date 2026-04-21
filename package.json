@@ -12,10 +12,12 @@
     "check:write": "biome check --write .",
     "preview": "pnpm --filter playground preview",
     "format": "biome format --write .",
-    "format:check": "biome format ."
+    "format:check": "biome format .",
+    "update": "pnpm exec ncu --workspaces"
   },
   "packageManager": "pnpm@10.33.0",
   "devDependencies": {
-    "@biomejs/biome": "2.4.12"
+    "@biomejs/biome": "2.4.12",
+    "npm-check-updates": "^21.0.3"
   }
 }

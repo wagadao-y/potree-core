@@ -14,6 +14,7 @@ import {
   Euler,
   Mesh,
   MeshBasicMaterial,
+  type Object3D,
   OrthographicCamera,
   PerspectiveCamera,
   Plane,
@@ -203,7 +204,7 @@ document.body.onload = () => {
   transformControls.addEventListener("dragging-changed", (event) => {
     controls.enabled = !event.value;
   });
-  scene.add(transformControls);
+  scene.add(transformControls as unknown as Object3D);
 
   const raycaster = new Raycaster();
   // @ts-ignore
@@ -419,13 +420,13 @@ document.body.onload = () => {
     controls = new OrbitControls(camera, canvas);
 
     const wasAttached = transformControls.object;
-    scene.remove(transformControls);
+    scene.remove(transformControls as unknown as Object3D);
     transformControls.dispose();
     transformControls = new TransformControls(camera, canvas);
     transformControls.addEventListener("dragging-changed", (event) => {
       controls.enabled = !event.value;
     });
-    scene.add(transformControls);
+    scene.add(transformControls as unknown as Object3D);
     if (wasAttached) transformControls.attach(wasAttached);
 
     viewHelper = new ViewHelper(camera, canvas);

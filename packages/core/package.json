@@ -41,10 +41,10 @@
   },
   "devDependencies": {
     "@types/node": "^25.6.0",
-    "@types/three": "^0.152.1",
-    "three": "^0.154.0",
-    "typedoc": "0.28.5",
-    "typescript": "5.5.4",
+    "@types/three": "^0.184.0",
+    "three": "^0.184.0",
+    "typedoc": "0.28.19",
+    "typescript": "6.0.3",
     "vite": "^8.0.9"
   }
 }

@@ -21,7 +21,7 @@ export interface IEyeDomeLightingMaterialUniforms {
 }
 
 export class EyeDomeLightingMaterial extends RawShaderMaterial {
-  declare public uniforms: IEyeDomeLightingMaterialUniforms;
+  public declare uniforms: IEyeDomeLightingMaterialUniforms;
 
   private _neighbourCount: number = 8;
   private _useLogDepth = false;
