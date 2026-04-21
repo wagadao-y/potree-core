@@ -3,9 +3,15 @@
  * Potree License: https://github.com/potree/potree/blob/1.5/LICENSE
  */
 
-import { Box3, BufferGeometry, EventDispatcher, Sphere, Vector3 } from "three";
-import { PointCloudOctreeGeometry } from "./point-cloud-octree-geometry";
-import { IPointCloudTreeNode } from "./types";
+import {
+  type Box3,
+  type BufferGeometry,
+  EventDispatcher,
+  Sphere,
+  Vector3,
+} from "three";
+import type { PointCloudOctreeGeometry } from "./point-cloud-octree-geometry";
+import type { IPointCloudTreeNode } from "./types";
 import { createChildAABB } from "./utils/bounds";
 import { getIndexFromName } from "./utils/utils";
 
@@ -101,7 +107,7 @@ export class PointCloudOctreeGeometryNode
     this.loaded = false;
 
     this.oneTimeDisposeHandlers.forEach((handler) => {
-      return handler();
+      handler();
     });
     this.oneTimeDisposeHandlers = [];
   }
@@ -155,9 +161,12 @@ export class PointCloudOctreeGeometryNode
   ): void {
     const stack: PointCloudOctreeGeometryNode[] = includeSelf ? [this] : [];
 
-    let current: PointCloudOctreeGeometryNode | undefined;
+    while (stack.length > 0) {
+      const current = stack.pop();
+      if (current === undefined) {
+        continue;
+      }
 
-    while ((current = stack.pop()) !== undefined) {
       cb(current);
 
       for (const child of current.children) {
@@ -292,7 +301,7 @@ export class PointCloudOctreeGeometryNode
     const nodes = new Map<string, PointCloudOctreeGeometryNode>();
     nodes.set(node.name, node);
     decoded.forEach((nodeData) => {
-      return this.addNode(nodeData, node.pcoGeometry, nodes);
+      this.addNode(nodeData, node.pcoGeometry, nodes);
     });
 
     node.loadPoints();
@@ -321,7 +330,7 @@ export class PointCloudOctreeGeometryNode
     node.level = level;
     node.numPoints = numPoints;
     node.hasChildren = children > 0;
-    node.spacing = pco.spacing / Math.pow(2, level);
+    node.spacing = pco.spacing / 2 ** level;
 
     parentNode.addChild(node);
     nodes.set(name, node);

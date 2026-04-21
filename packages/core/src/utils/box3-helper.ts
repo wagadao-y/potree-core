@@ -1,5 +1,5 @@
 import {
-  Box3,
+  type Box3,
   BufferAttribute,
   BufferGeometry,
   Color,

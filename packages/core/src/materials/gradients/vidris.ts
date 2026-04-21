@@ -1,5 +1,5 @@
 import { Color } from "three";
-import { IGradient } from "../types";
+import type { IGradient } from "../types";
 
 export const VIRIDIS: IGradient = [
   [0.0, new Color(0.267, 0.005, 0.329)],

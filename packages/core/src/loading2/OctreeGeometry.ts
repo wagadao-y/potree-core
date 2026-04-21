@@ -1,7 +1,7 @@
-import { NodeLoader, Metadata } from "./OctreeLoader";
-import { Box3, Sphere, Vector3 } from "three";
-import { PointAttributes } from "./PointAttributes";
-import { OctreeGeometryNode } from "./OctreeGeometryNode";
+import { type Box3, Sphere, type Vector3 } from "three";
+import type { OctreeGeometryNode } from "./OctreeGeometryNode";
+import type { Metadata, NodeLoader } from "./OctreeLoader";
+import type { PointAttributes } from "./PointAttributes";
 
 export class OctreeGeometry {
   public root!: OctreeGeometryNode;

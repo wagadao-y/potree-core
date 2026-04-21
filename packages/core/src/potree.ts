@@ -1,17 +1,14 @@
-import { RequestManager } from "./loading2/RequestManager";
-import { OctreeGeometry } from "./loading2/OctreeGeometry";
-import { loadOctree } from "./loading2/load-octree";
 import {
   Box3,
-  Camera,
+  type Camera,
   Frustum,
   Matrix4,
-  OrthographicCamera,
-  PerspectiveCamera,
-  Ray,
+  type OrthographicCamera,
+  type PerspectiveCamera,
+  type Ray,
   Vector2,
   Vector3,
-  WebGLRenderer,
+  type WebGLRenderer,
 } from "three";
 import {
   DEFAULT_POINT_BUDGET,
@@ -21,16 +18,19 @@ import {
 } from "./constants";
 import { getFeatures } from "./features";
 import { loadPOC } from "./loading";
-import { ClipMode, PointCloudMaterial } from "./materials";
+import { loadOctree } from "./loading2/load-octree";
+import type { OctreeGeometry } from "./loading2/OctreeGeometry";
+import type { RequestManager } from "./loading2/RequestManager";
+import { ClipMode, type PointCloudMaterial } from "./materials";
 import { PointCloudOctree } from "./point-cloud-octree";
-import { PointCloudOctreeGeometryNode } from "./point-cloud-octree-geometry-node";
-import { PointCloudOctreeNode } from "./point-cloud-octree-node";
+import type { PointCloudOctreeGeometryNode } from "./point-cloud-octree-geometry-node";
+import type { PointCloudOctreeNode } from "./point-cloud-octree-node";
 import {
-  PickParams,
+  type PickParams,
   PointCloudOctreePicker,
 } from "./point-cloud-octree-picker";
 import { isGeometryNode, isTreeNode } from "./type-predicates";
-import {
+import type {
   IPointCloudTreeNode,
   IPotree,
   IVisibilityUpdateResult,
@@ -191,9 +191,12 @@ export class Potree implements IPotree {
     let loadedToGPUThisFrame = 0;
     let exceededMaxLoadsToGPU = false;
     let nodeLoadFailed = false;
-    let queueItem: QueueItem | undefined;
+    while (priorityQueue.size() > 0) {
+      const queueItem = priorityQueue.pop();
+      if (queueItem === undefined) {
+        continue;
+      }
 
-    while ((queueItem = priorityQueue.pop()) !== undefined) {
       let node = queueItem.node;
 
       // If we will end up with too many points, we stop right away.

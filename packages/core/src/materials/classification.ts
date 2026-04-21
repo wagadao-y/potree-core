@@ -1,5 +1,5 @@
 import { Vector4 } from "three";
-import { IClassification } from "./types";
+import type { IClassification } from "./types";
 
 export const DEFAULT_CLASSIFICATION: IClassification = {
   0: new Vector4(0.5, 0.5, 0.5, 1.0),

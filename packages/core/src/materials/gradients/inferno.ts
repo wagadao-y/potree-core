@@ -1,5 +1,5 @@
 import { Color } from "three";
-import { IGradient } from "../types";
+import type { IGradient } from "../types";
 
 export const INFERNO: IGradient = [
   [0.0, new Color(0.077, 0.042, 0.206)],

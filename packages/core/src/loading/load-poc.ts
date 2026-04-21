@@ -1,12 +1,15 @@
 import { Box3, Vector3 } from "three";
-import { PointAttributes, PointAttributeStringName } from "../point-attributes";
+import {
+  type PointAttributeStringName,
+  PointAttributes,
+} from "../point-attributes";
 import { PointCloudOctreeGeometry } from "../point-cloud-octree-geometry";
 import { PointCloudOctreeGeometryNode } from "../point-cloud-octree-geometry-node";
 import { createChildAABB } from "../utils/bounds";
 import { getIndexFromName } from "../utils/utils";
 import { Version } from "../version";
 import { BinaryLoader } from "./binary-loader";
-import { GetUrlFn, XhrRequest } from "./types";
+import type { GetUrlFn, XhrRequest } from "./types";
 
 interface BoundingBoxData {
   lx: number;
@@ -175,7 +178,7 @@ function loadRemainingHierarchy(
     const node = new PointCloudOctreeGeometryNode(name, pco, boundingBox);
     node.level = level;
     node.numPoints = numPoints;
-    node.spacing = pco.spacing / Math.pow(2, node.level);
+    node.spacing = pco.spacing / 2 ** node.level;
 
     nodes[name] = node;
     parentNode.addChild(node);

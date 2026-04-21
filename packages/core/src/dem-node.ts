@@ -1,4 +1,4 @@
-import { Box3, Vector2, Vector3 } from "three";
+import { type Box3, type Vector2, Vector3 } from "three";
 
 /**
  * Digital Elevation Model (DEM) Node class.
@@ -73,19 +73,19 @@ export class DEMNode {
 
           let [height, weight] = [0, 0];
 
-          if (isFinite(h00)) {
+          if (Number.isFinite(h00)) {
             height += h00;
             weight += 1;
           }
-          if (isFinite(h01)) {
+          if (Number.isFinite(h01)) {
             height += h01;
             weight += 1;
           }
-          if (isFinite(h10)) {
+          if (Number.isFinite(h10)) {
             height += h10;
             weight += 1;
           }
-          if (isFinite(h11)) {
+          if (Number.isFinite(h11)) {
             height += h11;
             weight += 1;
           }
@@ -152,10 +152,10 @@ export class DEMNode {
     const h10 = data[i1 + tileSize * j0];
     const h11 = data[i1 + tileSize * j1];
 
-    let wh00 = isFinite(h00) ? (1 - a) * (1 - b) : 0;
-    let wh01 = isFinite(h01) ? (1 - a) * b : 0;
-    let wh10 = isFinite(h10) ? a * (1 - b) : 0;
-    let wh11 = isFinite(h11) ? a * b : 0;
+    let wh00 = Number.isFinite(h00) ? (1 - a) * (1 - b) : 0;
+    let wh01 = Number.isFinite(h01) ? (1 - a) * b : 0;
+    let wh10 = Number.isFinite(h10) ? a * (1 - b) : 0;
+    let wh11 = Number.isFinite(h11) ? a * b : 0;
 
     const wsum = wh00 + wh01 + wh10 + wh11;
     wh00 = wh00 / wsum;
@@ -169,16 +169,16 @@ export class DEMNode {
 
     let h = 0;
 
-    if (isFinite(h00)) {
+    if (Number.isFinite(h00)) {
       h += h00 * wh00;
     }
-    if (isFinite(h01)) {
+    if (Number.isFinite(h01)) {
       h += h01 * wh01;
     }
-    if (isFinite(h10)) {
+    if (Number.isFinite(h10)) {
       h += h10 * wh10;
     }
-    if (isFinite(h11)) {
+    if (Number.isFinite(h11)) {
       h += h11 * wh11;
     }
 
@@ -219,7 +219,7 @@ export class DEMNode {
         return c !== undefined;
       })
       .forEach((child) => {
-        return child.traverse(handler, level + 1);
+        child.traverse(handler, level + 1);
       });
   }
 }

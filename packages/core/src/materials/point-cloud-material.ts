@@ -1,21 +1,21 @@
 import {
   AdditiveBlending,
-  BufferGeometry,
-  Camera,
+  type BufferGeometry,
+  type Camera,
   Color,
   GLSL3,
   LessEqualDepth,
-  Material,
+  type Material,
   NearestFilter,
   NoBlending,
-  OrthographicCamera,
-  PerspectiveCamera,
+  type OrthographicCamera,
+  type PerspectiveCamera,
   RawShaderMaterial,
-  Scene,
+  type Scene,
   Texture,
   Vector3,
-  Vector4,
-  WebGLRenderer,
+  type Vector4,
+  type WebGLRenderer,
   WebGLRenderTarget,
 } from "three";
 
@@ -28,11 +28,12 @@ import {
   DEFAULT_RGB_GAMMA,
   PERSPECTIVE_CAMERA,
 } from "../constants";
-import { PointCloudOctree } from "../point-cloud-octree";
-import { PointCloudOctreeNode } from "../point-cloud-octree-node";
+import type { PointCloudOctree } from "../point-cloud-octree";
+import type { PointCloudOctreeNode } from "../point-cloud-octree-node";
 import { byLevelAndIndex } from "../utils/utils";
 import { DEFAULT_CLASSIFICATION } from "./classification";
-import { ClipMode, IClipBox, IClipSphere } from "./clipping";
+import { ClipMode, type IClipBox, type IClipSphere } from "./clipping";
+import { ColorEncoding } from "./color-encoding";
 import {
   PointColorType,
   PointOpacityType,
@@ -41,15 +42,14 @@ import {
   TreeType,
 } from "./enums";
 import { SPECTRAL } from "./gradients";
+import FragShader from "./shaders/pointcloud.fs?raw";
+import VertShader from "./shaders/pointcloud.vs?raw";
 import {
   generateClassificationTexture,
   generateDataTexture,
   generateGradientTexture,
 } from "./texture-generation";
-import { IClassification, IGradient, IUniform } from "./types";
-import { ColorEncoding } from "./color-encoding";
-import VertShader from "./shaders/pointcloud.vs?raw";
-import FragShader from "./shaders/pointcloud.fs?raw";
+import type { IClassification, IGradient, IUniform } from "./types";
 
 /**
  * Configuration parameters for point cloud material rendering.
@@ -486,11 +486,8 @@ export class PointCloudMaterial extends RawShaderMaterial {
   constructor(parameters: Partial<IPointCloudMaterialParameters> = {}) {
     super();
 
-    const tex = (this.visibleNodesTexture = generateDataTexture(
-      2048,
-      1,
-      new Color(0xffffff),
-    ));
+    const tex = generateDataTexture(2048, 1, new Color(0xffffff));
+    this.visibleNodesTexture = tex;
     tex.minFilter = NearestFilter;
     tex.magFilter = NearestFilter;
     this.setUniform("visibleNodes", tex);
@@ -682,7 +679,7 @@ export class PointCloudMaterial extends RawShaderMaterial {
     }
 
     for (let i = 0; i < clipBoxesLength; i++) {
-      if (isNaN(clipBoxesArray[i])) {
+      if (Number.isNaN(clipBoxesArray[i])) {
         clipBoxesArray[i] = Infinity;
       }
     }
@@ -725,7 +722,7 @@ export class PointCloudMaterial extends RawShaderMaterial {
    */
   private syncClippingPlanes(): void {
     const planes = this.clippingPlanes;
-    const count = planes && planes.length ? planes.length : 0;
+    const count = planes?.length ?? 0;
 
     //Only update shader source if we transition between having clipping planes and not having clipping planes.
     //The shader only needs to know whether clipping planes are in use.
@@ -988,7 +985,7 @@ function uniform<K extends keyof IPointCloudMaterialUniforms>(
   uniformName: K,
   requireSrcUpdate: boolean = false,
 ): PropertyDecorator {
-  return (target: Object, propertyKey: string | symbol): void => {
+  return (target: object, propertyKey: string | symbol): void => {
     Object.defineProperty(target, propertyKey, {
       get: function () {
         return this.getUniform(uniformName);
@@ -1006,7 +1003,7 @@ function uniform<K extends keyof IPointCloudMaterialUniforms>(
 }
 
 function requiresShaderUpdate() {
-  return (target: Object, propertyKey: string | symbol): void => {
+  return (target: object, propertyKey: string | symbol): void => {
     const fieldName = `_${propertyKey.toString()}`;
 
     Object.defineProperty(target, propertyKey, {

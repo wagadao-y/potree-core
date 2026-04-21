@@ -64,10 +64,10 @@ export class WorkerPool {
     }
     // Given a worker URL, if URL does not exist in the worker object, create a new array with the URL as a key
     if (this.workers[workerType].length === 0) {
-      let worker = createWorker(workerType);
+      const worker = createWorker(workerType);
       this.workers[workerType].push(worker);
     }
-    let worker = this.workers[workerType].pop();
+    const worker = this.workers[workerType].pop();
     if (worker === undefined) {
       // Typescript needs this
       throw new Error("No workers available");

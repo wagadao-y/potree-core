@@ -27,7 +27,7 @@ type PointAttributeTypeType = {
 };
 
 let i = 0;
-for (let obj in PointAttributeTypes) {
+for (const obj in PointAttributeTypes) {
   PointAttributeTypes[i] = PointAttributeTypes[obj];
   i++;
 }
@@ -154,8 +154,8 @@ export class PointAttributes {
   ) {
     if (pointAttributes != null) {
       for (let i = 0; i < pointAttributes.length; i++) {
-        let pointAttributeName = pointAttributes[i];
-        let pointAttribute = POINT_ATTRIBUTES[pointAttributeName];
+        const pointAttributeName = pointAttributes[i];
+        const pointAttribute = POINT_ATTRIBUTES[pointAttributeName];
         this.attributes.push(pointAttribute);
         this.byteSize += pointAttribute.byteSize;
         this.size++;
@@ -175,8 +175,8 @@ export class PointAttributes {
   }
 
   hasNormals() {
-    for (let name in this.attributes) {
-      let pointAttribute = this.attributes[name];
+    for (const name in this.attributes) {
+      const pointAttribute = this.attributes[name];
       if (
         pointAttribute === POINT_ATTRIBUTES.NORMAL_SPHEREMAPPED ||
         pointAttribute === POINT_ATTRIBUTES.NORMAL_FLOATS ||

@@ -1,5 +1,5 @@
-import { PointAttribute, PointAttributeTypes } from "./PointAttributes.ts";
 import { BrotliDecode } from "./libs/brotli/decode.js";
+import { PointAttribute, PointAttributeTypes } from "./PointAttributes.ts";
 
 const typedArrayMapping = {
   int8: Int8Array,

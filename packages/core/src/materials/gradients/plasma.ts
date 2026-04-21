@@ -1,5 +1,5 @@
 import { Color } from "three";
-import { IGradient } from "../types";
+import type { IGradient } from "../types";
 
 export const PLASMA: IGradient = [
   [0.0, new Color(0.241, 0.015, 0.61)],

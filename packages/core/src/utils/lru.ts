@@ -1,4 +1,4 @@
-import { IPointCloudTreeNode } from "../types";
+import type { IPointCloudTreeNode } from "../types";
 
 export type Node = IPointCloudTreeNode;
 

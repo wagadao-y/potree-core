@@ -1,4 +1,4 @@
-import { Box3, Matrix4, Vector3 } from "three";
+import { Box3, type Matrix4, Vector3 } from "three";
 
 /**
  * Computes the transformed bounding box of a given Box3 using a transformation matrix.

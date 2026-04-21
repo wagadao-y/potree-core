@@ -1,7 +1,7 @@
-import { GLSL3, Matrix4, RawShaderMaterial, Texture } from "three";
-import { IUniform } from "./types";
-import VertShader from "./shaders/edl.vs?raw";
+import { GLSL3, type Matrix4, RawShaderMaterial, type Texture } from "three";
 import FragShader from "./shaders/edl.fs?raw";
+import VertShader from "./shaders/edl.vs?raw";
+import type { IUniform } from "./types";
 
 export interface IEyeDomeLightingMaterialUniforms {
   [name: string]: IUniform<any>;

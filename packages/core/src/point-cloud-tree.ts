@@ -1,5 +1,5 @@
 import { Object3D } from "three";
-import { IPointCloudTreeNode } from "./types";
+import type { IPointCloudTreeNode } from "./types";
 
 /**
  * Represents a point cloud tree structure.

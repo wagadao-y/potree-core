@@ -1,7 +1,7 @@
-import { ShaderMaterial, Texture } from "three";
-import { IUniform } from "./types";
+import { ShaderMaterial, type Texture } from "three";
 import BlurFragmentShader from "./shaders/blur.fs?raw";
 import BlurVertexShader from "./shaders/blur.vs?raw";
+import type { IUniform } from "./types";
 
 /**
  * Uniforms interface for blur material shader.

@@ -1,9 +1,9 @@
-import { Camera, Object3D, WebGLRenderer } from "three";
+import type { Camera, Object3D, WebGLRenderer } from "three";
 
-import { PointCloudMaterial } from "../materials/point-cloud-material";
-import { PointCloudOctree } from "../point-cloud-octree";
-import { Potree } from "../potree";
-import { IVisibilityUpdateResult } from "../types";
+import type { PointCloudMaterial } from "../materials/point-cloud-material";
+import type { PointCloudOctree } from "../point-cloud-octree";
+import type { Potree } from "../potree";
+import type { IVisibilityUpdateResult } from "../types";
 import { EDLPass } from "./edl-pass";
 
 /**

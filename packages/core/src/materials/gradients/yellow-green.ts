@@ -1,5 +1,5 @@
 import { Color } from "three";
-import { IGradient } from "../types";
+import type { IGradient } from "../types";
 
 export const YELLOW_GREEN: IGradient = [
   [0, new Color(0.1647, 0.2824, 0.3451)],

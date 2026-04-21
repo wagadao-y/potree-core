@@ -5,6 +5,10 @@
   "scripts": {
     "dev": "pnpm --filter playground dev",
     "build": "pnpm --filter playground build",
+    "lint": "biome lint .",
+    "lint:fix": "biome lint --write .",
+    "check": "biome check .",
+    "check:write": "biome check --write .",
     "preview": "pnpm --filter playground preview",
     "format": "biome format --write .",
     "format:check": "biome format ."

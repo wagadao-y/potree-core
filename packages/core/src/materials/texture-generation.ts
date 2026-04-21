@@ -1,13 +1,13 @@
 import {
   CanvasTexture,
-  Color,
+  type Color,
   DataTexture,
   LinearFilter,
   NearestFilter,
   RGBAFormat,
   Texture,
 } from "three";
-import { IClassification, IGradient } from "../materials/types";
+import type { IClassification, IGradient } from "../materials/types";
 import { isBrowser } from "../utils/utils";
 
 /**
@@ -95,13 +95,11 @@ export function generateClassificationTexture(
     for (let y = 0; y < height; y++) {
       const i = x + width * y;
 
-      let color;
+      let color = classification.DEFAULT;
       if (classification[x]) {
         color = classification[x];
       } else if (classification[x % 32]) {
         color = classification[x % 32];
-      } else {
-        color = classification.DEFAULT;
       }
 
       data[4 * i + 0] = 255 * color.x;

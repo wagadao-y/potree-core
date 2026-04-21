@@ -1,9 +1,9 @@
-import { RequestManager } from "./loading2/RequestManager";
-import { OctreeGeometry } from "./loading2/OctreeGeometry";
-import { PointCloudOctreeGeometry } from "./point-cloud-octree-geometry";
-import { Box3, Camera, Sphere, Vector3, WebGLRenderer } from "three";
-import { PointCloudOctree } from "./point-cloud-octree";
-import { LRU } from "./utils/lru";
+import type { Box3, Camera, Sphere, Vector3, WebGLRenderer } from "three";
+import type { OctreeGeometry } from "./loading2/OctreeGeometry";
+import type { RequestManager } from "./loading2/RequestManager";
+import type { PointCloudOctree } from "./point-cloud-octree";
+import type { PointCloudOctreeGeometry } from "./point-cloud-octree-geometry";
+import type { LRU } from "./utils/lru";
 
 export interface IPointCloudTreeNode {
   id: number;

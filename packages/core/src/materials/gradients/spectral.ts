@@ -1,5 +1,5 @@
 import { Color } from "three";
-import { IGradient } from "../types";
+import type { IGradient } from "../types";
 
 // From chroma spectral http://gka.github.io/chroma.js/
 export const SPECTRAL: IGradient = [

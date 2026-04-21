@@ -1,5 +1,5 @@
 import { OctreeLoader } from "./OctreeLoader";
-import { type RequestManager } from "./RequestManager";
+import type { RequestManager } from "./RequestManager";
 
 /**
  * Loads an octree geometry from a specified URL using the provided request manager.

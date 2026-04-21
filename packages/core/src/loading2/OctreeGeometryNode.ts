@@ -1,6 +1,6 @@
-import { IPointCloudTreeNode } from "./../types";
-import { Box3, Sphere, BufferGeometry } from "three";
-import { OctreeGeometry } from "./OctreeGeometry";
+import { type Box3, type BufferGeometry, Sphere } from "three";
+import type { IPointCloudTreeNode } from "./../types";
+import type { OctreeGeometry } from "./OctreeGeometry";
 
 /**
  * Represents a node in an octree structure for point cloud geometry.
@@ -82,7 +82,7 @@ export class OctreeGeometryNode implements IPointCloudTreeNode {
   public level!: number;
 
   /** Array of handlers to be called once when the node is disposed. */
-  public oneTimeDisposeHandlers: Function[];
+  public oneTimeDisposeHandlers: Array<() => void>;
 
   constructor(
     public name: string,
@@ -90,7 +90,7 @@ export class OctreeGeometryNode implements IPointCloudTreeNode {
     public boundingBox: Box3,
   ) {
     this.id = OctreeGeometryNode.IDCount++;
-    this.index = parseInt(name.charAt(name.length - 1));
+    this.index = parseInt(name.charAt(name.length - 1), 10);
     this.boundingSphere = boundingBox.getBoundingSphere(new Sphere());
     this.numPoints = 0;
     this.oneTimeDisposeHandlers = [];
@@ -136,7 +136,7 @@ export class OctreeGeometryNode implements IPointCloudTreeNode {
       this.loaded = false;
 
       for (let i = 0; i < this.oneTimeDisposeHandlers.length; i++) {
-        let handler = this.oneTimeDisposeHandlers[i];
+        const handler = this.oneTimeDisposeHandlers[i];
         handler();
       }
       this.oneTimeDisposeHandlers = [];
@@ -148,9 +148,12 @@ export class OctreeGeometryNode implements IPointCloudTreeNode {
     includeSelf = true,
   ): void {
     const stack: OctreeGeometryNode[] = includeSelf ? [this] : [];
-    let current: OctreeGeometryNode | undefined;
+    while (stack.length > 0) {
+      const current = stack.pop();
+      if (current === undefined) {
+        continue;
+      }
 
-    while ((current = stack.pop()) !== undefined) {
       cb(current);
 
       for (const child of current.children) {

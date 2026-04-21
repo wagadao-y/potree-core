@@ -1,4 +1,4 @@
-import { IPointCloudTreeNode } from "../types";
+import type { IPointCloudTreeNode } from "../types";
 
 /**
  * Check if running on browser or node.js.

@@ -1,7 +1,7 @@
-import { Box3, Vector3 } from "three";
-import { BinaryLoader, XhrRequest } from "./loading";
+import type { Box3, Vector3 } from "three";
+import type { BinaryLoader, XhrRequest } from "./loading";
 import { PointAttributes } from "./point-attributes";
-import { PointCloudOctreeGeometryNode } from "./point-cloud-octree-geometry-node";
+import type { PointCloudOctreeGeometryNode } from "./point-cloud-octree-geometry-node";
 
 export class PointCloudOctreeGeometry {
   public disposed: boolean = false;

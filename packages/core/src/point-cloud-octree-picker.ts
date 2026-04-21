@@ -1,25 +1,25 @@
 import {
-  BufferAttribute,
-  Camera,
+  type BufferAttribute,
+  type Camera,
+  Color,
   LinearFilter,
   NearestFilter,
   NoBlending,
   Points,
-  Ray,
+  type Ray,
   RGBAFormat,
   Scene,
   Sphere,
   Vector3,
   Vector4,
-  WebGLRenderer,
+  type WebGLRenderer,
   WebGLRenderTarget,
-  Color,
 } from "three";
 import { COLOR_BLACK, DEFAULT_PICK_WINDOW_SIZE } from "./constants";
 import { ClipMode, PointCloudMaterial, PointColorType } from "./materials";
-import { PointCloudOctree } from "./point-cloud-octree";
-import { PointCloudOctreeNode } from "./point-cloud-octree-node";
-import { PickPoint, PointCloudHit } from "./types";
+import type { PointCloudOctree } from "./point-cloud-octree";
+import type { PointCloudOctreeNode } from "./point-cloud-octree-node";
+import type { PickPoint, PointCloudHit } from "./types";
 import { clamp } from "./utils/math";
 
 export interface PickParams {
@@ -85,9 +85,11 @@ export class PointCloudOctreePicker {
       return null;
     }
 
-    const pickState = this.pickState
-      ? this.pickState
-      : (this.pickState = PointCloudOctreePicker.getPickState());
+    if (!this.pickState) {
+      this.pickState = PointCloudOctreePicker.getPickState();
+    }
+
+    const pickState = this.pickState;
 
     const pickMaterial = pickState.material;
 
@@ -183,11 +185,11 @@ export class PointCloudOctreePicker {
     renderer.state.setBlending(NoBlending);
 
     // Save the current clear color and clear the renderer with black color and alpha 0.
-    renderer.getClearColor(this.clearColor);
+    renderer.getClearColor(PointCloudOctreePicker.clearColor);
     const oldClearAlpha = renderer.getClearAlpha();
     renderer.setClearColor(COLOR_BLACK, 0);
     renderer.clear(true, true, true);
-    renderer.setClearColor(this.clearColor, oldClearAlpha);
+    renderer.setClearColor(PointCloudOctreePicker.clearColor, oldClearAlpha);
   }
 
   private static render(
@@ -229,7 +231,7 @@ export class PointCloudOctreePicker {
       renderer.render(pickState.scene, camera);
 
       nodes.forEach((node) => {
-        return renderedNodes.push({ node: node, octree: octree });
+        renderedNodes.push({ node: node, octree: octree });
       });
     }
     return renderedNodes;
@@ -374,8 +376,7 @@ export class PointCloudOctreePicker {
       for (let v = 0; v < pickWndSize; v++) {
         const offset = u + v * pickWndSize;
         const distance =
-          Math.pow(u - (pickWndSize - 1) / 2, 2) +
-          Math.pow(v - (pickWndSize - 1) / 2, 2);
+          (u - (pickWndSize - 1) / 2) ** 2 + (v - (pickWndSize - 1) / 2) ** 2;
 
         const pcIndex = pixels[4 * offset + 3];
         pixels[4 * offset + 3] = 0;
@@ -413,7 +414,7 @@ export class PointCloudOctreePicker {
     const attributes: BufferAttribute[] = (points.geometry as any).attributes;
 
     for (const property in attributes) {
-      if (!attributes.hasOwnProperty(property)) {
+      if (!Object.prototype.hasOwnProperty.call(attributes, property)) {
         continue;
       }
 

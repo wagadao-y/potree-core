@@ -1,23 +1,22 @@
 import {
-  Camera,
+  type Camera,
   Color,
   FloatType,
   HalfFloatType,
   NearestFilter,
-  Object3D,
-  OrthographicCamera,
-  PerspectiveCamera,
+  type Object3D,
+  type OrthographicCamera,
+  type PerspectiveCamera,
   RGBAFormat,
   UnsignedByteType,
   Vector2,
-  WebGLRenderer,
+  type WebGLRenderer,
   WebGLRenderTarget,
 } from "three";
-
-import { EyeDomeLightingMaterial } from "../materials/eye-dome-lighting-material";
-import { PointCloudOctree } from "../point-cloud-octree";
-import { ScreenPass } from "./screen-pass";
 import { ORTHOGRAPHIC_CAMERA } from "../constants";
+import { EyeDomeLightingMaterial } from "../materials/eye-dome-lighting-material";
+import type { PointCloudOctree } from "../point-cloud-octree";
+import { ScreenPass } from "./screen-pass";
 
 export type EDLPassParams = {
   renderer: WebGLRenderer;

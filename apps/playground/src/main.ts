@@ -1,4 +1,13 @@
 import {
+  ClipMode,
+  createClipBox,
+  createClipSphere,
+  type PointCloudOctree,
+  PointSizeType,
+  Potree,
+  PotreeRenderer,
+} from "potree-core";
+import {
   AmbientLight,
   BoxGeometry,
   Clock,
@@ -20,20 +29,11 @@ import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { TransformControls } from "three/examples/jsm/controls/TransformControls.js";
 import { ViewHelper } from "three/examples/jsm/helpers/ViewHelper.js";
 import { GUI } from "three/examples/jsm/libs/lil-gui.module.min.js";
-import {
-  ClipMode,
-  PointCloudOctree,
-  PointSizeType,
-  Potree,
-  PotreeRenderer,
-  createClipBox,
-  createClipSphere,
-} from "potree-core";
 import "./style.css";
 
-document.body.onload = function () {
+document.body.onload = () => {
   const potree = new Potree();
-  let pointClouds: PointCloudOctree[] = [];
+  const pointClouds: PointCloudOctree[] = [];
   let clipPlanesTarget: PointCloudOctree | null = null;
 
   // Clip plane state
@@ -210,7 +210,7 @@ document.body.onload = function () {
   raycaster.params.Points.threshold = 1e-2;
   const normalized = new Vector2();
 
-  canvas.onmousemove = function (event) {
+  canvas.onmousemove = (event) => {
     normalized.set(
       (event.clientX / canvas.width) * 2 - 1,
       -(event.clientY / canvas.height) * 2 + 1,
@@ -220,7 +220,7 @@ document.body.onload = function () {
 
   let selectedPco: PointCloudOctree | null = null;
 
-  canvas.ondblclick = function () {
+  canvas.ondblclick = () => {
     const ray = raycaster.ray;
     let pickedPco: PointCloudOctree | null = null;
 
@@ -302,7 +302,7 @@ document.body.onload = function () {
     applyClipSphere = false,
     applyClipPlanes = false,
   ) {
-    potree.loadPointCloud(url, baseUrl).then(function (pco: PointCloudOctree) {
+    potree.loadPointCloud(url, baseUrl).then((pco: PointCloudOctree) => {
       const sizeTypeMap: Record<string, PointSizeType> = {
         Fixed: PointSizeType.FIXED,
         Attenuated: PointSizeType.ATTENUATED,
@@ -580,7 +580,7 @@ document.body.onload = function () {
     }
   }
 
-  document.body.onresize = function () {
+  document.body.onresize = () => {
     updateSize();
   };
 

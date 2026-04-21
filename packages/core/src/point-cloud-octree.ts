@@ -1,26 +1,31 @@
-import { OctreeGeometry } from "./loading2/OctreeGeometry";
 import {
   Box3,
-  Camera,
-  Intersection,
+  type Camera,
+  type Intersection,
   Object3D,
   Points,
-  Ray,
-  Raycaster,
+  type Ray,
+  type Raycaster,
   Sphere,
   Vector3,
-  WebGLRenderer,
+  type WebGLRenderer,
 } from "three";
 import { DEFAULT_MIN_NODE_PIXEL_SIZE } from "./constants";
-import { PointCloudMaterial, PointSizeType } from "./materials";
-import { PointCloudOctreeGeometryNode } from "./point-cloud-octree-geometry-node";
+import { OctreeGeometry } from "./loading2/OctreeGeometry";
+import { PointCloudMaterial, type PointSizeType } from "./materials";
+import type { PointCloudOctreeGeometryNode } from "./point-cloud-octree-geometry-node";
 import { PointCloudOctreeNode } from "./point-cloud-octree-node";
 import {
-  PickParams,
+  type PickParams,
   PointCloudOctreePicker,
 } from "./point-cloud-octree-picker";
 import { PointCloudTree } from "./point-cloud-tree";
-import { IPointCloudTreeNode, IPotree, PickPoint, PCOGeometry } from "./types";
+import type {
+  IPointCloudTreeNode,
+  IPotree,
+  PCOGeometry,
+  PickPoint,
+} from "./types";
 import { computeTransformedBoundingBox } from "./utils/bounds";
 
 export class PointCloudOctree extends PointCloudTree {

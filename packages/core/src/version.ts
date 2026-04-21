@@ -12,7 +12,7 @@ export class Version {
       version.indexOf(".") === -1 ? version.length : version.indexOf(".");
     this.versionMajor = parseInt(version.substr(0, vmLength), 10);
     this.versionMinor = parseInt(version.substr(vmLength + 1), 10);
-    if (isNaN(this.versionMinor)) {
+    if (Number.isNaN(this.versionMinor)) {
       this.versionMinor = 0;
     }
   }

@@ -5,11 +5,14 @@ import {
   Uint8BufferAttribute,
   Vector3,
 } from "three";
-import { PointAttributeName, PointAttributeType } from "../point-attributes";
-import { PointCloudOctreeGeometryNode } from "../point-cloud-octree-geometry-node";
+import {
+  PointAttributeName,
+  type PointAttributeType,
+} from "../point-attributes";
+import type { PointCloudOctreeGeometryNode } from "../point-cloud-octree-geometry-node";
 import { Version } from "../version";
-import { GetUrlFn, XhrRequest } from "./types";
 import BinaryDecoderWorker from "../workers/binary-decoder.worker.js?worker&inline";
+import type { GetUrlFn, XhrRequest } from "./types";
 
 interface AttributeData {
   attribute: {
@@ -81,7 +84,7 @@ export class BinaryLoader {
 
   dispose(): void {
     this.workers.forEach((worker) => {
-      return worker.terminate();
+      worker.terminate();
     });
     this.workers = [];
 
@@ -143,7 +146,11 @@ export class BinaryLoader {
 
       const data = e.data;
 
-      const geometry = (node.geometry = node.geometry || new BufferGeometry());
+      if (!node.geometry) {
+        node.geometry = new BufferGeometry();
+      }
+
+      const geometry = node.geometry;
       geometry.boundingBox = node.boundingBox;
 
       this.addBufferAttributes(geometry, data.attributeBuffers);
@@ -161,7 +168,7 @@ export class BinaryLoader {
       this.releaseWorker(worker);
 
       this.callbacks.forEach((callback) => {
-        return callback(node);
+        callback(node);
       });
       resolve();
     };

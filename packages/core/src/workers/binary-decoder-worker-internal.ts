@@ -4,10 +4,10 @@
  */
 
 import {
-  IPointAttribute,
-  IPointAttributes,
-  PointAttributeName,
+  type IPointAttribute,
+  type IPointAttributes,
   POINT_ATTRIBUTES,
+  PointAttributeName,
 } from "../point-attributes";
 import { Version } from "../version";
 import { CustomArrayView } from "./custom-array-view";
@@ -15,10 +15,10 @@ import { CustomArrayView } from "./custom-array-view";
 // IE11 does not have Math.sign(), this has been adapted from CoreJS es6.math.sign.js for TypeScript
 const mathSign =
   Math.sign ||
-  function (x: number): number {
-    // tslint:disable-next-line:triple-equals
-    return (x = Number(x)) == 0 || x != x ? x : x < 0 ? -1 : 1;
-  };
+  ((x: number): number => {
+    const value = Number(x);
+    return value === 0 || Number.isNaN(value) ? value : value < 0 ? -1 : 1;
+  });
 
 interface DecodedAttribute {
   buffer: ArrayBuffer;
@@ -150,9 +150,9 @@ function decodePositionCartesian(
   const positions = new Float32Array(buffer);
 
   for (let i = 0; i < ctx.numPoints; i++) {
-    let x;
-    let y;
-    let z;
+    let x: number;
+    let y: number;
+    let z: number;
 
     if (ctx.version.newerThan("1.3")) {
       x =

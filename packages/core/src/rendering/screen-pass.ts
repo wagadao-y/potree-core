@@ -5,8 +5,8 @@ import {
   OrthographicCamera,
   RawShaderMaterial,
   Scene,
-  WebGLRenderer,
-  WebGLRenderTarget,
+  type WebGLRenderer,
+  type WebGLRenderTarget,
 } from "three";
 
 export class ScreenPass {

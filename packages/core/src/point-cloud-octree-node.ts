@@ -1,13 +1,13 @@
 import {
-  Box3,
+  type Box3,
   BufferGeometry,
   EventDispatcher,
-  Object3D,
-  Points,
-  Sphere,
+  type Object3D,
+  type Points,
+  type Sphere,
 } from "three";
-import { PointCloudOctreeGeometryNode } from "./point-cloud-octree-geometry-node";
-import { IPointCloudTreeNode } from "./types";
+import type { PointCloudOctreeGeometryNode } from "./point-cloud-octree-geometry-node";
+import type { IPointCloudTreeNode } from "./types";
 
 export class PointCloudOctreeNode
   extends EventDispatcher
