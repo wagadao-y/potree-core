@@ -15,6 +15,15 @@ importers:
         specifier: ^21.0.3
         version: 21.0.3
 
+  apps/benchmark-decode:
+    devDependencies:
+      typescript:
+        specifier: ~6.0.2
+        version: 6.0.3
+      vite:
+        specifier: ^8.0.9
+        version: 8.0.9(@types/node@25.6.0)(terser@5.46.1)(yaml@2.8.3)
+
   apps/playground:
     dependencies:
       potree-core:
