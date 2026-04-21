@@ -1,10 +1,15 @@
-
-import {Box3, BufferAttribute, BufferGeometry, Uint8BufferAttribute, Vector3} from 'three';
-import {PointAttributeName, PointAttributeType} from '../point-attributes';
-import {PointCloudOctreeGeometryNode} from '../point-cloud-octree-geometry-node';
-import {Version} from '../version';
-import {GetUrlFn, XhrRequest} from './types';
-import BinaryDecoderWorker from '../workers/binary-decoder.worker.js?worker';
+import {
+  Box3,
+  BufferAttribute,
+  BufferGeometry,
+  Uint8BufferAttribute,
+  Vector3,
+} from "three";
+import { PointAttributeName, PointAttributeType } from "../point-attributes";
+import { PointCloudOctreeGeometryNode } from "../point-cloud-octree-geometry-node";
+import { Version } from "../version";
+import { GetUrlFn, XhrRequest } from "./types";
+import BinaryDecoderWorker from "../workers/binary-decoder.worker.js?worker";
 
 interface AttributeData {
   attribute: {
@@ -33,239 +38,252 @@ interface BinaryLoaderOptions {
   xhrRequest: XhrRequest;
 }
 
-type Callback = (node: PointCloudOctreeGeometryNode)=> void;
+type Callback = (node: PointCloudOctreeGeometryNode) => void;
 
-export class BinaryLoader 
-{
-	version: Version;
+export class BinaryLoader {
+  version: Version;
 
-	boundingBox: Box3;
+  boundingBox: Box3;
 
-	scale: number;
+  scale: number;
 
-	getUrl: GetUrlFn;
+  getUrl: GetUrlFn;
 
-	disposed: boolean = false;
+  disposed: boolean = false;
 
-	xhrRequest: XhrRequest;
+  xhrRequest: XhrRequest;
 
-	callbacks: Callback[];
+  callbacks: Callback[];
 
-	private workers: Worker[] = [];
+  private workers: Worker[] = [];
 
-	constructor({
-		getUrl = (s) => {return Promise.resolve(s);},
-		version,
-		boundingBox,
-		scale,
-		xhrRequest
-	}: BinaryLoaderOptions) 
-	{
-		if (typeof version === 'string') 
-		{
-			this.version = new Version(version);
-		}
-		else 
-		{
-			this.version = version;
-		}
+  constructor({
+    getUrl = (s) => {
+      return Promise.resolve(s);
+    },
+    version,
+    boundingBox,
+    scale,
+    xhrRequest,
+  }: BinaryLoaderOptions) {
+    if (typeof version === "string") {
+      this.version = new Version(version);
+    } else {
+      this.version = version;
+    }
 
-		this.xhrRequest = xhrRequest;
-		this.getUrl = getUrl;
-		this.boundingBox = boundingBox;
-		this.scale = scale;
-		this.callbacks = [];
-	}
+    this.xhrRequest = xhrRequest;
+    this.getUrl = getUrl;
+    this.boundingBox = boundingBox;
+    this.scale = scale;
+    this.callbacks = [];
+  }
 
-	dispose(): void 
-	{
-		this.workers.forEach((worker) => {return worker.terminate();});
-		this.workers = [];
+  dispose(): void {
+    this.workers.forEach((worker) => {
+      return worker.terminate();
+    });
+    this.workers = [];
 
-		this.disposed = true;
-	}
+    this.disposed = true;
+  }
 
-	load(node: PointCloudOctreeGeometryNode): Promise<void> 
-	{
-		if (node.loaded || this.disposed) 
-		{
-			return Promise.resolve();
-		}
+  load(node: PointCloudOctreeGeometryNode): Promise<void> {
+    if (node.loaded || this.disposed) {
+      return Promise.resolve();
+    }
 
-		return Promise.resolve(this.getUrl(this.getNodeUrl(node)))
-			.then((url) => {return this.xhrRequest(url, {mode: 'cors'});})
-			.then((res) => {return res.arrayBuffer();})
-			.then((buffer) => 
-			{
-				return new Promise((resolve) => {return this.parse(node, buffer, resolve);});
-			});
-	}
+    return Promise.resolve(this.getUrl(this.getNodeUrl(node)))
+      .then((url) => {
+        return this.xhrRequest(url, { mode: "cors" });
+      })
+      .then((res) => {
+        return res.arrayBuffer();
+      })
+      .then((buffer) => {
+        return new Promise((resolve) => {
+          return this.parse(node, buffer, resolve);
+        });
+      });
+  }
 
-	private getNodeUrl(node: PointCloudOctreeGeometryNode): string 
-	{
-		let url = node.getUrl();
-		if (this.version.equalOrHigher('1.4')) 
-		{
-			url += '.bin';
-		}
+  private getNodeUrl(node: PointCloudOctreeGeometryNode): string {
+    let url = node.getUrl();
+    if (this.version.equalOrHigher("1.4")) {
+      url += ".bin";
+    }
 
-		return url;
-	}
+    return url;
+  }
 
-	private parse(
-		node: PointCloudOctreeGeometryNode,
-		buffer: ArrayBuffer,
-		resolve: ()=> void,
-	): void 
-	{
-		if (this.disposed) 
-		{
-			resolve();
-			return;
-		}
+  private parse(
+    node: PointCloudOctreeGeometryNode,
+    buffer: ArrayBuffer,
+    resolve: () => void,
+  ): void {
+    if (this.disposed) {
+      resolve();
+      return;
+    }
 
-		const worker = this.getWorker();
+    const worker = this.getWorker();
 
-		const pointAttributes = node.pcoGeometry.pointAttributes;
-		const numPoints = buffer.byteLength / pointAttributes.byteSize;
+    const pointAttributes = node.pcoGeometry.pointAttributes;
+    const numPoints = buffer.byteLength / pointAttributes.byteSize;
 
-		if (this.version.upTo('1.5')) 
-		{
-			node.numPoints = numPoints;
-		}
+    if (this.version.upTo("1.5")) {
+      node.numPoints = numPoints;
+    }
 
-		worker.onmessage = (e: WorkerResponse) => 
-		{
-			if (this.disposed) 
-			{
-				resolve();
-				return;
-			}
+    worker.onmessage = (e: WorkerResponse) => {
+      if (this.disposed) {
+        resolve();
+        return;
+      }
 
-			const data = e.data;
+      const data = e.data;
 
-			const geometry = node.geometry = node.geometry || new BufferGeometry();
-			geometry.boundingBox = node.boundingBox;
+      const geometry = (node.geometry = node.geometry || new BufferGeometry());
+      geometry.boundingBox = node.boundingBox;
 
-			this.addBufferAttributes(geometry, data.attributeBuffers);
-			this.addIndices(geometry, data.indices);
-			this.addNormalAttribute(geometry, numPoints);
+      this.addBufferAttributes(geometry, data.attributeBuffers);
+      this.addIndices(geometry, data.indices);
+      this.addNormalAttribute(geometry, numPoints);
 
-			node.mean = new Vector3().fromArray(data.mean);
-			node.tightBoundingBox = this.getTightBoundingBox(data.tightBoundingBox);
-			node.loaded = true;
-			node.loading = false;
-			node.failed = false;
-			node.pcoGeometry.numNodesLoading--;
-			node.pcoGeometry.needsUpdate = true;
+      node.mean = new Vector3().fromArray(data.mean);
+      node.tightBoundingBox = this.getTightBoundingBox(data.tightBoundingBox);
+      node.loaded = true;
+      node.loading = false;
+      node.failed = false;
+      node.pcoGeometry.numNodesLoading--;
+      node.pcoGeometry.needsUpdate = true;
 
-			this.releaseWorker(worker);
+      this.releaseWorker(worker);
 
-			this.callbacks.forEach((callback) => {return callback(node);});
-			resolve();
-		};
+      this.callbacks.forEach((callback) => {
+        return callback(node);
+      });
+      resolve();
+    };
 
-		const message = {
-			buffer: buffer,
-			pointAttributes: pointAttributes,
-			version: this.version.version,
-			min: node.boundingBox.min.toArray(),
-			offset: node.pcoGeometry.offset.toArray(),
-			scale: this.scale,
-			spacing: node.spacing,
-			hasChildren: node.hasChildren
-		};
+    const message = {
+      buffer: buffer,
+      pointAttributes: pointAttributes,
+      version: this.version.version,
+      min: node.boundingBox.min.toArray(),
+      offset: node.pcoGeometry.offset.toArray(),
+      scale: this.scale,
+      spacing: node.spacing,
+      hasChildren: node.hasChildren,
+    };
 
-		worker.postMessage(message, [message.buffer]);
-	}
+    worker.postMessage(message, [message.buffer]);
+  }
 
-	private getWorker(): Worker 
-	{
-		const worker = this.workers.pop();
-		if (worker) 
-		{
-			return worker;
-		}
+  private getWorker(): Worker {
+    const worker = this.workers.pop();
+    if (worker) {
+      return worker;
+    }
 
-		// return new Worker(
-		//   new URL('../workers/binary-decoder.worker.js', import.meta.url),
-		//   { type: 'module' },
-		// )
-		return new BinaryDecoderWorker();
-	}
+    // return new Worker(
+    //   new URL('../workers/binary-decoder.worker.js', import.meta.url),
+    //   { type: 'module' },
+    // )
+    return new BinaryDecoderWorker();
+  }
 
-	private releaseWorker(worker: Worker): void 
-	{
-		this.workers.push(worker);
-	}
+  private releaseWorker(worker: Worker): void {
+    this.workers.push(worker);
+  }
 
-	private getTightBoundingBox({min, max}: { min: number[]; max: number[] }): Box3 
-	{
-		const box = new Box3(new Vector3().fromArray(min), new Vector3().fromArray(max));
-		box.max.sub(box.min);
-		box.min.set(0, 0, 0);
+  private getTightBoundingBox({
+    min,
+    max,
+  }: {
+    min: number[];
+    max: number[];
+  }): Box3 {
+    const box = new Box3(
+      new Vector3().fromArray(min),
+      new Vector3().fromArray(max),
+    );
+    box.max.sub(box.min);
+    box.min.set(0, 0, 0);
 
-		return box;
-	}
+    return box;
+  }
 
-	private addBufferAttributes(
-		geometry: BufferGeometry,
-		buffers: { [name: string]: { buffer: ArrayBuffer } },
-	): void 
-	{
-		Object.keys(buffers).forEach((property) => 
-		{
-			const buffer = buffers[property].buffer;
+  private addBufferAttributes(
+    geometry: BufferGeometry,
+    buffers: { [name: string]: { buffer: ArrayBuffer } },
+  ): void {
+    Object.keys(buffers).forEach((property) => {
+      const buffer = buffers[property].buffer;
 
-			if (this.isAttribute(property, PointAttributeName.POSITION_CARTESIAN)) 
-			{
-				geometry.setAttribute('position', new BufferAttribute(new Float32Array(buffer), 3));
-			}
-			else if (this.isAttribute(property, PointAttributeName.COLOR_PACKED)) 
-			{
-				geometry.setAttribute('color', new BufferAttribute(new Uint8Array(buffer), 3, true));
-			}
-			else if (this.isAttribute(property, PointAttributeName.INTENSITY)) 
-			{
-				geometry.setAttribute('intensity', new BufferAttribute(new Float32Array(buffer), 1));
-			}
-			else if (this.isAttribute(property, PointAttributeName.CLASSIFICATION)) 
-			{
-				geometry.setAttribute('classification', new BufferAttribute(new Uint8Array(buffer), 1));
-			}
-			else if (this.isAttribute(property, PointAttributeName.NORMAL_SPHEREMAPPED)) 
-			{
-				geometry.setAttribute('normal', new BufferAttribute(new Float32Array(buffer), 3));
-			}
-			else if (this.isAttribute(property, PointAttributeName.NORMAL_OCT16)) 
-			{
-				geometry.setAttribute('normal', new BufferAttribute(new Float32Array(buffer), 3));
-			}
-			else if (this.isAttribute(property, PointAttributeName.NORMAL)) 
-			{
-				geometry.setAttribute('normal', new BufferAttribute(new Float32Array(buffer), 3));
-			}
-		});
-	}
+      if (this.isAttribute(property, PointAttributeName.POSITION_CARTESIAN)) {
+        geometry.setAttribute(
+          "position",
+          new BufferAttribute(new Float32Array(buffer), 3),
+        );
+      } else if (this.isAttribute(property, PointAttributeName.COLOR_PACKED)) {
+        geometry.setAttribute(
+          "color",
+          new BufferAttribute(new Uint8Array(buffer), 3, true),
+        );
+      } else if (this.isAttribute(property, PointAttributeName.INTENSITY)) {
+        geometry.setAttribute(
+          "intensity",
+          new BufferAttribute(new Float32Array(buffer), 1),
+        );
+      } else if (
+        this.isAttribute(property, PointAttributeName.CLASSIFICATION)
+      ) {
+        geometry.setAttribute(
+          "classification",
+          new BufferAttribute(new Uint8Array(buffer), 1),
+        );
+      } else if (
+        this.isAttribute(property, PointAttributeName.NORMAL_SPHEREMAPPED)
+      ) {
+        geometry.setAttribute(
+          "normal",
+          new BufferAttribute(new Float32Array(buffer), 3),
+        );
+      } else if (this.isAttribute(property, PointAttributeName.NORMAL_OCT16)) {
+        geometry.setAttribute(
+          "normal",
+          new BufferAttribute(new Float32Array(buffer), 3),
+        );
+      } else if (this.isAttribute(property, PointAttributeName.NORMAL)) {
+        geometry.setAttribute(
+          "normal",
+          new BufferAttribute(new Float32Array(buffer), 3),
+        );
+      }
+    });
+  }
 
-	private addIndices(geometry: BufferGeometry, indices: ArrayBuffer): void 
-	{
-		const indicesAttribute = new Uint8BufferAttribute(indices, 4);
-		indicesAttribute.normalized = true;
-		geometry.setAttribute('indices', indicesAttribute);
-	}
+  private addIndices(geometry: BufferGeometry, indices: ArrayBuffer): void {
+    const indicesAttribute = new Uint8BufferAttribute(indices, 4);
+    indicesAttribute.normalized = true;
+    geometry.setAttribute("indices", indicesAttribute);
+  }
 
-	private addNormalAttribute(geometry: BufferGeometry, numPoints: number): void 
-	{
-		if (!geometry.getAttribute('normal')) 
-		{
-			const buffer = new Float32Array(numPoints * 3);
-			geometry.setAttribute('normal', new BufferAttribute(new Float32Array(buffer), 3));
-		}
-	}
+  private addNormalAttribute(
+    geometry: BufferGeometry,
+    numPoints: number,
+  ): void {
+    if (!geometry.getAttribute("normal")) {
+      const buffer = new Float32Array(numPoints * 3);
+      geometry.setAttribute(
+        "normal",
+        new BufferAttribute(new Float32Array(buffer), 3),
+      );
+    }
+  }
 
-	private isAttribute(property: string, name: PointAttributeName): boolean 
-	{
-		return parseInt(property, 10) === name;
-	}
+  private isAttribute(property: string, name: PointAttributeName): boolean {
+    return parseInt(property, 10) === name;
+  }
 }

@@ -1,126 +1,130 @@
-import { GLSL3, Matrix4, RawShaderMaterial, Texture } from 'three';
-import { IUniform } from './types';
-import VertShader from './shaders/edl.vs?raw';
-import FragShader from './shaders/edl.fs?raw';
+import { GLSL3, Matrix4, RawShaderMaterial, Texture } from "three";
+import { IUniform } from "./types";
+import VertShader from "./shaders/edl.vs?raw";
+import FragShader from "./shaders/edl.fs?raw";
 
 export interface IEyeDomeLightingMaterialUniforms {
-	[name: string]: IUniform<any>;
+  [name: string]: IUniform<any>;
 
-	screenWidth: IUniform<number>;
-	screenHeight: IUniform<number>;
-	edlStrength: IUniform<number>;
-	radius: IUniform<number>;
-	opacity: IUniform<number>;
+  screenWidth: IUniform<number>;
+  screenHeight: IUniform<number>;
+  edlStrength: IUniform<number>;
+  radius: IUniform<number>;
+  opacity: IUniform<number>;
 
-	neighbours: IUniform<Float32Array>;
+  neighbours: IUniform<Float32Array>;
 
-	uProj: IUniform<Float32Array>;
-	colorMap: IUniform<Texture | null>;
-	far: IUniform<number>;
-	useOrthographicCamera: IUniform<boolean>;
+  uProj: IUniform<Float32Array>;
+  colorMap: IUniform<Texture | null>;
+  far: IUniform<number>;
+  useOrthographicCamera: IUniform<boolean>;
 }
 
 export class EyeDomeLightingMaterial extends RawShaderMaterial {
-	public uniforms: IEyeDomeLightingMaterialUniforms;
+  public uniforms: IEyeDomeLightingMaterialUniforms;
 
-	private _neighbourCount: number = 8;
-	private _useLogDepth = false;
-	private _useReversedDepth = false;
-	private neighboursArray: Float32Array = new Float32Array(16);
+  private _neighbourCount: number = 8;
+  private _useLogDepth = false;
+  private _useReversedDepth = false;
+  private neighboursArray: Float32Array = new Float32Array(16);
 
-	public constructor() {
-		super();
+  public constructor() {
+    super();
 
-		this.uniforms = {
-			screenWidth: { type: 'f', value: 1 },
-			screenHeight: { type: 'f', value: 1 },
-			edlStrength: { type: 'f', value: 1.0 },
-			radius: { type: 'f', value: 1.4 },
-			opacity: { type: 'f', value: 1.0 },
+    this.uniforms = {
+      screenWidth: { type: "f", value: 1 },
+      screenHeight: { type: "f", value: 1 },
+      edlStrength: { type: "f", value: 1.0 },
+      radius: { type: "f", value: 1.4 },
+      opacity: { type: "f", value: 1.0 },
 
-			neighbours: { type: '2fv', value: this.neighboursArray },
-			uProj: { type: 'Matrix4fv', value: new Float32Array(16) },
-			colorMap: { type: 't', value: null },
-			far: { type: 'f', value: 1000.0 },
-			useOrthographicCamera: { type: 'b', value: false },
-		};
+      neighbours: { type: "2fv", value: this.neighboursArray },
+      uProj: { type: "Matrix4fv", value: new Float32Array(16) },
+      colorMap: { type: "t", value: null },
+      far: { type: "f", value: 1000.0 },
+      useOrthographicCamera: { type: "b", value: false },
+    };
 
-		this.glslVersion = GLSL3;
-		this.depthTest = true;
-		this.depthWrite = true;
-		this.transparent = true;
+    this.glslVersion = GLSL3;
+    this.depthTest = true;
+    this.depthWrite = true;
+    this.transparent = true;
 
-		// Initialize neighbour offsets even when the default count matches.
-		this.initializeNeighboursArray(this._neighbourCount);
+    // Initialize neighbour offsets even when the default count matches.
+    this.initializeNeighboursArray(this._neighbourCount);
 
-		this.updateShaderSource();
-	}
+    this.updateShaderSource();
+  }
 
-	public get neighbourCount(): number {
-		return this._neighbourCount;
-	}
+  public get neighbourCount(): number {
+    return this._neighbourCount;
+  }
 
-	public set neighbourCount(value: number) {
-		const next = Math.max(1, Math.floor(value));
-		if (this._neighbourCount !== next) {
-			this._neighbourCount = next;
-			this.initializeNeighboursArray(this._neighbourCount);
-			this.updateShaderSource();
-		}
-	}
+  public set neighbourCount(value: number) {
+    const next = Math.max(1, Math.floor(value));
+    if (this._neighbourCount !== next) {
+      this._neighbourCount = next;
+      this.initializeNeighboursArray(this._neighbourCount);
+      this.updateShaderSource();
+    }
+  }
 
-	public set useLogDepth(value: boolean) {
-		if (this._useLogDepth !== value) {
-			this._useLogDepth = value;
-			this.updateShaderSource();
-		}
-	}
+  public set useLogDepth(value: boolean) {
+    if (this._useLogDepth !== value) {
+      this._useLogDepth = value;
+      this.updateShaderSource();
+    }
+  }
 
-	public get useLogDepth(): boolean {
-		return this._useLogDepth;
-	}
+  public get useLogDepth(): boolean {
+    return this._useLogDepth;
+  }
 
-	public set useReversedDepth(value: boolean) {
-		if (this._useReversedDepth !== value) {
-			this._useReversedDepth = value;
-			this.updateShaderSource();
-		}
-	}
+  public set useReversedDepth(value: boolean) {
+    if (this._useReversedDepth !== value) {
+      this._useReversedDepth = value;
+      this.updateShaderSource();
+    }
+  }
 
-	public get useReversedDepth(): boolean {
-		return this._useReversedDepth;
-	}
+  public get useReversedDepth(): boolean {
+    return this._useReversedDepth;
+  }
 
-	private initializeNeighboursArray(neighbourCount: number): void {
-		this.neighboursArray = new Float32Array(neighbourCount * 2);
-		for (let c = 0; c < neighbourCount; c++) {
-			this.neighboursArray[2 * c + 0] = Math.cos((2 * c * Math.PI) / neighbourCount);
-			this.neighboursArray[2 * c + 1] = Math.sin((2 * c * Math.PI) / neighbourCount);
-		}
-		this.uniforms.neighbours.value = this.neighboursArray;
-	}
+  private initializeNeighboursArray(neighbourCount: number): void {
+    this.neighboursArray = new Float32Array(neighbourCount * 2);
+    for (let c = 0; c < neighbourCount; c++) {
+      this.neighboursArray[2 * c + 0] = Math.cos(
+        (2 * c * Math.PI) / neighbourCount,
+      );
+      this.neighboursArray[2 * c + 1] = Math.sin(
+        (2 * c * Math.PI) / neighbourCount,
+      );
+    }
+    this.uniforms.neighbours.value = this.neighboursArray;
+  }
 
-	private getDefines(): string {
-		const parts = [`#define NEIGHBOUR_COUNT ${this._neighbourCount}`];
-		if (this._useLogDepth) {
-			parts.push('#define use_log_depth');
-		}
-		if (this._useReversedDepth) {
-			parts.push('#define use_reversed_depth');
-		}
-		return `${parts.join('\n')}\n`;
-	}
+  private getDefines(): string {
+    const parts = [`#define NEIGHBOUR_COUNT ${this._neighbourCount}`];
+    if (this._useLogDepth) {
+      parts.push("#define use_log_depth");
+    }
+    if (this._useReversedDepth) {
+      parts.push("#define use_reversed_depth");
+    }
+    return `${parts.join("\n")}\n`;
+  }
 
-	public updateShaderSource(): void {
-		const defines = this.getDefines();
-		this.vertexShader = defines + VertShader;
-		this.fragmentShader = defines + FragShader;
-		this.needsUpdate = true;
-	}
+  public updateShaderSource(): void {
+    const defines = this.getDefines();
+    this.vertexShader = defines + VertShader;
+    this.fragmentShader = defines + FragShader;
+    this.needsUpdate = true;
+  }
 
-	public setProjectionMatrix(projectionMatrix: Matrix4): void {
-		const out = new Float32Array(16);
-		out.set(projectionMatrix.elements);
-		this.uniforms.uProj.value = out;
-	}
+  public setProjectionMatrix(projectionMatrix: Matrix4): void {
+    const out = new Float32Array(16);
+    out.set(projectionMatrix.elements);
+    this.uniforms.uProj.value = out;
+  }
 }

@@ -1,68 +1,60 @@
 import {
-	BufferAttribute,
-	BufferGeometry,
-	Mesh,
-	OrthographicCamera,
-	RawShaderMaterial,
-	Scene,
-	WebGLRenderer,
-	WebGLRenderTarget,
-} from 'three';
+  BufferAttribute,
+  BufferGeometry,
+  Mesh,
+  OrthographicCamera,
+  RawShaderMaterial,
+  Scene,
+  WebGLRenderer,
+  WebGLRenderTarget,
+} from "three";
 
 export class ScreenPass {
-	private scene: Scene;
-	private camera: OrthographicCamera;
-	private quad: Mesh;
-	private geometry: BufferGeometry;
-	private placeholderMaterial: RawShaderMaterial;
+  private scene: Scene;
+  private camera: OrthographicCamera;
+  private quad: Mesh;
+  private geometry: BufferGeometry;
+  private placeholderMaterial: RawShaderMaterial;
 
-	public constructor() {
-		this.scene = new Scene();
-		this.camera = new OrthographicCamera(-1, 1, 1, -1, 0, 1);
+  public constructor() {
+    this.scene = new Scene();
+    this.camera = new OrthographicCamera(-1, 1, 1, -1, 0, 1);
 
-		this.geometry = new BufferGeometry();
-		// Fullscreen triangle would be slightly faster, but a quad is fine and simple.
-		const positions = new Float32Array([
-			-1, -1, 0,
-			1, -1, 0,
-			1, 1, 0,
-			-1, 1, 0,
-		]);
-		const uvs = new Float32Array([
-			0, 0,
-			1, 0,
-			1, 1,
-			0, 1,
-		]);
-		const indices = new Uint16Array([0, 1, 2, 0, 2, 3]);
-		this.geometry.setIndex(new BufferAttribute(indices, 1));
-		this.geometry.setAttribute('position', new BufferAttribute(positions, 3));
-		this.geometry.setAttribute('uv', new BufferAttribute(uvs, 2));
+    this.geometry = new BufferGeometry();
+    // Fullscreen triangle would be slightly faster, but a quad is fine and simple.
+    const positions = new Float32Array([
+      -1, -1, 0, 1, -1, 0, 1, 1, 0, -1, 1, 0,
+    ]);
+    const uvs = new Float32Array([0, 0, 1, 0, 1, 1, 0, 1]);
+    const indices = new Uint16Array([0, 1, 2, 0, 2, 3]);
+    this.geometry.setIndex(new BufferAttribute(indices, 1));
+    this.geometry.setAttribute("position", new BufferAttribute(positions, 3));
+    this.geometry.setAttribute("uv", new BufferAttribute(uvs, 2));
 
-		// Placeholder material: we do not own/assume ownership of materials passed to render().
-		this.placeholderMaterial = new RawShaderMaterial();
-		this.quad = new Mesh(this.geometry, this.placeholderMaterial);
-		this.scene.add(this.quad);
-	}
+    // Placeholder material: we do not own/assume ownership of materials passed to render().
+    this.placeholderMaterial = new RawShaderMaterial();
+    this.quad = new Mesh(this.geometry, this.placeholderMaterial);
+    this.scene.add(this.quad);
+  }
 
-	public dispose(): void {
-		// Only dispose resources owned by this pass.
-		this.geometry.dispose();
-		this.placeholderMaterial.dispose();
-	}
+  public dispose(): void {
+    // Only dispose resources owned by this pass.
+    this.geometry.dispose();
+    this.placeholderMaterial.dispose();
+  }
 
-	public render(
-		renderer: WebGLRenderer,
-		material: RawShaderMaterial,
-		target: WebGLRenderTarget | null = null,
-	): void {
-		const oldTarget = renderer.getRenderTarget();
+  public render(
+    renderer: WebGLRenderer,
+    material: RawShaderMaterial,
+    target: WebGLRenderTarget | null = null,
+  ): void {
+    const oldTarget = renderer.getRenderTarget();
 
-		this.quad.material = material;
+    this.quad.material = material;
 
-		renderer.setRenderTarget(target);
-		renderer.render(this.scene, this.camera);
+    renderer.setRenderTarget(target);
+    renderer.render(this.scene, this.camera);
 
-		renderer.setRenderTarget(oldTarget);
-	}
+    renderer.setRenderTarget(oldTarget);
+  }
 }

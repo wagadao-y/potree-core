@@ -1,16 +1,15 @@
-export class BinaryHeap<T> 
-{
-	constructor(scoreFunction: (node: T)=> number);
+export class BinaryHeap<T> {
+  constructor(scoreFunction: (node: T) => number);
 
-	push(node: T): void;
+  push(node: T): void;
 
-	pop(): T | undefined;
+  pop(): T | undefined;
 
-	remove(node: T): void;
+  remove(node: T): void;
 
-	size(): number;
+  size(): number;
 
-	bubbleUp(n: number): void;
+  bubbleUp(n: number): void;
 
-	sinkDown(n: number): void;
+  sinkDown(n: number): void;
 }

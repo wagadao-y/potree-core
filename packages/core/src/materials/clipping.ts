@@ -1,4 +1,4 @@
-import {Box3, Matrix4, Vector3} from 'three';
+import { Box3, Matrix4, Vector3 } from "three";
 
 export interface IClipSphere {
   center: Vector3;
@@ -12,7 +12,10 @@ export interface IClipSphere {
  * @param radius - The radius of the clip sphere.
  * @returns An IClipSphere object ready to be passed to PointCloudMaterial.setClipSpheres().
  */
-export function createClipSphere(center: Vector3 = new Vector3(0, 0, 0), radius: number): IClipSphere {
+export function createClipSphere(
+  center: Vector3 = new Vector3(0, 0, 0),
+  radius: number,
+): IClipSphere {
   return {
     center: center.clone(),
     radius,
@@ -44,11 +47,21 @@ export interface IClipBox {
  * @param position - The center position of the clip box in world space. Defaults to the origin.
  * @returns An IClipBox object ready to be passed to PointCloudMaterial.setClipBoxes().
  */
-export function createClipBox(size: Vector3, position: Vector3 = new Vector3(0, 0, 0)): IClipBox {
-  const box = new Box3(new Vector3(-0.5, -0.5, -0.5), new Vector3(0.5, 0.5, 0.5));
+export function createClipBox(
+  size: Vector3,
+  position: Vector3 = new Vector3(0, 0, 0),
+): IClipBox {
+  const box = new Box3(
+    new Vector3(-0.5, -0.5, -0.5),
+    new Vector3(0.5, 0.5, 0.5),
+  );
 
   const scaleMatrix = new Matrix4().makeScale(size.x, size.y, size.z);
-  const translationMatrix = new Matrix4().makeTranslation(position.x, position.y, position.z);
+  const translationMatrix = new Matrix4().makeTranslation(
+    position.x,
+    position.y,
+    position.z,
+  );
   const matrix = new Matrix4().multiplyMatrices(translationMatrix, scaleMatrix);
   const inverse = matrix.clone().invert();
 

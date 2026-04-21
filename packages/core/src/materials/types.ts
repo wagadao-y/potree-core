@@ -1,4 +1,4 @@
-import {Color, IUniform as IThreeUniform, Vector4} from 'three';
+import { Color, IUniform as IThreeUniform, Vector4 } from "three";
 
 export type IGradient = [number, Color][];
 
