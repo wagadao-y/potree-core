@@ -9,8 +9,7 @@
     "ignoreUnknown": false,
     "includes": [
       "**",
-      "!apps/playground/public/data",
-      "!packages/core/src/loading2/libs/brotli"
+      "!apps/playground/public/data"
     ]
   },
   "formatter": {
