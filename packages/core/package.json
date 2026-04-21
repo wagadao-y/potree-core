@@ -13,9 +13,7 @@
   "main": "dist/index.js",
   "scripts": {
     "docs": "typedoc source/** --out docs --tsconfig tsconfig.json --theme default --excludeExternals --excludeNotDocumented",
-    "pub": "npm run docs && npm publish --access public .",
-    "lint": "eslint ./source",
-    "lint-fix": "eslint --fix ./source"
+    "pub": "npm run docs && npm publish --access public ."
   },
   "keywords": [
     "three",
@@ -34,10 +32,6 @@
   "devDependencies": {
     "@types/node": "20.8.4",
     "@types/three": "^0.152.1",
-    "@typescript-eslint/eslint-plugin": "8.0.1",
-    "@typescript-eslint/parser": "8.0.1",
-    "eslint": "9.9.0",
-    "eslint-plugin-typescript": "0.14.0",
     "three": "^0.154.0",
     "typedoc": "0.28.5",
     "typescript": "5.5.4"
