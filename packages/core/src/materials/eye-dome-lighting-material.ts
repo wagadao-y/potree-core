@@ -1,8 +1,7 @@
 import { GLSL3, Matrix4, RawShaderMaterial, Texture } from 'three';
 import { IUniform } from './types';
-
-const VertShader = require('./shaders/edl.vs').default;
-const FragShader = require('./shaders/edl.fs').default;
+import VertShader from './shaders/edl.vs?raw';
+import FragShader from './shaders/edl.fs?raw';
 
 export interface IEyeDomeLightingMaterialUniforms {
 	[name: string]: IUniform<any>;
