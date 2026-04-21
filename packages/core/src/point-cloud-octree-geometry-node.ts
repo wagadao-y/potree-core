@@ -27,7 +27,7 @@ export class PointCloudOctreeGeometryNode
   extends EventDispatcher
   implements IPointCloudTreeNode
 {
-  public id: number = PointCloudOctreeGeometryNode.idCount++;
+  public id: number;
 
   public name: string;
 
@@ -89,6 +89,7 @@ export class PointCloudOctreeGeometryNode
   ) {
     super();
 
+    this.id = PointCloudOctreeGeometryNode.idCount++;
     this.name = name;
     this.index = getIndexFromName(name);
     this.pcoGeometry = pcoGeometry;

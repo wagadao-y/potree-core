@@ -15,10 +15,11 @@
     "noUnusedLocals": true,
     "noUnusedParameters": false,
     "alwaysStrict": false,
-    "target": "es2020",
+    "target": "es2022",
+    "useDefineForClassFields": false,
     "experimentalDecorators": true,
     "types": ["vite/client"],
-    "lib": ["es2020", "dom"],
+    "lib": ["es2022", "dom"],
     "plugins": []
   },
   "include": ["src/**/*.ts"],

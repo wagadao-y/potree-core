@@ -414,7 +414,7 @@ export class PointCloudOctreePicker {
     const attributes: BufferAttribute[] = (points.geometry as any).attributes;
 
     for (const property in attributes) {
-      if (!Object.prototype.hasOwnProperty.call(attributes, property)) {
+      if (!Object.hasOwn(attributes, property)) {
         continue;
       }
 

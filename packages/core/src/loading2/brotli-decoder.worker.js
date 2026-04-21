@@ -383,7 +383,7 @@ onmessage = function (event) {
       indices[i] = i;
     }
 
-    attributeBuffers["INDICES"] = {
+    attributeBuffers.INDICES = {
       buffer: buff,
       attribute: PointAttribute.INDICES,
     };
