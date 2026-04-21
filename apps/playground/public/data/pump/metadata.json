@@ -1,6 +1,6 @@
 {
 	"version": "2.0",
-	"name": "11ee6a64-18e9-48dd-81e2-c83cfa56058a",
+	"name": "pump",
 	"description": "",
 	"points": 1213990,
 	"projection": "",
@@ -16,7 +16,7 @@
 		"min": [-3.0340000000000003, -5.8260000000000005, -1.982], 
 		"max": [1.9990000000000001, -0.79300000000000015, 3.0510000000000002]
 	},
-	"encoding": "DEFAULT",
+	"encoding": "BROTLI",
 	"attributes": [
 		{
 			"name": "position",
