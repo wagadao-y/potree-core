@@ -21,6 +21,7 @@
   "scripts": {
     "clean": "node -e \"require('node:fs').rmSync('dist', { recursive: true, force: true })\"",
     "build": "pnpm run clean && vite build && tsc --project tsconfig.json",
+    "typecheck": "tsc --noEmit --emitDeclarationOnly false --project tsconfig.json",
     "docs": "typedoc src/** --out docs --tsconfig tsconfig.json --theme default --excludeExternals --excludeNotDocumented",
     "pub": "npm run build && npm run docs && npm publish --access public ."
   },

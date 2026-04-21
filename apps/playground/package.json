@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "pnpm --filter potree-core build && vite",
     "build": "pnpm --filter potree-core build && tsc && vite build",
+    "typecheck": "tsc --noEmit --project tsconfig.json",
     "preview": "vite preview"
   },
   "dependencies": {

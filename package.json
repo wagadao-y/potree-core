@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "pnpm --filter playground dev",
     "build": "pnpm --filter playground build",
+    "typecheck": "pnpm --filter potree-core typecheck && pnpm --filter playground typecheck",
     "lint": "biome lint .",
     "lint:fix": "biome lint --write .",
     "check": "biome check .",
