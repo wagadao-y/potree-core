@@ -3,6 +3,8 @@ import {
   createClipBox,
   createClipSphere,
   LocalPotreeRequestManager,
+  PointColorType,
+  PointShape,
   type PointCloudOctree,
   PointSizeType,
   Potree,
@@ -114,25 +116,68 @@ document.body.onload = () => {
     "Clip Outside": ClipMode.CLIP_OUTSIDE,
     "Clip Inside": ClipMode.CLIP_INSIDE,
   };
+  const pointSizeTypeMap: Record<string, PointSizeType> = {
+    Fixed: PointSizeType.FIXED,
+    Attenuated: PointSizeType.ATTENUATED,
+    Adaptive: PointSizeType.ADAPTIVE,
+  };
+  const pointShapeMap: Record<string, PointShape> = {
+    Square: PointShape.SQUARE,
+    Circle: PointShape.CIRCLE,
+    Paraboloid: PointShape.PARABOLOID,
+  };
+  const pointColorTypeMap: Record<string, PointColorType> = {
+    RGB: PointColorType.RGB,
+    Height: PointColorType.HEIGHT,
+    Intensity: PointColorType.INTENSITY,
+    Classification: PointColorType.CLASSIFICATION,
+    LOD: PointColorType.LOD,
+    Source: PointColorType.SOURCE,
+    Normal: PointColorType.NORMAL,
+    Composite: PointColorType.COMPOSITE,
+  };
+  let localFileInput: HTMLInputElement | null = null;
 
   // State
   const params = {
+    pointBudgetMP: 1,
+    maxNodesLoading: 4,
     // Camera
     orthographic: false,
     // EDL
     edlEnabled: false,
     edlStrength: 0.4,
     edlRadius: 1.4,
+    edlOpacity: 1.0,
+    edlNeighbours: 8,
     // Clipping
-    clipMode: "Highlight Inside",
+    clipMode: "Disabled",
     // Points
-    pointSize: 1.0,
+    pointSize: 0.1,
+    minPointSize: 2.0,
+    maxPointSize: 50.0,
     sizeType: "Adaptive",
+    pointShape: "Square",
+    pointColorType: "RGB",
+    showBoundingBox: false,
     // Transform
     transformMode: "translate",
     // Pick
     pickMethod: "Potree",
+    // Local dataset
+    localDatasetStatus: "初期データセットを表示中です。",
+    loadLocalDataset: () => {
+      localFileInput?.click();
+    },
   };
+  params.pointBudgetMP = Math.max(1, Math.round(potree.pointBudget / 1_000_000));
+  params.maxNodesLoading = potree.maxNumNodesLoading;
+  let localDatasetStatusController: { updateDisplay(): unknown } | null = null;
+
+  function setLocalDatasetStatus(status: string) {
+    params.localDatasetStatus = status;
+    localDatasetStatusController?.updateDisplay();
+  }
 
   // EDL
   const potreeRenderer = new PotreeRenderer({
@@ -172,56 +217,29 @@ document.body.onload = () => {
   canvas.style.height = "100%";
   document.body.appendChild(canvas);
 
-  const localLoaderPanel = document.createElement("div");
-  localLoaderPanel.className = "local-loader-panel";
-  localLoaderPanel.innerHTML = `
-    <p class="local-loader-eyebrow">Local Potree</p>
-    <h2>metadata.json / hierarchy.bin / octree.bin</h2>
-    <p class="local-loader-copy">3 ファイルをまとめて選ぶと、ネットワーク取得の代わりにローカルファイルから描画します。</p>
-    <div class="local-loader-actions">
-      <button type="button" class="local-loader-button">ローカルファイルを選択</button>
-      <span class="local-loader-hint">複数選択</span>
-    </div>
-    <p class="local-loader-status">初期データセットを表示中です。</p>
-  `;
-  document.body.appendChild(localLoaderPanel);
+  const fileInput = document.createElement("input");
+  fileInput.type = "file";
+  fileInput.multiple = true;
+  fileInput.accept = ".json,.bin";
+  fileInput.className = "local-loader-input";
+  document.body.appendChild(fileInput);
+  localFileInput = fileInput;
 
-  const localFileInput = document.createElement("input");
-  localFileInput.type = "file";
-  localFileInput.multiple = true;
-  localFileInput.accept = ".json,.bin";
-  localFileInput.className = "local-loader-input";
-  document.body.appendChild(localFileInput);
-
-  const localLoaderButton = localLoaderPanel.querySelector<HTMLButtonElement>(
-    ".local-loader-button",
-  );
-  const localLoaderStatus = localLoaderPanel.querySelector<HTMLParagraphElement>(
-    ".local-loader-status",
-  );
-
-  if (localLoaderButton === null || localLoaderStatus === null) {
-    throw new Error("Failed to initialize local loader UI");
-  }
-
-  localLoaderButton.addEventListener("click", () => {
-    localFileInput.click();
-  });
-
-  localFileInput.addEventListener("change", () => {
-    const files = localFileInput.files;
+  fileInput.addEventListener("change", () => {
+    const files = fileInput.files;
 
     if (files === null || files.length === 0) {
       return;
     }
 
     if (!LocalPotreeRequestManager.hasRequiredFiles(files)) {
-      localLoaderStatus.textContent =
-        "metadata.json, hierarchy.bin, octree.bin の 3 ファイルを同時に選択してください。";
+      setLocalDatasetStatus(
+        "metadata.json, hierarchy.bin, octree.bin の 3 ファイルを同時に選択してください。",
+      );
       return;
     }
 
-    localLoaderStatus.textContent = "ローカル Potree ファイルを読み込み中です...";
+    setLocalDatasetStatus("ローカル Potree ファイルを読み込み中です...");
 
     void loadPointCloudFromSource(
       () =>
@@ -238,11 +256,14 @@ document.body.onload = () => {
       {
         label: "ローカルファイル",
         onSuccess: () => {
-          localLoaderStatus.textContent =
-            "ローカル Potree ファイルを読み込みました。以後のノード取得はローカルファイルから行います。";
+          setLocalDatasetStatus(
+            "ローカル Potree ファイルを読み込みました。以後のノード取得はローカルファイルから行います。",
+          );
         },
         onError: (error) => {
-          localLoaderStatus.textContent = `ローカル読込に失敗しました: ${formatError(error)}`;
+          setLocalDatasetStatus(
+            `ローカル読込に失敗しました: ${formatError(error)}`,
+          );
         },
       },
     );
@@ -263,6 +284,28 @@ document.body.onload = () => {
   stats.showPanel(0);
   stats.dom.className = "playground-stats";
   document.body.appendChild(stats.dom);
+
+  function applyPointCloudSettings(pointCloud: PointCloudOctree) {
+    pointCloud.material.size = params.pointSize;
+    pointCloud.material.minSize = params.minPointSize;
+    pointCloud.material.maxSize = params.maxPointSize;
+    pointCloud.material.pointSizeType =
+      pointSizeTypeMap[params.sizeType] ?? PointSizeType.ADAPTIVE;
+    pointCloud.material.shape =
+      pointShapeMap[params.pointShape] ?? PointShape.SQUARE;
+    pointCloud.material.pointColorType =
+      pointColorTypeMap[params.pointColorType] ?? PointColorType.RGB;
+    pointCloud.material.clipMode = clipModeMap[params.clipMode];
+    pointCloud.material.inputColorEncoding = 1;
+    pointCloud.material.outputColorEncoding = 1;
+    pointCloud.showBoundingBox = params.showBoundingBox;
+  }
+
+  function applySettingsToAllPointClouds() {
+    for (const pointCloud of pointClouds) {
+      applyPointCloudSettings(pointCloud);
+    }
+  }
 
   const cube = new Mesh(
     new BoxGeometry(25, 1, 25),
@@ -360,11 +403,14 @@ document.body.onload = () => {
     {
       label: "サンプルデータセット",
       onSuccess: () => {
-        localLoaderStatus.textContent =
-          "初期データセットを表示中です。ローカル読込で差し替えできます。";
+        setLocalDatasetStatus(
+          "初期データセットを表示中です。ローカル読込で差し替えできます。",
+        );
       },
       onError: (error) => {
-        localLoaderStatus.textContent = `初期データセットの読込に失敗しました: ${formatError(error)}`;
+        setLocalDatasetStatus(
+          `初期データセットの読込に失敗しました: ${formatError(error)}`,
+        );
       },
     },
   );
@@ -416,18 +462,7 @@ document.body.onload = () => {
     try {
       const pco = await load();
       clearPointCloudScene();
-
-      const sizeTypeMap: Record<string, PointSizeType> = {
-        Fixed: PointSizeType.FIXED,
-        Attenuated: PointSizeType.ATTENUATED,
-        Adaptive: PointSizeType.ADAPTIVE,
-      };
-      pco.material.size = params.pointSize;
-      pco.material.pointSizeType =
-        sizeTypeMap[params.sizeType] ?? PointSizeType.ADAPTIVE;
-      pco.material.shape = 2;
-      pco.material.inputColorEncoding = 1;
-      pco.material.outputColorEncoding = 1;
+      applyPointCloudSettings(pco);
 
       if (options.position) {
         pco.position.copy(options.position);
@@ -556,7 +591,31 @@ document.body.onload = () => {
   }
 
   // ---- gui ----
-  const gui = new GUI({ title: "Potree Demo" });
+  const gui = new GUI({ title: "Playground Controls" });
+
+  const localDatasetFolder = gui.addFolder("Local Dataset");
+  localDatasetFolder
+    .add(params, "loadLocalDataset")
+    .name("ローカルファイルを選択");
+  localDatasetStatusController = localDatasetFolder
+    .add(params, "localDatasetStatus")
+    .name("Status")
+    .listen()
+    .disable();
+
+  const performanceFolder = gui.addFolder("Performance");
+  performanceFolder
+    .add(params, "pointBudgetMP", 1, 50, 1)
+    .name("Point Budget (MP)")
+    .onChange((value: number) => {
+      potree.pointBudget = Math.round(value) * 1_000_000;
+    });
+  performanceFolder
+    .add(params, "maxNodesLoading", 1, 12, 1)
+    .name("Max Nodes Loading")
+    .onChange((value: number) => {
+      potree.maxNumNodesLoading = Math.round(value);
+    });
 
   // Camera folder
   const cameraFolder = gui.addFolder("Camera");
@@ -584,6 +643,18 @@ document.body.onload = () => {
     .name("Radius")
     .onChange((v: number) => {
       potreeRenderer.setEDL({ enabled: params.edlEnabled, radius: v });
+    });
+  edlFolder
+    .add(params, "edlOpacity", 0, 1, 0.05)
+    .name("Opacity")
+    .onChange((v: number) => {
+      potreeRenderer.setEDL({ enabled: params.edlEnabled, opacity: v });
+    });
+  edlFolder
+    .add(params, "edlNeighbours", 1, 16, 1)
+    .name("Neighbours")
+    .onChange((v: number) => {
+      potreeRenderer.setEDL({ enabled: params.edlEnabled, neighbourCount: v });
     });
   edlFolder.close();
 
@@ -637,15 +708,47 @@ document.body.onload = () => {
       for (const pco of pointClouds) pco.material.size = v;
     });
   pointsFolder
+    .add(params, "minPointSize", 1, 10, 0.5)
+    .name("Min Size")
+    .onChange((v: number) => {
+      for (const pco of pointClouds) pco.material.minSize = v;
+    });
+  pointsFolder
+    .add(params, "maxPointSize", 5, 100, 1)
+    .name("Max Size")
+    .onChange((v: number) => {
+      for (const pco of pointClouds) pco.material.maxSize = v;
+    });
+  pointsFolder
     .add(params, "sizeType", ["Fixed", "Attenuated", "Adaptive"])
     .name("Size Type")
     .onChange((v: string) => {
-      const map: Record<string, PointSizeType> = {
-        Fixed: PointSizeType.FIXED,
-        Attenuated: PointSizeType.ATTENUATED,
-        Adaptive: PointSizeType.ADAPTIVE,
-      };
-      for (const pco of pointClouds) pco.material.pointSizeType = map[v];
+      for (const pco of pointClouds) {
+        pco.material.pointSizeType =
+          pointSizeTypeMap[v] ?? PointSizeType.ADAPTIVE;
+      }
+    });
+  pointsFolder
+    .add(params, "pointShape", Object.keys(pointShapeMap))
+    .name("Point Shape")
+    .onChange((v: string) => {
+      for (const pco of pointClouds) {
+        pco.material.shape = pointShapeMap[v] ?? PointShape.SQUARE;
+      }
+    });
+  pointsFolder
+    .add(params, "pointColorType", Object.keys(pointColorTypeMap))
+    .name("Color Type")
+    .onChange((v: string) => {
+      for (const pco of pointClouds) {
+        pco.material.pointColorType = pointColorTypeMap[v] ?? PointColorType.RGB;
+      }
+    });
+  pointsFolder
+    .add(params, "showBoundingBox")
+    .name("Bounding Box")
+    .onChange((v: boolean) => {
+      for (const pco of pointClouds) pco.showBoundingBox = v;
     });
 
   // Interaction folder
@@ -660,6 +763,7 @@ document.body.onload = () => {
     .add(params, "pickMethod", ["Potree", "Raycaster"])
     .name("Pick Method");
   interactionFolder.close();
+  performanceFolder.close();
 
   // ---- Render loop ----
   renderer.autoClear = false;
