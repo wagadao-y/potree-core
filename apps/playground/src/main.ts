@@ -13,11 +13,9 @@ import {
 import {
   AmbientLight,
   BoxGeometry,
-  Clock,
   Euler,
   Mesh,
   MeshBasicMaterial,
-  type Object3D,
   OrthographicCamera,
   PerspectiveCamera,
   Plane,
@@ -25,6 +23,7 @@ import {
   Raycaster,
   Scene,
   SphereGeometry,
+  Timer,
   Vector2,
   Vector3,
   WebGLRenderer,
@@ -325,15 +324,17 @@ document.body.onload = () => {
 
   // ---- ViewHelper ----
   let viewHelper = new ViewHelper(camera, canvas);
-  const clock = new Clock();
+  const timer = new Timer();
+  timer.connect(document);
 
   let controls = new OrbitControls(camera, canvas);
 
   let transformControls = new TransformControls(camera, canvas);
+  let transformControlsHelper = transformControls.getHelper();
   transformControls.addEventListener("dragging-changed", (event) => {
     controls.enabled = !event.value;
   });
-  scene.add(transformControls as unknown as Object3D);
+  scene.add(transformControlsHelper);
 
   const raycaster = new Raycaster();
   // @ts-ignore
@@ -576,13 +577,14 @@ document.body.onload = () => {
     controls = new OrbitControls(camera, canvas);
 
     const wasAttached = transformControls.object;
-    scene.remove(transformControls as unknown as Object3D);
+    scene.remove(transformControlsHelper);
     transformControls.dispose();
     transformControls = new TransformControls(camera, canvas);
+    transformControlsHelper = transformControls.getHelper();
     transformControls.addEventListener("dragging-changed", (event) => {
       controls.enabled = !event.value;
     });
-    scene.add(transformControls as unknown as Object3D);
+    scene.add(transformControlsHelper);
     if (wasAttached) transformControls.attach(wasAttached);
 
     viewHelper = new ViewHelper(camera, canvas);
@@ -769,6 +771,7 @@ document.body.onload = () => {
   renderer.autoClear = false;
 
   renderer.setAnimationLoop(() => {
+    timer.update();
     stats.begin();
     cube.rotation.y += 0.01;
     potree.updatePointClouds(pointClouds, camera, renderer);
@@ -786,7 +789,7 @@ document.body.onload = () => {
 
     // Render ViewHelper
     viewHelper.render(renderer);
-    if (viewHelper.animating) viewHelper.update(clock.getDelta());
+    if (viewHelper.animating) viewHelper.update(timer.getDelta());
     stats.end();
   });
 

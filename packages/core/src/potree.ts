@@ -214,7 +214,11 @@ export class Potree implements IPotree {
 
       const parentNode = queueItem.parent;
 
-      if (isGeometryNode(node) && (!parentNode || isTreeNode(parentNode))) {
+      if (
+        isGeometryNode(node) &&
+        node.numPoints > 0 &&
+        (!parentNode || isTreeNode(parentNode))
+      ) {
         if (node.loaded && loadedToGPUThisFrame < MAX_LOADS_TO_GPU) {
           // @ts-ignore
           node = pointCloud.toTreeNode(node, parentNode);
