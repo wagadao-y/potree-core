@@ -1,4 +1,5 @@
 import { OctreeLoader } from "./OctreeLoader";
+import type { LoadOctreeOptions } from "./LoadInstrumentation";
 import type { RequestManager } from "./RequestManager";
 
 /**
@@ -8,9 +9,13 @@ import type { RequestManager } from "./RequestManager";
  * @param requestManager - The request manager to handle network requests.
  * @returns A promise that resolves to the loaded octree geometry.
  */
-export async function loadOctree(url: string, requestManager: RequestManager) {
+export async function loadOctree(
+  url: string,
+  requestManager: RequestManager,
+  options?: LoadOctreeOptions,
+) {
   const loader = new OctreeLoader();
-  const { geometry } = await loader.load(url, requestManager);
+  const { geometry } = await loader.load(url, requestManager, options);
 
   return geometry;
 }

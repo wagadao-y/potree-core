@@ -1,4 +1,5 @@
 import { type Box3, Sphere, type Vector3 } from "three";
+import type { PotreeLoadInstrumentation } from "./LoadInstrumentation";
 import type { OctreeGeometryNode } from "./OctreeGeometryNode";
 import type { Metadata, NodeLoader } from "./OctreeLoader";
 import type { PointAttributes } from "./PointAttributes";
@@ -29,6 +30,8 @@ export class OctreeGeometry {
   public disposed: boolean = false;
 
   public projection?: Metadata["projection"];
+
+  public instrumentation?: PotreeLoadInstrumentation;
 
   constructor(
     public loader: NodeLoader,

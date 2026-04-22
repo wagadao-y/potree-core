@@ -30,6 +30,11 @@ onmessage = function (event) {
 
   const tStart = performance.now();
 
+  postMessage({
+    type: "started",
+    name,
+  });
+
   const view = new DataView(buffer);
 
   const attributeBuffers = {};
@@ -230,10 +235,17 @@ onmessage = function (event) {
   // let pointsPerMs = numPoints / duration;
   // console.log(`duration: ${duration.toFixed(1)}ms, #points: ${numPoints}, points/ms: ${pointsPerMs.toFixed(1)}`);
 
+  const totalWorkerMs = performance.now() - tStart;
+
   const message = {
+    type: "result",
     buffer: buffer,
     attributeBuffers: attributeBuffers,
     density: occupancy,
+    metrics: {
+      decodeMs: totalWorkerMs,
+      totalWorkerMs,
+    },
   };
 
   const transferables = [];

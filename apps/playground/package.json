@@ -10,10 +10,12 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "potree-core": "workspace:*"
+    "potree-core": "workspace:*",
+    "stats.js": "^0.17.0"
   },
   "devDependencies": {
     "@types/node": "^25.6.0",
+    "@types/stats.js": "^0.17.4",
     "@types/three": "^0.184.0",
     "three": "^0.184.0",
     "typescript": "~6.0.3",

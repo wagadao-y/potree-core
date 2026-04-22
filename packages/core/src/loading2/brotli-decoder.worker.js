@@ -73,6 +73,11 @@ onmessage = async function (event) {
 
   const tStart = performance.now();
 
+  postMessage({
+    type: "started",
+    name,
+  });
+
   let buffer;
   if (numPoints == 0 || event.data.buffer.byteLength === 0) {
     buffer = { buffer: new ArrayBuffer(0) };
@@ -437,14 +442,19 @@ onmessage = async function (event) {
     }
   }
 
-  const duration = performance.now() - tStart;
-  const pointsPerMs = numPoints / duration;
+  const totalWorkerMs = performance.now() - tStart;
+  const pointsPerMs = numPoints / totalWorkerMs;
   // console.log(`duration: ${duration.toFixed(1)}ms, #points: ${numPoints}, points/ms: ${pointsPerMs.toFixed(1)}`);
 
   const message = {
+    type: "result",
     buffer: buffer,
     attributeBuffers: attributeBuffers,
     density: occupancy,
+    metrics: {
+      decodeMs: totalWorkerMs,
+      totalWorkerMs,
+    },
   };
 
   const transferables = [];

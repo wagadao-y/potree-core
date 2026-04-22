@@ -2,6 +2,7 @@ import {
   ClipMode,
   createClipBox,
   createClipSphere,
+  LocalPotreeRequestManager,
   type PointCloudOctree,
   PointSizeType,
   Potree,
@@ -26,6 +27,7 @@ import {
   Vector3,
   WebGLRenderer,
 } from "three";
+import Stats from "stats.js";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { TransformControls } from "three/examples/jsm/controls/TransformControls.js";
 import { ViewHelper } from "three/examples/jsm/helpers/ViewHelper.js";
@@ -36,6 +38,9 @@ document.body.onload = () => {
   const potree = new Potree();
   const pointClouds: PointCloudOctree[] = [];
   let clipPlanesTarget: PointCloudOctree | null = null;
+  let pointCloudFrame: Mesh | null = null;
+  let clipBoxHelperMesh: Mesh | null = null;
+  let clipSphereHelperMesh: Mesh | null = null;
 
   // Clip plane state
   const clipPlaneX = new Plane(new Vector3(1, 0, 0), 0);
@@ -167,6 +172,82 @@ document.body.onload = () => {
   canvas.style.height = "100%";
   document.body.appendChild(canvas);
 
+  const localLoaderPanel = document.createElement("div");
+  localLoaderPanel.className = "local-loader-panel";
+  localLoaderPanel.innerHTML = `
+    <p class="local-loader-eyebrow">Local Potree</p>
+    <h2>metadata.json / hierarchy.bin / octree.bin</h2>
+    <p class="local-loader-copy">3 ファイルをまとめて選ぶと、ネットワーク取得の代わりにローカルファイルから描画します。</p>
+    <div class="local-loader-actions">
+      <button type="button" class="local-loader-button">ローカルファイルを選択</button>
+      <span class="local-loader-hint">複数選択</span>
+    </div>
+    <p class="local-loader-status">初期データセットを表示中です。</p>
+  `;
+  document.body.appendChild(localLoaderPanel);
+
+  const localFileInput = document.createElement("input");
+  localFileInput.type = "file";
+  localFileInput.multiple = true;
+  localFileInput.accept = ".json,.bin";
+  localFileInput.className = "local-loader-input";
+  document.body.appendChild(localFileInput);
+
+  const localLoaderButton = localLoaderPanel.querySelector<HTMLButtonElement>(
+    ".local-loader-button",
+  );
+  const localLoaderStatus = localLoaderPanel.querySelector<HTMLParagraphElement>(
+    ".local-loader-status",
+  );
+
+  if (localLoaderButton === null || localLoaderStatus === null) {
+    throw new Error("Failed to initialize local loader UI");
+  }
+
+  localLoaderButton.addEventListener("click", () => {
+    localFileInput.click();
+  });
+
+  localFileInput.addEventListener("change", () => {
+    const files = localFileInput.files;
+
+    if (files === null || files.length === 0) {
+      return;
+    }
+
+    if (!LocalPotreeRequestManager.hasRequiredFiles(files)) {
+      localLoaderStatus.textContent =
+        "metadata.json, hierarchy.bin, octree.bin の 3 ファイルを同時に選択してください。";
+      return;
+    }
+
+    localLoaderStatus.textContent = "ローカル Potree ファイルを読み込み中です...";
+
+    void loadPointCloudFromSource(
+      () =>
+        potree.loadPointCloud(
+          "metadata.json",
+          LocalPotreeRequestManager.fromFileList(files),
+        ),
+      {
+        position: new Vector3(0, -1.5, 3),
+        rotation: new Euler(-Math.PI / 2, 0, 0),
+        scale: new Vector3(2, 2, 2),
+        applyClipPlanes: true,
+      },
+      {
+        label: "ローカルファイル",
+        onSuccess: () => {
+          localLoaderStatus.textContent =
+            "ローカル Potree ファイルを読み込みました。以後のノード取得はローカルファイルから行います。";
+        },
+        onError: (error) => {
+          localLoaderStatus.textContent = `ローカル読込に失敗しました: ${formatError(error)}`;
+        },
+      },
+    );
+  });
+
   const renderer = new WebGLRenderer({
     canvas: canvas,
     alpha: true,
@@ -177,6 +258,11 @@ document.body.onload = () => {
     preserveDrawingBuffer: false,
     powerPreference: "high-performance",
   });
+
+  const stats = new Stats();
+  stats.showPanel(0);
+  stats.dom.className = "playground-stats";
+  document.body.appendChild(stats.dom);
 
   const cube = new Mesh(
     new BoxGeometry(25, 1, 25),
@@ -262,28 +348,75 @@ document.body.onload = () => {
   };
 
   // Load point cloud: pump
-  loadPointCloud(
-    "/data/pump/",
-    "metadata.json",
-    new Vector3(0, -1.5, 3),
-    new Euler(-Math.PI / 2, 0, 0),
-    new Vector3(2, 2, 2),
-    true,
-    false,
-    true,
+  void loadPointCloudFromSource(
+    () => potree.loadPointCloud("metadata.json", "/data/pump/"),
+    {
+      position: new Vector3(0, -1.5, 3),
+      rotation: new Euler(-Math.PI / 2, 0, 0),
+      scale: new Vector3(2, 2, 2),
+      applyClipBox: true,
+      applyClipPlanes: true,
+    },
+    {
+      label: "サンプルデータセット",
+      onSuccess: () => {
+        localLoaderStatus.textContent =
+          "初期データセットを表示中です。ローカル読込で差し替えできます。";
+      },
+      onError: (error) => {
+        localLoaderStatus.textContent = `初期データセットの読込に失敗しました: ${formatError(error)}`;
+      },
+    },
   );
 
-  function loadPointCloud(
-    baseUrl: string,
-    url: string,
-    position?: Vector3,
-    rotation?: Euler,
-    scale?: Vector3,
-    applyClipBox = false,
-    applyClipSphere = false,
-    applyClipPlanes = false,
+  function clearPointCloudScene() {
+    transformControls.detach();
+    selectedPco = null;
+    clipPlanesTarget = null;
+    pointClouds.splice(0).forEach((pointCloud) => {
+      scene.remove(pointCloud);
+    });
+
+    if (pointCloudFrame !== null) {
+      scene.remove(pointCloudFrame);
+      pointCloudFrame = null;
+    }
+
+    if (clipBoxHelperMesh !== null) {
+      scene.remove(clipBoxHelperMesh);
+      clipBoxHelperMesh = null;
+    }
+
+    if (clipSphereHelperMesh !== null) {
+      scene.remove(clipSphereHelperMesh);
+      clipSphereHelperMesh = null;
+    }
+
+    clipHelperX.visible = false;
+    clipHelperY.visible = false;
+    clipHelperZ.visible = false;
+  }
+
+  async function loadPointCloudFromSource(
+    load: () => Promise<PointCloudOctree>,
+    options: {
+      position?: Vector3;
+      rotation?: Euler;
+      scale?: Vector3;
+      applyClipBox?: boolean;
+      applyClipSphere?: boolean;
+      applyClipPlanes?: boolean;
+    },
+    hooks: {
+      label: string;
+      onSuccess?: () => void;
+      onError?: (error: unknown) => void;
+    },
   ) {
-    potree.loadPointCloud(url, baseUrl).then((pco: PointCloudOctree) => {
+    try {
+      const pco = await load();
+      clearPointCloudScene();
+
       const sizeTypeMap: Record<string, PointSizeType> = {
         Fixed: PointSizeType.FIXED,
         Attenuated: PointSizeType.ATTENUATED,
@@ -296,35 +429,35 @@ document.body.onload = () => {
       pco.material.inputColorEncoding = 1;
       pco.material.outputColorEncoding = 1;
 
-      if (position) {
-        pco.position.copy(position);
+      if (options.position) {
+        pco.position.copy(options.position);
       }
-      if (rotation) {
-        pco.rotation.copy(rotation);
+      if (options.rotation) {
+        pco.rotation.copy(options.rotation);
       }
-      if (scale) {
-        pco.scale.copy(scale);
+      if (options.scale) {
+        pco.scale.copy(options.scale);
       }
 
-      console.log("Pointcloud file loaded", pco);
+      console.log(`${hooks.label} loaded`, pco);
       pco.showBoundingBox = false;
 
       const box = pco.pcoGeometry.boundingBox;
       const size = box.getSize(new Vector3());
 
-      const bbMesh = new Mesh(
+      pointCloudFrame = new Mesh(
         new BoxGeometry(size.x, size.y, size.z),
         new MeshBasicMaterial({ color: 0xff0000, wireframe: true }),
       );
-      bbMesh.position.copy(pco.position);
-      bbMesh.scale.copy(pco.scale);
-      bbMesh.rotation.copy(pco.rotation);
-      bbMesh.raycast = () => false;
+      pointCloudFrame.position.copy(pco.position);
+      pointCloudFrame.scale.copy(pco.scale);
+      pointCloudFrame.rotation.copy(pco.rotation);
+      pointCloudFrame.raycast = () => false;
       size.multiplyScalar(0.5);
-      bbMesh.position.add(new Vector3(size.x, size.y, -size.z));
-      scene.add(bbMesh);
+      pointCloudFrame.position.add(new Vector3(size.x, size.y, -size.z));
+      scene.add(pointCloudFrame);
 
-      if (applyClipPlanes) {
+      if (options.applyClipPlanes) {
         clipPlanesTarget = pco;
       }
 
@@ -337,22 +470,22 @@ document.body.onload = () => {
 
       pco.material.clipMode = clipModeMap[params.clipMode];
 
-      if (applyClipBox) {
+      if (options.applyClipBox) {
         // ClipBox
         const halfSize = worldSize.clone().multiplyScalar(0.5);
         const clipBox = createClipBox(halfSize, center);
         pco.material.setClipBoxes([clipBox]);
 
-        const clipBoxHelper = new Mesh(
+        clipBoxHelperMesh = new Mesh(
           new BoxGeometry(halfSize.x, halfSize.y, halfSize.z),
           new MeshBasicMaterial({ color: 0x0066ff, wireframe: true }),
         );
-        clipBoxHelper.position.copy(center);
-        clipBoxHelper.raycast = () => false;
-        scene.add(clipBoxHelper);
+        clipBoxHelperMesh.position.copy(center);
+        clipBoxHelperMesh.raycast = () => false;
+        scene.add(clipBoxHelperMesh);
       }
 
-      if (applyClipPlanes) {
+      if (options.applyClipPlanes) {
         // ClipPlane
         planeCenter.copy(center);
         planeExtent.copy(worldSize).multiplyScalar(0.5);
@@ -364,25 +497,33 @@ document.body.onload = () => {
         updateClipPlanes();
       }
 
-      if (applyClipSphere) {
+      if (options.applyClipSphere) {
         // ClipSphere
         const radius = worldSize.length() * 0.25;
         const clipSphere = createClipSphere(center, radius);
         pco.material.clipMode = clipModeMap[params.clipMode];
         pco.material.setClipSpheres([clipSphere]);
 
-        const clipSphereHelper = new Mesh(
+        clipSphereHelperMesh = new Mesh(
           new SphereGeometry(radius, 16, 16),
           new MeshBasicMaterial({ color: 0xff6600, wireframe: true }),
         );
-        clipSphereHelper.position.copy(center);
-        clipSphereHelper.raycast = () => false;
-        scene.add(clipSphereHelper);
+        clipSphereHelperMesh.position.copy(center);
+        clipSphereHelperMesh.raycast = () => false;
+        scene.add(clipSphereHelperMesh);
       }
 
       scene.add(pco);
       pointClouds.push(pco);
-    });
+      hooks.onSuccess?.();
+    } catch (error) {
+      console.error(`${hooks.label} load failed`, error);
+      hooks.onError?.(error);
+    }
+  }
+
+  function formatError(error: unknown) {
+    return error instanceof Error ? error.message : String(error);
   }
 
   // ---- Camera switch ----
@@ -524,6 +665,7 @@ document.body.onload = () => {
   renderer.autoClear = false;
 
   renderer.setAnimationLoop(() => {
+    stats.begin();
     cube.rotation.y += 0.01;
     potree.updatePointClouds(pointClouds, camera, renderer);
     controls.update();
@@ -541,6 +683,7 @@ document.body.onload = () => {
     // Render ViewHelper
     viewHelper.render(renderer);
     if (viewHelper.animating) viewHelper.update(clock.getDelta());
+    stats.end();
   });
 
   function updateSize() {

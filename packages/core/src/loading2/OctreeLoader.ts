@@ -1,4 +1,9 @@
 import { Box3, BufferAttribute, BufferGeometry, Sphere, Vector3 } from "three";
+import type {
+  LoadOctreeOptions,
+  PotreeLoadInstrumentation,
+  PotreeLoadMeasurement,
+} from "./LoadInstrumentation";
 import { OctreeGeometry } from "./OctreeGeometry";
 import { OctreeGeometryNode } from "./OctreeGeometryNode";
 import {
@@ -27,6 +32,8 @@ export class NodeLoader {
    * Offset applied to the geometry when loading.
    */
   public offset?: [number, number, number];
+
+  public instrumentation?: PotreeLoadInstrumentation;
 
   constructor(
     public url: string,
@@ -75,6 +82,7 @@ export class NodeLoader {
         buffer = new ArrayBuffer(0);
         console.warn(`loaded node with 0 bytes: ${node.name}`);
       } else {
+        const readStartedAt = performance.now();
         const response = await this.requestManager.fetch(urlOctree, {
           headers: {
             "content-type": "multipart/byteranges",
@@ -83,6 +91,13 @@ export class NodeLoader {
         });
 
         buffer = await response.arrayBuffer();
+        this.emitMeasurement({
+          stage: "octree-slice-read",
+          nodeName: node.name,
+          durationMs: performance.now() - readStartedAt,
+          byteSize: Number(byteSize),
+          numPoints: node.numPoints,
+        });
       }
 
       const workerType =
@@ -90,13 +105,52 @@ export class NodeLoader {
           ? WorkerType.DECODER_WORKER_BROTLI
           : WorkerType.DECODER_WORKER;
       const worker = this.workerPool.getWorker(workerType);
+      const workerQueuedAt = performance.now();
+      let workerStartedAt: number | null = null;
 
       worker.onmessage = (e) => {
         const data = e.data;
+
+        if (data.type === "started") {
+          workerStartedAt = performance.now();
+          this.emitMeasurement({
+            stage: "worker-wait",
+            nodeName: node.name,
+            durationMs: workerStartedAt - workerQueuedAt,
+            byteSize: buffer.byteLength,
+            numPoints: node.numPoints,
+          });
+          return;
+        }
+
         const buffers = data.attributeBuffers;
+        const receivedAt = performance.now();
+        const metrics = data.metrics;
+
+        this.emitMeasurement({
+          stage: "decompress-attribute-decode",
+          nodeName: node.name,
+          durationMs: metrics?.decodeMs ?? 0,
+          byteSize: buffer.byteLength,
+          numPoints: node.numPoints,
+        });
+
+        const transferBaseline = workerStartedAt ?? workerQueuedAt;
+        const transferDuration = Math.max(
+          0,
+          receivedAt - transferBaseline - (metrics?.totalWorkerMs ?? 0),
+        );
+        this.emitMeasurement({
+          stage: "worker-transfer",
+          nodeName: node.name,
+          durationMs: transferDuration,
+          byteSize: buffer.byteLength,
+          numPoints: node.numPoints,
+        });
 
         this.workerPool.returnWorker(workerType, worker);
 
+        const geometryStartedAt = performance.now();
         const geometry = new BufferGeometry();
 
         for (const property in buffers) {
@@ -141,6 +195,15 @@ export class NodeLoader {
             geometry.setAttribute(property, bufferAttribute);
           }
         }
+
+        this.emitMeasurement({
+          stage: "geometry-creation",
+          nodeName: node.name,
+          durationMs: performance.now() - geometryStartedAt,
+          byteSize: buffer.byteLength,
+          numPoints: node.numPoints,
+        });
+
         node.density = data.density;
         node.geometry = geometry;
         node.loaded = true;
@@ -269,6 +332,7 @@ export class NodeLoader {
     const first = hierarchyByteOffset;
     const last = first + hierarchyByteSize - BigInt(1);
 
+    const hierarchyLoadStartedAt = performance.now();
     const response = await this.requestManager.fetch(hierarchyPath, {
       headers: {
         "content-type": "multipart/byteranges",
@@ -277,8 +341,27 @@ export class NodeLoader {
     });
 
     const buffer = await response.arrayBuffer();
+    this.emitMeasurement({
+      stage: "hierarchy-load",
+      nodeName: node.name,
+      durationMs: performance.now() - hierarchyLoadStartedAt,
+      byteSize: buffer.byteLength,
+      numPoints: node.numPoints,
+    });
 
+    const hierarchyParseStartedAt = performance.now();
     this.parseHierarchy(node, buffer);
+    this.emitMeasurement({
+      stage: "hierarchy-parse",
+      nodeName: node.name,
+      durationMs: performance.now() - hierarchyParseStartedAt,
+      byteSize: buffer.byteLength,
+      numPoints: node.numPoints,
+    });
+  }
+
+  private emitMeasurement(measurement: PotreeLoadMeasurement) {
+    this.instrumentation?.onStage?.(measurement);
   }
 }
 
@@ -459,7 +542,11 @@ export class OctreeLoader {
    * @param requestManager - The RequestManager instance used to handle HTTP requests.
    * @returns Geometry object containing the loaded octree geometry.
    */
-  public async load(url: string, requestManager: RequestManager) {
+  public async load(
+    url: string,
+    requestManager: RequestManager,
+    options?: LoadOctreeOptions,
+  ) {
     const response = await requestManager.fetch(
       await requestManager.getUrl(url),
     );
@@ -476,6 +563,7 @@ export class OctreeLoader {
     loader.attributes = attributes;
     loader.scale = metadata.scale;
     loader.offset = metadata.offset;
+    loader.instrumentation = options?.instrumentation;
 
     const octree = new OctreeGeometry(
       loader,
@@ -503,6 +591,7 @@ export class OctreeLoader {
     octree.tightBoundingSphere = boundingBox.getBoundingSphere(new Sphere());
     octree.offset = offset;
     octree.pointAttributes = OctreeLoader.parseAttributes(metadata.attributes);
+    octree.instrumentation = options?.instrumentation;
 
     const root = new OctreeGeometryNode("r", octree, boundingBox);
     root.level = 0;
