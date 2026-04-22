@@ -17,6 +17,7 @@ import {
   PERSPECTIVE_CAMERA,
 } from "./constants";
 import { getFeatures } from "./features";
+import type { LoadOctreeOptions } from "./loading2/LoadInstrumentation";
 import { loadOctree } from "./loading2/load-octree";
 import type { OctreeGeometry } from "./loading2/OctreeGeometry";
 import type { RequestManager } from "./loading2/RequestManager";
@@ -79,16 +80,29 @@ export class Potree implements IPotree {
   public async loadPointCloud(
     url: string,
     baseUrl: string,
+    options?: LoadOctreeOptions,
   ): Promise<PointCloudOctree>;
   public async loadPointCloud(
     url: string,
     requestManager: RequestManager,
+    options?: LoadOctreeOptions,
   ): Promise<PointCloudOctree>;
   public async loadPointCloud(
     url: string,
     reqManager: string | RequestManager,
-    material?: PointCloudMaterial,
+    materialOrOptions?: PointCloudMaterial | LoadOctreeOptions,
   ): Promise<PointCloudOctree> {
+    const material =
+      materialOrOptions instanceof Object &&
+      "instrumentation" in materialOrOptions
+        ? undefined
+        : (materialOrOptions as PointCloudMaterial | undefined);
+    const options =
+      materialOrOptions instanceof Object &&
+      "instrumentation" in materialOrOptions
+        ? materialOrOptions
+        : undefined;
+
     if (typeof reqManager === "string") {
       // Handle baseUrl case
       const baseUrl = reqManager;
@@ -97,13 +111,13 @@ export class Potree implements IPotree {
         getUrl: async (relativeUrl) => `${baseUrl}${relativeUrl}`,
         fetch: async (input, init) => fetch(input, init),
       };
-      return this.loadPointCloud(url, requestManager);
+      return this.loadPointCloud(url, requestManager, options);
     } else {
       // Handle RequestManager case
       const requestManager = reqManager;
 
       if (url.endsWith("metadata.json")) {
-        return await loadOctree(url, requestManager).then(
+        return await loadOctree(url, requestManager, options).then(
           (geometry: OctreeGeometry) => {
             return new PointCloudOctree(this, geometry, material);
           },

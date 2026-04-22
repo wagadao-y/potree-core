@@ -1,4 +1,5 @@
 import type { Box3, Camera, Sphere, Vector3, WebGLRenderer } from "three";
+import type { LoadOctreeOptions } from "./loading2/LoadInstrumentation";
 import type { OctreeGeometry } from "./loading2/OctreeGeometry";
 import type { RequestManager } from "./loading2/RequestManager";
 import type { PointCloudOctree } from "./point-cloud-octree";
@@ -53,10 +54,15 @@ export interface IPotree {
   maxNumNodesLoading: number;
   lru: LRU;
 
-  loadPointCloud(url: string, baseUrl: string): Promise<PointCloudOctree>;
+  loadPointCloud(
+    url: string,
+    baseUrl: string,
+    options?: LoadOctreeOptions,
+  ): Promise<PointCloudOctree>;
   loadPointCloud(
     url: string,
     requestManager: RequestManager,
+    options?: LoadOctreeOptions,
   ): Promise<PointCloudOctree>;
 
   updatePointClouds(

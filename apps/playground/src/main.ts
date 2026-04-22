@@ -2,14 +2,18 @@ import {
   ClipMode,
   createClipBox,
   createClipSphere,
+  type IVisibilityUpdateResult,
   LocalPotreeRequestManager,
+  type PointCloudOctree,
   PointColorType,
   PointShape,
-  type PointCloudOctree,
   PointSizeType,
   Potree,
+  type PotreeLoadMeasurement,
+  type PotreeLoadStage,
   PotreeRenderer,
 } from "potree-core";
+import Stats from "stats.js";
 import {
   AmbientLight,
   BoxGeometry,
@@ -28,7 +32,6 @@ import {
   Vector3,
   WebGLRenderer,
 } from "three";
-import Stats from "stats.js";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { TransformControls } from "three/examples/jsm/controls/TransformControls.js";
 import { ViewHelper } from "three/examples/jsm/helpers/ViewHelper.js";
@@ -37,6 +40,7 @@ import "./style.css";
 
 document.body.onload = () => {
   const potree = new Potree();
+  const loadMetrics = createLoadMetrics();
   const pointClouds: PointCloudOctree[] = [];
   let clipPlanesTarget: PointCloudOctree | null = null;
   let pointCloudFrame: Mesh | null = null;
@@ -136,6 +140,9 @@ document.body.onload = () => {
     Composite: PointColorType.COMPOSITE,
   };
   let localFileInput: HTMLInputElement | null = null;
+  const BENCHMARK_PRESET_1_KEY = "potree-core.playground.benchmarkPreset1";
+  let gui: GUI | null = null;
+  let isApplyingPreset = false;
 
   // State
   const params = {
@@ -155,6 +162,7 @@ document.body.onload = () => {
     pointSize: 0.1,
     minPointSize: 2.0,
     maxPointSize: 50.0,
+    minNodePixelSize: 150,
     sizeType: "Adaptive",
     pointShape: "Square",
     pointColorType: "RGB",
@@ -163,13 +171,24 @@ document.body.onload = () => {
     transformMode: "translate",
     // Pick
     pickMethod: "Potree",
+    // Benchmark preset
+    activePreset: "custom",
+    savePreset1: () => {
+      saveBenchmarkPreset("preset-1");
+    },
+    loadPreset1: () => {
+      loadBenchmarkPreset("preset-1");
+    },
     // Local dataset
     localDatasetStatus: "初期データセットを表示中です。",
     loadLocalDataset: () => {
       localFileInput?.click();
     },
   };
-  params.pointBudgetMP = Math.max(1, Math.round(potree.pointBudget / 1_000_000));
+  params.pointBudgetMP = Math.max(
+    1,
+    Math.round(potree.pointBudget / 1_000_000),
+  );
   params.maxNodesLoading = potree.maxNumNodesLoading;
   let localDatasetStatusController: { updateDisplay(): unknown } | null = null;
 
@@ -239,12 +258,14 @@ document.body.onload = () => {
     }
 
     setLocalDatasetStatus("ローカル Potree ファイルを読み込み中です...");
+    loadMetrics.reset();
 
     void loadPointCloudFromSource(
       () =>
         potree.loadPointCloud(
           "metadata.json",
           LocalPotreeRequestManager.fromFileList(files),
+          { instrumentation: loadMetrics.instrumentation },
         ),
       {
         position: new Vector3(0, -1.5, 3),
@@ -278,11 +299,19 @@ document.body.onload = () => {
     preserveDrawingBuffer: false,
     powerPreference: "high-performance",
   });
+  const gpuTimer = createGpuTimer(renderer);
 
   const stats = new Stats();
   stats.showPanel(0);
   stats.dom.className = "playground-stats";
   document.body.appendChild(stats.dom);
+
+  const performancePanel = createPerformancePanel();
+  document.body.appendChild(performancePanel.dom);
+
+  function updatePerformancePanelPreset() {
+    performancePanel.setPreset(params.activePreset);
+  }
 
   function applyPointCloudSettings(pointCloud: PointCloudOctree) {
     pointCloud.material.size = params.pointSize;
@@ -297,6 +326,7 @@ document.body.onload = () => {
     pointCloud.material.clipMode = clipModeMap[params.clipMode];
     pointCloud.material.inputColorEncoding = 1;
     pointCloud.material.outputColorEncoding = 1;
+    pointCloud.minNodePixelSize = params.minNodePixelSize;
     pointCloud.showBoundingBox = params.showBoundingBox;
   }
 
@@ -392,8 +422,12 @@ document.body.onload = () => {
   };
 
   // Load point cloud: pump
+  loadMetrics.reset();
   void loadPointCloudFromSource(
-    () => potree.loadPointCloud("metadata.json", "/data/pump/"),
+    () =>
+      potree.loadPointCloud("metadata.json", "/data/pump/", {
+        instrumentation: loadMetrics.instrumentation,
+      }),
     {
       position: new Vector3(0, -1.5, 3),
       rotation: new Euler(-Math.PI / 2, 0, 0),
@@ -575,6 +609,7 @@ document.body.onload = () => {
 
     controls.dispose();
     controls = new OrbitControls(camera, canvas);
+    controls.addEventListener("change", markPresetCustom);
 
     const wasAttached = transformControls.object;
     scene.remove(transformControlsHelper);
@@ -592,8 +627,150 @@ document.body.onload = () => {
     updateSize();
   }
 
+  function markPresetCustom() {
+    if (isApplyingPreset) {
+      return;
+    }
+
+    if (params.activePreset !== "custom") {
+      params.activePreset = "custom";
+      updatePerformancePanelPreset();
+      updateGuiDisplays();
+    }
+  }
+
+  function updateGuiDisplays() {
+    if (gui === null) {
+      return;
+    }
+
+    for (const controller of gui.controllersRecursive()) {
+      controller.updateDisplay();
+    }
+  }
+
+  function createBenchmarkPreset(name: string): BenchmarkPreset {
+    return {
+      camera: {
+        far: camera.far,
+        fov:
+          camera instanceof PerspectiveCamera
+            ? camera.fov
+            : perspectiveCamera.fov,
+        near: camera.near,
+        orthographic: useOrthographicCamera,
+        orthographicZoom:
+          camera instanceof OrthographicCamera
+            ? camera.zoom
+            : orthographicCamera.zoom,
+        position: camera.position.toArray(),
+        target: controls.target.toArray(),
+      },
+      clipMode: params.clipMode,
+      edl: {
+        enabled: params.edlEnabled,
+        neighbours: params.edlNeighbours,
+        opacity: params.edlOpacity,
+        radius: params.edlRadius,
+        strength: params.edlStrength,
+      },
+      name,
+      performance: {
+        maxNodesLoading: params.maxNodesLoading,
+        pointBudgetMP: params.pointBudgetMP,
+      },
+      points: {
+        maxPointSize: params.maxPointSize,
+        minNodePixelSize: params.minNodePixelSize,
+        minPointSize: params.minPointSize,
+        pointColorType: params.pointColorType,
+        pointShape: params.pointShape,
+        pointSize: params.pointSize,
+        showBoundingBox: params.showBoundingBox,
+        sizeType: params.sizeType,
+      },
+      savedAt: new Date().toISOString(),
+      version: 1,
+    };
+  }
+
+  function saveBenchmarkPreset(name: string) {
+    const preset = createBenchmarkPreset(name);
+    localStorage.setItem(BENCHMARK_PRESET_1_KEY, JSON.stringify(preset));
+    params.activePreset = name;
+    updatePerformancePanelPreset();
+    updateGuiDisplays();
+  }
+
+  function loadBenchmarkPreset(name: string) {
+    const rawPreset = localStorage.getItem(BENCHMARK_PRESET_1_KEY);
+    if (rawPreset === null) {
+      console.warn(`Benchmark preset ${name} is not saved yet.`);
+      return;
+    }
+
+    const preset = JSON.parse(rawPreset) as BenchmarkPreset;
+    isApplyingPreset = true;
+    try {
+      applyBenchmarkPreset(preset);
+      params.activePreset = preset.name;
+      updatePerformancePanelPreset();
+      updateGuiDisplays();
+    } finally {
+      isApplyingPreset = false;
+    }
+  }
+
+  function applyBenchmarkPreset(preset: BenchmarkPreset) {
+    params.pointBudgetMP = preset.performance.pointBudgetMP;
+    params.maxNodesLoading = preset.performance.maxNodesLoading;
+    potree.pointBudget = Math.round(params.pointBudgetMP) * 1_000_000;
+    potree.maxNumNodesLoading = Math.round(params.maxNodesLoading);
+
+    params.orthographic = preset.camera.orthographic;
+    switchCamera(preset.camera.orthographic);
+    camera.near = preset.camera.near;
+    camera.far = preset.camera.far;
+    if (camera instanceof PerspectiveCamera) {
+      camera.fov = preset.camera.fov;
+    }
+    if (camera instanceof OrthographicCamera) {
+      camera.zoom = preset.camera.orthographicZoom;
+    }
+    camera.position.fromArray(preset.camera.position);
+    controls.target.fromArray(preset.camera.target);
+    camera.lookAt(controls.target);
+    camera.updateProjectionMatrix();
+    controls.update();
+
+    params.edlEnabled = preset.edl.enabled;
+    params.edlStrength = preset.edl.strength;
+    params.edlRadius = preset.edl.radius;
+    params.edlOpacity = preset.edl.opacity;
+    params.edlNeighbours = preset.edl.neighbours;
+    potreeRenderer.setEDL({
+      enabled: params.edlEnabled,
+      neighbourCount: params.edlNeighbours,
+      opacity: params.edlOpacity,
+      radius: params.edlRadius,
+      strength: params.edlStrength,
+    });
+
+    params.clipMode = preset.clipMode;
+    params.pointSize = preset.points.pointSize;
+    params.minPointSize = preset.points.minPointSize;
+    params.maxPointSize = preset.points.maxPointSize;
+    params.minNodePixelSize = preset.points.minNodePixelSize ?? 150;
+    params.sizeType = preset.points.sizeType;
+    params.pointShape = preset.points.pointShape;
+    params.pointColorType = preset.points.pointColorType;
+    params.showBoundingBox = preset.points.showBoundingBox;
+    applySettingsToAllPointClouds();
+  }
+
   // ---- gui ----
-  const gui = new GUI({ title: "Playground Controls" });
+  gui = new GUI({ title: "Playground Controls" });
+  controls.addEventListener("change", markPresetCustom);
 
   const localDatasetFolder = gui.addFolder("Local Dataset");
   localDatasetFolder
@@ -611,20 +788,32 @@ document.body.onload = () => {
     .name("Point Budget (MP)")
     .onChange((value: number) => {
       potree.pointBudget = Math.round(value) * 1_000_000;
+      markPresetCustom();
     });
   performanceFolder
     .add(params, "maxNodesLoading", 1, 12, 1)
     .name("Max Nodes Loading")
     .onChange((value: number) => {
       potree.maxNumNodesLoading = Math.round(value);
+      markPresetCustom();
     });
+  performanceFolder
+    .add(params, "activePreset")
+    .name("Active Preset")
+    .listen()
+    .disable();
+  performanceFolder.add(params, "savePreset1").name("Save Preset 1");
+  performanceFolder.add(params, "loadPreset1").name("Load Preset 1");
 
   // Camera folder
   const cameraFolder = gui.addFolder("Camera");
   cameraFolder
     .add(params, "orthographic")
     .name("Orthographic")
-    .onChange((v: boolean) => switchCamera(v));
+    .onChange((v: boolean) => {
+      switchCamera(v);
+      markPresetCustom();
+    });
 
   // EDL folder
   const edlFolder = gui.addFolder("EDL");
@@ -633,30 +822,35 @@ document.body.onload = () => {
     .name("Enabled")
     .onChange((v: boolean) => {
       potreeRenderer.setEDL({ enabled: v });
+      markPresetCustom();
     });
   edlFolder
     .add(params, "edlStrength", 0, 5, 0.1)
     .name("Strength")
     .onChange((v: number) => {
       potreeRenderer.setEDL({ enabled: params.edlEnabled, strength: v });
+      markPresetCustom();
     });
   edlFolder
     .add(params, "edlRadius", 0, 5, 0.1)
     .name("Radius")
     .onChange((v: number) => {
       potreeRenderer.setEDL({ enabled: params.edlEnabled, radius: v });
+      markPresetCustom();
     });
   edlFolder
     .add(params, "edlOpacity", 0, 1, 0.05)
     .name("Opacity")
     .onChange((v: number) => {
       potreeRenderer.setEDL({ enabled: params.edlEnabled, opacity: v });
+      markPresetCustom();
     });
   edlFolder
     .add(params, "edlNeighbours", 1, 16, 1)
     .name("Neighbours")
     .onChange((v: number) => {
       potreeRenderer.setEDL({ enabled: params.edlEnabled, neighbourCount: v });
+      markPresetCustom();
     });
   edlFolder.close();
 
@@ -668,6 +862,7 @@ document.body.onload = () => {
     .onChange((v: string) => {
       const mode = clipModeMap[v];
       for (const pco of pointClouds) pco.material.clipMode = mode;
+      markPresetCustom();
     });
 
   // Clip Plane sub-folder
@@ -708,18 +903,28 @@ document.body.onload = () => {
     .name("Size")
     .onChange((v: number) => {
       for (const pco of pointClouds) pco.material.size = v;
+      markPresetCustom();
     });
   pointsFolder
     .add(params, "minPointSize", 1, 10, 0.5)
     .name("Min Size")
     .onChange((v: number) => {
       for (const pco of pointClouds) pco.material.minSize = v;
+      markPresetCustom();
     });
   pointsFolder
     .add(params, "maxPointSize", 5, 100, 1)
     .name("Max Size")
     .onChange((v: number) => {
       for (const pco of pointClouds) pco.material.maxSize = v;
+      markPresetCustom();
+    });
+  pointsFolder
+    .add(params, "minNodePixelSize", 0, 500, 1)
+    .name("Min Node Pixel Size")
+    .onChange((v: number) => {
+      for (const pco of pointClouds) pco.minNodePixelSize = v;
+      markPresetCustom();
     });
   pointsFolder
     .add(params, "sizeType", ["Fixed", "Attenuated", "Adaptive"])
@@ -729,6 +934,7 @@ document.body.onload = () => {
         pco.material.pointSizeType =
           pointSizeTypeMap[v] ?? PointSizeType.ADAPTIVE;
       }
+      markPresetCustom();
     });
   pointsFolder
     .add(params, "pointShape", Object.keys(pointShapeMap))
@@ -737,20 +943,24 @@ document.body.onload = () => {
       for (const pco of pointClouds) {
         pco.material.shape = pointShapeMap[v] ?? PointShape.SQUARE;
       }
+      markPresetCustom();
     });
   pointsFolder
     .add(params, "pointColorType", Object.keys(pointColorTypeMap))
     .name("Color Type")
     .onChange((v: string) => {
       for (const pco of pointClouds) {
-        pco.material.pointColorType = pointColorTypeMap[v] ?? PointColorType.RGB;
+        pco.material.pointColorType =
+          pointColorTypeMap[v] ?? PointColorType.RGB;
       }
+      markPresetCustom();
     });
   pointsFolder
     .add(params, "showBoundingBox")
     .name("Bounding Box")
     .onChange((v: boolean) => {
       for (const pco of pointClouds) pco.showBoundingBox = v;
+      markPresetCustom();
     });
 
   // Interaction folder
@@ -771,26 +981,62 @@ document.body.onload = () => {
   renderer.autoClear = false;
 
   renderer.setAnimationLoop(() => {
+    const frameStart = performance.now();
     timer.update();
     stats.begin();
-    cube.rotation.y += 0.01;
-    potree.updatePointClouds(pointClouds, camera, renderer);
+
+    const updateStart = performance.now();
+    const visibilityResult = potree.updatePointClouds(
+      pointClouds,
+      camera,
+      renderer,
+    );
+    const updateMs = performance.now() - updateStart;
+
     controls.update();
 
     // autoClear is disabled to allow ViewHelper to overlay on top of the scene.
     // As a result, we must clear manually at the start of each frame.
     renderer.clear();
 
-    if (!params.edlEnabled) {
-      renderer.render(scene, camera);
-    } else {
-      potreeRenderer.render({ renderer, scene, camera, pointClouds });
+    const previousInfoAutoReset = renderer.info.autoReset;
+    renderer.info.autoReset = false;
+    renderer.info.reset();
+
+    const renderStart = performance.now();
+    const gpuTimerStarted = gpuTimer.begin();
+    try {
+      if (!params.edlEnabled) {
+        renderer.render(scene, camera);
+      } else {
+        potreeRenderer.render({ renderer, scene, camera, pointClouds });
+      }
+    } finally {
+      if (gpuTimerStarted) {
+        gpuTimer.end();
+      }
     }
+    const renderMs = performance.now() - renderStart;
+    const renderInfo = snapshotRendererInfo(renderer);
+    renderer.info.autoReset = previousInfoAutoReset;
 
     // Render ViewHelper
     viewHelper.render(renderer);
     if (viewHelper.animating) viewHelper.update(timer.getDelta());
     stats.end();
+    performancePanel.update({
+      camera,
+      edlEnabled: params.edlEnabled,
+      frameMs: performance.now() - frameStart,
+      gpuTiming: gpuTimer.snapshot(),
+      loadMetrics: loadMetrics.snapshot(),
+      pointClouds,
+      renderer,
+      renderInfo,
+      renderMs,
+      updateMs,
+      visibilityResult,
+    });
   });
 
   function updateSize() {
@@ -818,3 +1064,807 @@ document.body.onload = () => {
   // @ts-ignore
   document.body.onresize();
 };
+
+interface PerformancePanelUpdate {
+  camera: PerspectiveCamera | OrthographicCamera;
+  edlEnabled: boolean;
+  frameMs: number;
+  gpuTiming: GpuTimingSnapshot;
+  loadMetrics: LoadMetricsSnapshot;
+  pointClouds: PointCloudOctree[];
+  renderer: WebGLRenderer;
+  renderInfo: RenderInfoSnapshot;
+  renderMs: number;
+  updateMs: number;
+  visibilityResult: IVisibilityUpdateResult;
+}
+
+interface RenderInfoSnapshot {
+  memory: {
+    geometries: number;
+    textures: number;
+  };
+  render: {
+    calls: number;
+    points: number;
+    triangles: number;
+  };
+}
+
+interface GpuTimingSnapshot {
+  averageMs: number | null;
+  lastMs: number | null;
+  pending: number;
+  status: string;
+  supported: boolean;
+}
+
+type PerformanceRowKey =
+  | "fps"
+  | "activePreset"
+  | "sampleWindow"
+  | "rafMs"
+  | "cpuWorkMs"
+  | "waitMs"
+  | "loadStatus"
+  | "camera"
+  | "cameraPosition"
+  | "canvas"
+  | "pixelRatio"
+  | "jsHeap"
+  | "updateMs"
+  | "visiblePoints"
+  | "visibleNodes"
+  | "visibleGeometry"
+  | "nodeLoads"
+  | "loadingNodes"
+  | "pointBudget"
+  | "pointBudgetUse"
+  | "lruPoints"
+  | "lruNodes"
+  | "lruBudgetUse"
+  | "octreeReadMs"
+  | "hierarchyLoadMs"
+  | "hierarchyParseMs"
+  | "networkBytes"
+  | "networkEvents"
+  | "bytesPerFetch"
+  | "networkThroughput"
+  | "workerWaitMs"
+  | "decodeMs"
+  | "transferMs"
+  | "geometryMs"
+  | "decodedPoints"
+  | "decodeThroughput"
+  | "renderMs"
+  | "gpuTimeMs"
+  | "gpuTimeLastMs"
+  | "gpuTimerStatus"
+  | "submittedPoints"
+  | "drawCalls"
+  | "renderPoints"
+  | "renderTriangles"
+  | "gpuGeometries"
+  | "gpuTextures"
+  | "edl";
+
+interface LoadStageSummary {
+  count: number;
+  totalBytes: number;
+  totalMs: number;
+  totalPoints: number;
+}
+
+type LoadMetricsSnapshot = Record<PotreeLoadStage, LoadStageSummary>;
+
+interface BenchmarkPreset {
+  camera: {
+    far: number;
+    fov: number;
+    near: number;
+    orthographic: boolean;
+    orthographicZoom: number;
+    position: number[];
+    target: number[];
+  };
+  clipMode: string;
+  edl: {
+    enabled: boolean;
+    neighbours: number;
+    opacity: number;
+    radius: number;
+    strength: number;
+  };
+  name: string;
+  performance: {
+    maxNodesLoading: number;
+    pointBudgetMP: number;
+  };
+  points: {
+    maxPointSize: number;
+    minNodePixelSize?: number;
+    minPointSize: number;
+    pointColorType: string;
+    pointShape: string;
+    pointSize: number;
+    showBoundingBox: boolean;
+    sizeType: string;
+  };
+  savedAt: string;
+  version: 1;
+}
+
+interface FrameStatSample {
+  cpuWorkMs: number;
+  gpuMs: number | null;
+  rafMs: number;
+  renderMs: number;
+  updateMs: number;
+  waitMs: number;
+}
+
+interface MetricSummary {
+  avg: number;
+  max: number;
+  p95: number;
+}
+
+interface FrameStatSummary {
+  count: number;
+  cpuWorkMs: MetricSummary;
+  gpuMs: MetricSummary | null;
+  rafMs: MetricSummary;
+  renderMs: MetricSummary;
+  updateMs: MetricSummary;
+  waitMs: MetricSummary;
+}
+
+function createPerformancePanel() {
+  const sections = [
+    {
+      title: "Overall",
+      open: true,
+      rows: [
+        ["fps", "FPS avg"],
+        ["activePreset", "Preset"],
+        ["sampleWindow", "Sample window"],
+        ["rafMs", "rAF interval"],
+        ["cpuWorkMs", "CPU work"],
+        ["waitMs", "Wait / GPU"],
+        ["loadStatus", "Load status"],
+        ["camera", "Camera"],
+        ["cameraPosition", "Camera pos"],
+        ["canvas", "Canvas"],
+        ["pixelRatio", "Pixel ratio"],
+        ["jsHeap", "JS heap"],
+      ],
+    },
+    {
+      title: "LOD / Visibility",
+      open: true,
+      rows: [
+        ["updateMs", "Update"],
+        ["visiblePoints", "Visible points"],
+        ["visibleNodes", "Visible nodes"],
+        ["visibleGeometry", "Visible geometry"],
+        ["nodeLoads", "Node load queue"],
+        ["loadingNodes", "Loading nodes"],
+        ["pointBudget", "Point budget"],
+        ["pointBudgetUse", "Budget use"],
+        ["lruPoints", "LRU points"],
+        ["lruNodes", "LRU nodes"],
+        ["lruBudgetUse", "LRU / budget"],
+      ],
+    },
+    {
+      title: "Network / IO",
+      open: true,
+      rows: [
+        ["octreeReadMs", "Octree read avg"],
+        ["hierarchyLoadMs", "Hierarchy load avg"],
+        ["hierarchyParseMs", "Hierarchy parse avg"],
+        ["networkBytes", "Fetched bytes"],
+        ["networkEvents", "Fetch events"],
+        ["bytesPerFetch", "Bytes / fetch"],
+        ["networkThroughput", "Fetch throughput"],
+      ],
+    },
+    {
+      title: "Decode / CPU",
+      open: true,
+      rows: [
+        ["workerWaitMs", "Worker wait avg"],
+        ["decodeMs", "Decode avg"],
+        ["transferMs", "Transfer avg"],
+        ["geometryMs", "Geometry avg"],
+        ["decodedPoints", "Decoded points"],
+        ["decodeThroughput", "Decode throughput"],
+      ],
+    },
+    {
+      title: "GPU / Render",
+      open: true,
+      rows: [
+        ["renderMs", "CPU render submit"],
+        ["gpuTimeMs", "GPU time avg"],
+        ["gpuTimeLastMs", "GPU time last"],
+        ["gpuTimerStatus", "GPU timer"],
+        ["submittedPoints", "Submitted points est"],
+        ["drawCalls", "Draw calls"],
+        ["renderPoints", "Three.js points"],
+        ["renderTriangles", "Triangles"],
+        ["gpuGeometries", "GPU geometries"],
+        ["gpuTextures", "GPU textures"],
+        ["edl", "EDL"],
+      ],
+    },
+  ] as const;
+
+  const dom = document.createElement("section");
+  dom.className = "performance-panel";
+  dom.setAttribute("aria-label", "Performance metrics");
+
+  const header = document.createElement("div");
+  header.className = "performance-panel__header";
+  dom.appendChild(header);
+
+  const title = document.createElement("h2");
+  title.textContent = "Performance";
+  header.appendChild(title);
+
+  const copyButton = document.createElement("button");
+  copyButton.className = "performance-panel__copy";
+  copyButton.type = "button";
+  copyButton.textContent = "Copy";
+  copyButton.title = "Copy performance metrics";
+  copyButton.setAttribute("aria-label", "Copy performance metrics");
+  header.appendChild(copyButton);
+
+  const values = new Map<PerformanceRowKey, HTMLElement>();
+  let activePreset = "custom";
+  for (const section of sections) {
+    const details = document.createElement("details");
+    details.className = "performance-panel__section";
+    details.open = section.open;
+
+    const summary = document.createElement("summary");
+    summary.textContent = section.title;
+    details.appendChild(summary);
+
+    const list = document.createElement("dl");
+    details.appendChild(list);
+
+    for (const [key, label] of section.rows) {
+      const term = document.createElement("dt");
+      term.textContent = label;
+      const description = document.createElement("dd");
+      description.textContent = "-";
+      values.set(key, description);
+      list.append(term, description);
+    }
+
+    dom.appendChild(details);
+  }
+
+  let lastPanelUpdate = 0;
+  let lastFrameAt = performance.now();
+  const frameStats = createFrameStats(120);
+
+  copyButton.addEventListener("click", () => {
+    void copyPanelText(buildPanelText());
+  });
+
+  function update(metrics: PerformancePanelUpdate) {
+    const now = performance.now();
+    const instantRafMs = Math.max(now - lastFrameAt, 0.001);
+    lastFrameAt = now;
+    const waitMs = Math.max(instantRafMs - metrics.frameMs, 0);
+    frameStats.add({
+      cpuWorkMs: metrics.frameMs,
+      gpuMs: metrics.gpuTiming.lastMs,
+      rafMs: instantRafMs,
+      renderMs: metrics.renderMs,
+      updateMs: metrics.updateMs,
+      waitMs,
+    });
+
+    if (now - lastPanelUpdate < 250) {
+      return;
+    }
+    lastPanelUpdate = now;
+    const frameSummary = frameStats.summary();
+
+    const { pointClouds, renderer, renderInfo, visibilityResult } = metrics;
+    const rendererSize = renderer.getSize(new Vector2());
+    const visibleGeometryCount = sumPointCloudValue(
+      pointClouds,
+      (pointCloud) => pointCloud.visibleGeometry.length,
+    );
+    const loadingNodeCount = sumPointCloudValue(
+      pointClouds,
+      (pointCloud) => pointCloud.pcoGeometry.numNodesLoading,
+    );
+    const maxLoadingNodeCount = sumPointCloudValue(
+      pointClouds,
+      (pointCloud) => pointCloud.pcoGeometry.maxNumNodesLoading,
+    );
+    const pointBudget = pointClouds[0]?.potree.pointBudget ?? 0;
+    const lru = pointClouds[0]?.potree.lru;
+    const heap = getHeapUsage();
+    const octreeRead = metrics.loadMetrics["octree-slice-read"];
+    const hierarchyLoad = metrics.loadMetrics["hierarchy-load"];
+    const hierarchyParse = metrics.loadMetrics["hierarchy-parse"];
+    const workerWait = metrics.loadMetrics["worker-wait"];
+    const decode = metrics.loadMetrics["decompress-attribute-decode"];
+    const transfer = metrics.loadMetrics["worker-transfer"];
+    const geometry = metrics.loadMetrics["geometry-creation"];
+    const networkBytes = octreeRead.totalBytes + hierarchyLoad.totalBytes;
+    const networkEvents = octreeRead.count + hierarchyLoad.count;
+    const networkMs = octreeRead.totalMs + hierarchyLoad.totalMs;
+    const pointBudgetUse =
+      pointBudget > 0 ? visibilityResult.numVisiblePoints / pointBudget : 0;
+    const lruBudgetUse =
+      pointBudget > 0 && lru ? lru.numPoints / pointBudget : 0;
+
+    setValue("fps", formatNumber(1000 / frameSummary.rafMs.avg, 1));
+    setValue("activePreset", activePreset);
+    setValue("sampleWindow", `${formatInteger(frameSummary.count)} frames`);
+    setValue("rafMs", formatMetricMs(frameSummary.rafMs));
+    setValue("cpuWorkMs", formatMetricMs(frameSummary.cpuWorkMs));
+    setValue("waitMs", formatMetricMs(frameSummary.waitMs));
+    setValue("updateMs", formatMetricMs(frameSummary.updateMs));
+    setValue("renderMs", formatMetricMs(frameSummary.renderMs));
+    setValue("gpuTimeMs", formatMetricMs(frameSummary.gpuMs));
+    setValue("gpuTimeLastMs", formatOptionalMs(metrics.gpuTiming.lastMs));
+    setValue(
+      "gpuTimerStatus",
+      `${metrics.gpuTiming.status}${
+        metrics.gpuTiming.pending > 0 ? ` (${metrics.gpuTiming.pending})` : ""
+      }`,
+    );
+    setValue(
+      "submittedPoints",
+      formatInteger(visibilityResult.numVisiblePoints),
+    );
+    setValue("drawCalls", formatInteger(renderInfo.render.calls));
+    setValue("renderPoints", formatInteger(renderInfo.render.points));
+    setValue("renderTriangles", formatInteger(renderInfo.render.triangles));
+    setValue("visiblePoints", formatInteger(visibilityResult.numVisiblePoints));
+    setValue(
+      "visibleNodes",
+      formatInteger(visibilityResult.visibleNodes.length),
+    );
+    setValue("visibleGeometry", formatInteger(visibleGeometryCount));
+    setValue(
+      "nodeLoads",
+      formatInteger(visibilityResult.nodeLoadPromises.length),
+    );
+    setValue(
+      "loadingNodes",
+      `${formatInteger(loadingNodeCount)} / ${formatInteger(maxLoadingNodeCount)}`,
+    );
+    setValue("pointBudget", formatInteger(pointBudget));
+    setValue("pointBudgetUse", formatPercent(pointBudgetUse));
+    setValue("lruPoints", lru ? formatInteger(lru.numPoints) : "-");
+    setValue("lruNodes", lru ? formatInteger(lru.size) : "-");
+    setValue("lruBudgetUse", lru ? formatPercent(lruBudgetUse) : "-");
+    setValue("gpuGeometries", formatInteger(renderInfo.memory.geometries));
+    setValue("gpuTextures", formatInteger(renderInfo.memory.textures));
+    setValue("jsHeap", heap);
+    setValue("octreeReadMs", formatAverageMs(octreeRead));
+    setValue("hierarchyLoadMs", formatAverageMs(hierarchyLoad));
+    setValue("hierarchyParseMs", formatAverageMs(hierarchyParse));
+    setValue("networkBytes", formatBytes(networkBytes));
+    setValue("networkEvents", formatInteger(networkEvents));
+    setValue(
+      "bytesPerFetch",
+      networkEvents > 0 ? formatBytes(networkBytes / networkEvents) : "-",
+    );
+    setValue(
+      "networkThroughput",
+      formatByteThroughput(networkBytes, networkMs),
+    );
+    setValue("workerWaitMs", formatAverageMs(workerWait));
+    setValue("decodeMs", formatAverageMs(decode));
+    setValue("transferMs", formatAverageMs(transfer));
+    setValue("geometryMs", formatAverageMs(geometry));
+    setValue("decodedPoints", formatInteger(decode.totalPoints));
+    setValue(
+      "decodeThroughput",
+      formatPointThroughput(decode.totalPoints, decode.totalMs),
+    );
+    setValue("pixelRatio", formatNumber(renderer.getPixelRatio(), 2));
+    setValue(
+      "canvas",
+      `${formatInteger(rendererSize.width)} x ${formatInteger(rendererSize.height)}`,
+    );
+    setValue("camera", metrics.camera.type);
+    setValue(
+      "cameraPosition",
+      [
+        metrics.camera.position.x,
+        metrics.camera.position.y,
+        metrics.camera.position.z,
+      ]
+        .map((value) => formatNumber(value, 1))
+        .join(", "),
+    );
+    setValue("edl", metrics.edlEnabled ? "enabled" : "disabled");
+    setValue(
+      "loadStatus",
+      [
+        visibilityResult.exceededMaxLoadsToGPU ? "GPU queue" : null,
+        visibilityResult.nodeLoadFailed ? "load failed" : null,
+      ]
+        .filter(Boolean)
+        .join(", ") || "ok",
+    );
+  }
+
+  function setValue(key: PerformanceRowKey, value: string) {
+    values.get(key)!.textContent = value;
+  }
+
+  function buildPanelText() {
+    const lines = ["Performance", `Captured: ${new Date().toISOString()}`, ""];
+
+    for (const section of sections) {
+      lines.push(`[${section.title}]`);
+      for (const [key, label] of section.rows) {
+        lines.push(`${label}: ${values.get(key)?.textContent ?? "-"}`);
+      }
+      lines.push("");
+    }
+
+    return lines.join("\n").trimEnd();
+  }
+
+  async function copyPanelText(text: string) {
+    const originalLabel = copyButton.textContent ?? "Copy";
+
+    try {
+      await copyTextToClipboard(text);
+      copyButton.textContent = "Copied";
+    } catch (error) {
+      console.error("Failed to copy performance metrics", error);
+      copyButton.textContent = "Failed";
+    }
+
+    window.setTimeout(() => {
+      copyButton.textContent = originalLabel;
+    }, 1200);
+  }
+
+  return {
+    dom,
+    setPreset(name: string) {
+      activePreset = name;
+      setValue("activePreset", activePreset);
+    },
+    update,
+  };
+}
+
+function createLoadMetrics() {
+  const stages: PotreeLoadStage[] = [
+    "hierarchy-load",
+    "hierarchy-parse",
+    "octree-slice-read",
+    "worker-wait",
+    "decompress-attribute-decode",
+    "worker-transfer",
+    "geometry-creation",
+  ];
+  const stats = Object.fromEntries(
+    stages.map((stage) => [
+      stage,
+      {
+        count: 0,
+        totalBytes: 0,
+        totalMs: 0,
+        totalPoints: 0,
+      },
+    ]),
+  ) as LoadMetricsSnapshot;
+
+  return {
+    instrumentation: {
+      onStage(measurement: PotreeLoadMeasurement) {
+        const stage = stats[measurement.stage];
+        stage.count++;
+        stage.totalMs += measurement.durationMs;
+        stage.totalBytes += measurement.byteSize ?? 0;
+        stage.totalPoints += measurement.numPoints ?? 0;
+      },
+    },
+    reset() {
+      for (const stage of stages) {
+        stats[stage].count = 0;
+        stats[stage].totalBytes = 0;
+        stats[stage].totalMs = 0;
+        stats[stage].totalPoints = 0;
+      }
+    },
+    snapshot(): LoadMetricsSnapshot {
+      return Object.fromEntries(
+        stages.map((stage) => [stage, { ...stats[stage] }]),
+      ) as LoadMetricsSnapshot;
+    },
+  };
+}
+
+function snapshotRendererInfo(renderer: WebGLRenderer): RenderInfoSnapshot {
+  return {
+    memory: {
+      geometries: renderer.info.memory.geometries,
+      textures: renderer.info.memory.textures,
+    },
+    render: {
+      calls: renderer.info.render.calls,
+      points: renderer.info.render.points,
+      triangles: renderer.info.render.triangles,
+    },
+  };
+}
+
+function createFrameStats(maxSamples: number) {
+  const samples: FrameStatSample[] = [];
+
+  return {
+    add(sample: FrameStatSample) {
+      samples.push(sample);
+      if (samples.length > maxSamples) {
+        samples.shift();
+      }
+    },
+    summary(): FrameStatSummary {
+      return {
+        count: samples.length,
+        cpuWorkMs: summarizeNumbers(samples.map((sample) => sample.cpuWorkMs)),
+        gpuMs: summarizeNullableNumbers(samples.map((sample) => sample.gpuMs)),
+        rafMs: summarizeNumbers(samples.map((sample) => sample.rafMs)),
+        renderMs: summarizeNumbers(samples.map((sample) => sample.renderMs)),
+        updateMs: summarizeNumbers(samples.map((sample) => sample.updateMs)),
+        waitMs: summarizeNumbers(samples.map((sample) => sample.waitMs)),
+      };
+    },
+  };
+}
+
+function summarizeNullableNumbers(values: Array<number | null>) {
+  const numbers = values.filter((value): value is number => value !== null);
+  return numbers.length === 0 ? null : summarizeNumbers(numbers);
+}
+
+function summarizeNumbers(values: number[]): MetricSummary {
+  if (values.length === 0) {
+    return { avg: 0, max: 0, p95: 0 };
+  }
+
+  const sorted = [...values].sort((a, b) => a - b);
+  const total = sorted.reduce((sum, value) => sum + value, 0);
+  const p95Index = Math.min(
+    sorted.length - 1,
+    Math.ceil(sorted.length * 0.95) - 1,
+  );
+
+  return {
+    avg: total / sorted.length,
+    max: sorted[sorted.length - 1],
+    p95: sorted[p95Index],
+  };
+}
+
+interface DisjointTimerQueryWebGL2 {
+  GPU_DISJOINT_EXT: number;
+  TIME_ELAPSED_EXT: number;
+}
+
+function createGpuTimer(renderer: WebGLRenderer) {
+  const gl = renderer.getContext();
+  const isWebGL2 =
+    typeof WebGL2RenderingContext !== "undefined" &&
+    gl instanceof WebGL2RenderingContext;
+  const ext = isWebGL2
+    ? (gl.getExtension(
+        "EXT_disjoint_timer_query_webgl2",
+      ) as DisjointTimerQueryWebGL2 | null)
+    : null;
+  const supported = isWebGL2 && ext !== null;
+  const pending: WebGLQuery[] = [];
+  let active: WebGLQuery | null = null;
+  let lastMs: number | null = null;
+  let averageMs: number | null = null;
+  let status = supported ? "pending" : "unsupported";
+
+  function poll() {
+    if (!supported) {
+      return;
+    }
+
+    const disjoint = gl.getParameter(ext.GPU_DISJOINT_EXT) === true;
+    for (let i = 0; i < pending.length; ) {
+      const query = pending[i];
+      const available = gl.getQueryParameter(query, gl.QUERY_RESULT_AVAILABLE);
+      if (!available) {
+        i++;
+        continue;
+      }
+
+      pending.splice(i, 1);
+      if (disjoint) {
+        gl.deleteQuery(query);
+        status = "disjoint";
+        continue;
+      }
+
+      const elapsedNs = gl.getQueryParameter(query, gl.QUERY_RESULT) as number;
+      gl.deleteQuery(query);
+      lastMs = elapsedNs / 1_000_000;
+      averageMs = averageMs === null ? lastMs : averageMs * 0.9 + lastMs * 0.1;
+      status = "ok";
+    }
+  }
+
+  return {
+    begin() {
+      poll();
+      if (!supported || active !== null) {
+        return false;
+      }
+
+      active = gl.createQuery();
+      if (active === null) {
+        status = "unavailable";
+        return false;
+      }
+
+      gl.beginQuery(ext.TIME_ELAPSED_EXT, active);
+      return true;
+    },
+    end() {
+      if (!supported || active === null) {
+        return;
+      }
+
+      gl.endQuery(ext.TIME_ELAPSED_EXT);
+      pending.push(active);
+      active = null;
+    },
+    snapshot(): GpuTimingSnapshot {
+      poll();
+      return {
+        averageMs,
+        lastMs,
+        pending: pending.length + (active === null ? 0 : 1),
+        status,
+        supported,
+      };
+    },
+  };
+}
+
+function sumPointCloudValue(
+  pointClouds: PointCloudOctree[],
+  getValue: (pointCloud: PointCloudOctree) => number,
+) {
+  return pointClouds.reduce(
+    (total, pointCloud) => total + getValue(pointCloud),
+    0,
+  );
+}
+
+function formatInteger(value: number) {
+  return Math.round(value).toLocaleString("en-US");
+}
+
+function formatNumber(value: number, maximumFractionDigits: number) {
+  return value.toLocaleString("en-US", {
+    maximumFractionDigits,
+    minimumFractionDigits: maximumFractionDigits,
+  });
+}
+
+function formatPercent(value: number) {
+  return `${formatNumber(value * 100, 1)}%`;
+}
+
+function formatAverageMs(summary: LoadStageSummary) {
+  if (summary.count === 0) {
+    return "-";
+  }
+
+  return `${formatNumber(summary.totalMs / summary.count, 2)} ms`;
+}
+
+function formatMetricMs(summary: MetricSummary | null) {
+  if (summary === null) {
+    return "-";
+  }
+
+  return `${formatNumber(summary.avg, 2)} / ${formatNumber(
+    summary.p95,
+    2,
+  )} / ${formatNumber(summary.max, 2)} ms`;
+}
+
+function formatOptionalMs(value: number | null) {
+  return value === null ? "-" : `${formatNumber(value, 2)} ms`;
+}
+
+function formatBytes(bytes: number) {
+  if (bytes === 0) {
+    return "-";
+  }
+
+  if (bytes < 1024) {
+    return `${formatInteger(bytes)} B`;
+  }
+
+  if (bytes < 1024 * 1024) {
+    return `${formatNumber(bytes / 1024, 1)} KB`;
+  }
+
+  return `${formatNumber(bytes / 1024 / 1024, 1)} MB`;
+}
+
+function formatByteThroughput(bytes: number, durationMs: number) {
+  if (bytes === 0 || durationMs <= 0) {
+    return "-";
+  }
+
+  return `${formatBytes(bytes / (durationMs / 1000))}/s`;
+}
+
+function formatPointThroughput(points: number, durationMs: number) {
+  if (points === 0 || durationMs <= 0) {
+    return "-";
+  }
+
+  return `${formatInteger(points / (durationMs / 1000))} pts/s`;
+}
+
+async function copyTextToClipboard(text: string) {
+  if (navigator.clipboard) {
+    await navigator.clipboard.writeText(text);
+    return;
+  }
+
+  const textarea = document.createElement("textarea");
+  textarea.value = text;
+  textarea.setAttribute("readonly", "true");
+  textarea.style.position = "fixed";
+  textarea.style.top = "-9999px";
+  textarea.style.left = "-9999px";
+  document.body.appendChild(textarea);
+  textarea.select();
+
+  try {
+    document.execCommand("copy");
+  } finally {
+    document.body.removeChild(textarea);
+  }
+}
+
+function getHeapUsage() {
+  const memory = (
+    performance as Performance & {
+      memory?: {
+        totalJSHeapSize: number;
+        usedJSHeapSize: number;
+      };
+    }
+  ).memory;
+
+  if (!memory) {
+    return "-";
+  }
+
+  return `${formatMegabytes(memory.usedJSHeapSize)} / ${formatMegabytes(
+    memory.totalJSHeapSize,
+  )}`;
+}
+
+function formatMegabytes(bytes: number) {
+  return `${formatNumber(bytes / 1024 / 1024, 1)} MB`;
+}

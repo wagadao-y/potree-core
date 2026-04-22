@@ -24,3 +24,119 @@ body {
   top: auto !important;
   z-index: 20;
 }
+
+.performance-panel {
+  position: fixed;
+  top: 10px;
+  left: 10px;
+  z-index: 20;
+  box-sizing: border-box;
+  width: min(340px, calc(100vw - 20px));
+  max-height: calc(100vh - 20px);
+  overflow: auto;
+  padding: 8px 10px 10px;
+  color: #d8e0e8;
+  background: rgb(10 13 18 / 82%);
+  border: 1px solid rgb(210 230 255 / 16%);
+  border-radius: 6px;
+  font-family:
+    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
+    "Courier New", monospace;
+  font-size: 12px;
+  line-height: 1.35;
+  pointer-events: auto;
+  text-shadow: 0 1px 1px rgb(0 0 0 / 55%);
+}
+
+.performance-panel h2 {
+  margin: 0;
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0;
+}
+
+.performance-panel__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 0 0 6px;
+}
+
+.performance-panel__copy {
+  flex: 0 0 auto;
+  min-width: 42px;
+  padding: 2px 6px;
+  color: #d8e0e8;
+  background: rgb(210 230 255 / 10%);
+  border: 1px solid rgb(210 230 255 / 22%);
+  border-radius: 4px;
+  font: inherit;
+  font-size: 10px;
+  line-height: 1.2;
+  cursor: pointer;
+}
+
+.performance-panel__copy:hover {
+  background: rgb(210 230 255 / 18%);
+}
+
+.performance-panel__copy:focus-visible {
+  outline: 1px solid #d8e0e8;
+  outline-offset: 2px;
+}
+
+.performance-panel__section {
+  border-top: 1px solid rgb(210 230 255 / 12%);
+}
+
+.performance-panel__section:first-of-type {
+  border-top: 0;
+}
+
+.performance-panel__section summary {
+  display: block;
+  padding: 5px 0;
+  color: #ffffff;
+  font-size: 10px;
+  font-weight: 700;
+  cursor: pointer;
+  user-select: none;
+}
+
+.performance-panel__section summary::-webkit-details-marker {
+  display: none;
+}
+
+.performance-panel__section summary::before {
+  display: inline-block;
+  width: 10px;
+  color: #8fa3b8;
+  content: ">";
+}
+
+.performance-panel__section[open] summary::before {
+  content: "v";
+}
+
+.performance-panel dl {
+  display: grid;
+  grid-template-columns: minmax(110px, 1fr) minmax(150px, 1.6fr);
+  gap: 2px 8px;
+  margin: 0 0 6px;
+}
+
+.performance-panel dt {
+  min-width: 0;
+  color: #8fa3b8;
+  white-space: nowrap;
+}
+
+.performance-panel dd {
+  min-width: 0;
+  margin: 0;
+  color: #f2f6fa;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
