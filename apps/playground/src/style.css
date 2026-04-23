@@ -49,6 +49,7 @@ body {
 }
 
 .performance-panel h2 {
+  flex: 0 0 auto;
   margin: 0;
   color: #ffffff;
   font-size: 11px;
@@ -59,9 +60,17 @@ body {
 .performance-panel__header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: 8px;
   margin: 0 0 6px;
+}
+
+.performance-panel__metric-order {
+  flex: 1 1 auto;
+  min-width: 0;
+  color: #8fa3b8;
+  font-size: 10px;
+  text-align: right;
+  white-space: nowrap;
 }
 
 .performance-panel__copy {

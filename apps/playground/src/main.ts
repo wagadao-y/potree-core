@@ -162,7 +162,7 @@ document.body.onload = () => {
     pointSize: 0.1,
     minPointSize: 2.0,
     maxPointSize: 50.0,
-    minNodePixelSize: 150,
+    minNodePixelSize: 50,
     sizeType: "Adaptive",
     pointShape: "Square",
     pointColorType: "RGB",
@@ -760,7 +760,7 @@ document.body.onload = () => {
     params.pointSize = preset.points.pointSize;
     params.minPointSize = preset.points.minPointSize;
     params.maxPointSize = preset.points.maxPointSize;
-    params.minNodePixelSize = preset.points.minNodePixelSize ?? 150;
+    params.minNodePixelSize = preset.points.minNodePixelSize ?? 50;
     params.sizeType = preset.points.sizeType;
     params.pointShape = preset.points.pointShape;
     params.pointColorType = preset.points.pointColorType;
@@ -1034,6 +1034,10 @@ document.body.onload = () => {
       renderer,
       renderInfo,
       renderMs,
+      pointSize: params.pointSize,
+      minPointSize: params.minPointSize,
+      maxPointSize: params.maxPointSize,
+      sizeType: params.sizeType,
       updateMs,
       visibilityResult,
     });
@@ -1075,6 +1079,10 @@ interface PerformancePanelUpdate {
   renderer: WebGLRenderer;
   renderInfo: RenderInfoSnapshot;
   renderMs: number;
+  pointSize: number;
+  minPointSize: number;
+  maxPointSize: number;
+  sizeType: string;
   updateMs: number;
   visibilityResult: IVisibilityUpdateResult;
 }
@@ -1102,6 +1110,10 @@ interface GpuTimingSnapshot {
 type PerformanceRowKey =
   | "fps"
   | "activePreset"
+  | "sizeType"
+  | "pointSize"
+  | "minPointSize"
+  | "maxPointSize"
   | "sampleWindow"
   | "rafMs"
   | "cpuWorkMs"
@@ -1227,6 +1239,10 @@ function createPerformancePanel() {
       rows: [
         ["fps", "FPS avg"],
         ["activePreset", "Preset"],
+        ["sizeType", "Size Type"],
+        ["pointSize", "Point size"],
+        ["minPointSize", "Min point size"],
+        ["maxPointSize", "Max point size"],
         ["sampleWindow", "Sample window"],
         ["rafMs", "rAF interval"],
         ["cpuWorkMs", "CPU work"],
@@ -1311,6 +1327,11 @@ function createPerformancePanel() {
   const title = document.createElement("h2");
   title.textContent = "Performance";
   header.appendChild(title);
+
+  const metricOrder = document.createElement("span");
+  metricOrder.className = "performance-panel__metric-order";
+  metricOrder.textContent = "avg / p95 / max";
+  header.appendChild(metricOrder);
 
   const copyButton = document.createElement("button");
   copyButton.className = "performance-panel__copy";
@@ -1408,6 +1429,10 @@ function createPerformancePanel() {
 
     setValue("fps", formatNumber(1000 / frameSummary.rafMs.avg, 1));
     setValue("activePreset", activePreset);
+    setValue("sizeType", metrics.sizeType);
+    setValue("pointSize", formatNumber(metrics.pointSize, 2));
+    setValue("minPointSize", formatNumber(metrics.minPointSize, 2));
+    setValue("maxPointSize", formatNumber(metrics.maxPointSize, 2));
     setValue("sampleWindow", `${formatInteger(frameSummary.count)} frames`);
     setValue("rafMs", formatMetricMs(frameSummary.rafMs));
     setValue("cpuWorkMs", formatMetricMs(frameSummary.cpuWorkMs));
@@ -1506,7 +1531,12 @@ function createPerformancePanel() {
   }
 
   function buildPanelText() {
-    const lines = ["Performance", `Captured: ${new Date().toISOString()}`, ""];
+    const lines = [
+      "Performance",
+      `Captured: ${new Date().toISOString()}`,
+      "Order: avg / p95 / max",
+      "",
+    ];
 
     for (const section of sections) {
       lines.push(`[${section.title}]`);
