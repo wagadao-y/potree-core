@@ -188,6 +188,10 @@ export class Potree implements IPotree {
 
     const visibleNodes: PointCloudOctreeNode[] = [];
     const unloadedGeometry: PointCloudOctreeGeometryNode[] = [];
+    const densityLODStats = {
+      culledNodes: 0,
+      culledPoints: 0,
+    };
 
     // calculate object space frustum and cam pos and setup priority queue
     const { frustums, cameraPositions, priorityQueue } =
@@ -269,6 +273,7 @@ export class Potree implements IPotree {
         cameraPositions[pointCloudIndex],
         camera,
         halfHeight,
+        densityLODStats,
       );
     } // end priority queue loop
 
@@ -284,6 +289,8 @@ export class Potree implements IPotree {
     return {
       visibleNodes: visibleNodes,
       numVisiblePoints: numVisiblePoints,
+      densityCulledNodes: densityLODStats.culledNodes,
+      densityCulledPoints: densityLODStats.culledPoints,
       exceededMaxLoadsToGPU: exceededMaxLoadsToGPU,
       nodeLoadFailed: nodeLoadFailed,
       nodeLoadPromises: nodeLoadPromises,
@@ -320,6 +327,7 @@ export class Potree implements IPotree {
     cameraPosition: Vector3,
     camera: Camera,
     halfHeight: number,
+    densityLODStats: { culledNodes: number; culledPoints: number },
   ): void {
     const children = node.children;
     for (let i = 0; i < children.length; i++) {
@@ -358,6 +366,16 @@ export class Potree implements IPotree {
       // Don't add the node if it'll be too small on the screen.
       if (screenPixelRadius < pointCloud.minNodePixelSize) {
         continue;
+      }
+
+      if (pointCloud.screenSpaceDensityLODEnabled) {
+        const projectedArea = Math.PI * screenPixelRadius * screenPixelRadius;
+        const pointsPerPixel = child.numPoints / Math.max(projectedArea, 1);
+        if (pointsPerPixel > pointCloud.maxPointsPerPixel) {
+          densityLODStats.culledNodes++;
+          densityLODStats.culledPoints += child.numPoints;
+          continue;
+        }
       }
 
       // Nodes which are larger will have priority in loading/displaying.

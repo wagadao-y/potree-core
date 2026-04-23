@@ -82,6 +82,16 @@ export class PointCloudOctree extends PointCloudTree {
   public minNodePixelSize: number = DEFAULT_MIN_NODE_PIXEL_SIZE;
 
   /**
+   * If enabled, child LOD nodes that are already too dense in screen space are not expanded.
+   */
+  public screenSpaceDensityLODEnabled: boolean = false;
+
+  /**
+   * Maximum number of points per projected pixel before child LOD expansion stops.
+   */
+  public maxPointsPerPixel: number = 1;
+
+  /**
    * The root node of the point cloud octree.
    */
   public root: IPointCloudTreeNode | null = null;

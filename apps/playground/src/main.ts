@@ -163,6 +163,8 @@ document.body.onload = () => {
     minPointSize: 2.0,
     maxPointSize: 50.0,
     minNodePixelSize: 50,
+    screenSpaceDensityLODEnabled: false,
+    maxPointsPerPixel: 1.0,
     sizeType: "Adaptive",
     pointShape: "Square",
     pointColorType: "RGB",
@@ -327,6 +329,9 @@ document.body.onload = () => {
     pointCloud.material.inputColorEncoding = 1;
     pointCloud.material.outputColorEncoding = 1;
     pointCloud.minNodePixelSize = params.minNodePixelSize;
+    pointCloud.screenSpaceDensityLODEnabled =
+      params.screenSpaceDensityLODEnabled;
+    pointCloud.maxPointsPerPixel = params.maxPointsPerPixel;
     pointCloud.showBoundingBox = params.showBoundingBox;
   }
 
@@ -681,11 +686,13 @@ document.body.onload = () => {
       },
       points: {
         maxPointSize: params.maxPointSize,
+        maxPointsPerPixel: params.maxPointsPerPixel,
         minNodePixelSize: params.minNodePixelSize,
         minPointSize: params.minPointSize,
         pointColorType: params.pointColorType,
         pointShape: params.pointShape,
         pointSize: params.pointSize,
+        screenSpaceDensityLODEnabled: params.screenSpaceDensityLODEnabled,
         showBoundingBox: params.showBoundingBox,
         sizeType: params.sizeType,
       },
@@ -761,6 +768,9 @@ document.body.onload = () => {
     params.minPointSize = preset.points.minPointSize;
     params.maxPointSize = preset.points.maxPointSize;
     params.minNodePixelSize = preset.points.minNodePixelSize ?? 50;
+    params.screenSpaceDensityLODEnabled =
+      preset.points.screenSpaceDensityLODEnabled ?? false;
+    params.maxPointsPerPixel = preset.points.maxPointsPerPixel ?? 1.0;
     params.sizeType = preset.points.sizeType;
     params.pointShape = preset.points.pointShape;
     params.pointColorType = preset.points.pointColorType;
@@ -924,6 +934,20 @@ document.body.onload = () => {
     .name("Min Node Pixel Size")
     .onChange((v: number) => {
       for (const pco of pointClouds) pco.minNodePixelSize = v;
+      markPresetCustom();
+    });
+  pointsFolder
+    .add(params, "screenSpaceDensityLODEnabled")
+    .name("Screen Density LOD")
+    .onChange((v: boolean) => {
+      for (const pco of pointClouds) pco.screenSpaceDensityLODEnabled = v;
+      markPresetCustom();
+    });
+  pointsFolder
+    .add(params, "maxPointsPerPixel", 0.1, 16, 0.1)
+    .name("Max Points / Pixel")
+    .onChange((v: number) => {
+      for (const pco of pointClouds) pco.maxPointsPerPixel = v;
       markPresetCustom();
     });
   pointsFolder
@@ -1128,6 +1152,9 @@ type PerformanceRowKey =
   | "visiblePoints"
   | "visibleNodes"
   | "visibleGeometry"
+  | "densityLOD"
+  | "densityCulledNodes"
+  | "densityCulledPoints"
   | "nodeLoads"
   | "loadingNodes"
   | "pointBudget"
@@ -1194,11 +1221,13 @@ interface BenchmarkPreset {
   };
   points: {
     maxPointSize: number;
+    maxPointsPerPixel?: number;
     minNodePixelSize?: number;
     minPointSize: number;
     pointColorType: string;
     pointShape: string;
     pointSize: number;
+    screenSpaceDensityLODEnabled?: boolean;
     showBoundingBox: boolean;
     sizeType: string;
   };
@@ -1263,6 +1292,9 @@ function createPerformancePanel() {
         ["visiblePoints", "Visible points"],
         ["visibleNodes", "Visible nodes"],
         ["visibleGeometry", "Visible geometry"],
+        ["densityLOD", "Density LOD"],
+        ["densityCulledNodes", "Density culled nodes"],
+        ["densityCulledPoints", "Density culled points"],
         ["nodeLoads", "Node load queue"],
         ["loadingNodes", "Loading nodes"],
         ["pointBudget", "Point budget"],
@@ -1460,6 +1492,27 @@ function createPerformancePanel() {
       formatInteger(visibilityResult.visibleNodes.length),
     );
     setValue("visibleGeometry", formatInteger(visibleGeometryCount));
+    const densityLODEnabled = metrics.pointClouds.some(
+      (pointCloud) => pointCloud.screenSpaceDensityLODEnabled,
+    );
+    const maxPointsPerPixel = metrics.pointClouds.reduce(
+      (max, pointCloud) => Math.max(max, pointCloud.maxPointsPerPixel),
+      0,
+    );
+    setValue(
+      "densityLOD",
+      densityLODEnabled
+        ? `enabled (${formatNumber(maxPointsPerPixel, 1)} pts/px)`
+        : "disabled",
+    );
+    setValue(
+      "densityCulledNodes",
+      formatInteger(visibilityResult.densityCulledNodes),
+    );
+    setValue(
+      "densityCulledPoints",
+      formatInteger(visibilityResult.densityCulledPoints),
+    );
     setValue(
       "nodeLoads",
       formatInteger(visibilityResult.nodeLoadPromises.length),

@@ -30,6 +30,8 @@ export interface IPointCloudTreeNode {
 export interface IVisibilityUpdateResult {
   visibleNodes: IPointCloudTreeNode[];
   numVisiblePoints: number;
+  densityCulledNodes: number;
+  densityCulledPoints: number;
 
   /**
    * True when a node has been loaded but was not added to the scene yet.
