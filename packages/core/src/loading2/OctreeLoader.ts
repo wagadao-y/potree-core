@@ -14,6 +14,31 @@ import {
 import type { RequestManager } from "./RequestManager";
 import { WorkerPool, WorkerType } from "./WorkerPool";
 
+const MAX_MERGED_OCTREE_RANGE_BYTES = BigInt(2 * 1024 * 1024);
+const MAX_MERGED_OCTREE_RANGE_GAP_BYTES = BigInt(0);
+const MAX_OCTREE_RANGE_CACHE_BYTES = 64 * 1024 * 1024;
+
+interface OctreeReadCacheEntry {
+  url: string;
+  start: bigint;
+  endExclusive: bigint;
+  buffer?: ArrayBuffer;
+  promise?: Promise<ArrayBuffer>;
+}
+
+interface PendingOctreeNode {
+  node: OctreeGeometryNode;
+  byteOffset: bigint;
+  byteSize: bigint;
+  endExclusive: bigint;
+}
+
+interface MergedOctreeRange {
+  start: bigint;
+  endExclusive: bigint;
+  nodes: PendingOctreeNode[];
+}
+
 /**
  * NodeLoader is responsible for loading the geometry of octree nodes.
  */
@@ -35,6 +60,10 @@ export class NodeLoader {
 
   public instrumentation?: PotreeLoadInstrumentation;
 
+  private octreeUrlPromise?: Promise<string>;
+
+  private octreeReadCaches: OctreeReadCacheEntry[] = [];
+
   constructor(
     public url: string,
     public workerPool: WorkerPool,
@@ -48,198 +77,90 @@ export class NodeLoader {
    * @param node - The octree node to load.
    */
   async load(node: OctreeGeometryNode) {
-    if (node.loaded || node.loading) {
+    await this.loadBatch([node]);
+  }
+
+  async loadBatch(nodes: OctreeGeometryNode[]) {
+    await this.loadBatchWithCandidates(nodes, nodes);
+  }
+
+  async loadBatchWithCandidates(
+    nodes: OctreeGeometryNode[],
+    candidates: OctreeGeometryNode[],
+  ) {
+    const loadableNodes: OctreeGeometryNode[] = [];
+
+    for (const node of nodes) {
+      if (
+        !node.loaded &&
+        !node.loading &&
+        !node.octreeGeometry.disposed &&
+        node.octreeGeometry.numNodesLoading <
+          node.octreeGeometry.maxNumNodesLoading
+      ) {
+        node.loading = true;
+        node.octreeGeometry.numNodesLoading++;
+        loadableNodes.push(node);
+      }
+    }
+
+    if (loadableNodes.length === 0) {
       return;
     }
 
-    node.loading = true;
-    // TODO: Need to put the numNodesLoading to the pco
-    node.octreeGeometry.numNodesLoading++;
-
     try {
-      if (node.nodeType === 2) {
-        // TODO: Investigate
-        await this.loadHierarchy(node);
-      }
-
-      const { byteOffset, byteSize } = node;
-
-      if (byteOffset === undefined || byteSize === undefined) {
-        throw new Error("byteOffset and byteSize are required");
-      }
-
-      const urlOctree = (await this.requestManager.getUrl(this.url)).replace(
-        "/metadata.json",
-        "/octree.bin",
+      await Promise.all(
+        loadableNodes.map((node) =>
+          node.nodeType === 2 ? this.loadHierarchy(node) : Promise.resolve(),
+        ),
       );
 
-      const first = byteOffset;
-      const last = byteOffset + byteSize - BigInt(1);
+      const zeroByteLoads: Array<Promise<void>> = [];
+      const pendingCandidates: PendingOctreeNode[] = [];
+      const decodeNodes = new Set(loadableNodes);
 
-      let buffer: ArrayBuffer;
+      for (const node of candidates) {
+        const { byteOffset, byteSize } = node;
 
-      if (byteSize === BigInt(0)) {
-        buffer = new ArrayBuffer(0);
-        console.warn(`loaded node with 0 bytes: ${node.name}`);
-      } else {
-        const readStartedAt = performance.now();
-        const response = await this.requestManager.fetch(urlOctree, {
-          headers: {
-            "content-type": "multipart/byteranges",
-            Range: `bytes=${first}-${last}`,
-          },
-        });
+        if (byteOffset === undefined || byteSize === undefined) {
+          if (!decodeNodes.has(node)) {
+            continue;
+          }
+          throw new Error("byteOffset and byteSize are required");
+        }
 
-        buffer = await response.arrayBuffer();
-        this.emitMeasurement({
-          stage: "octree-slice-read",
-          nodeName: node.name,
-          durationMs: performance.now() - readStartedAt,
-          byteSize: Number(byteSize),
-          numPoints: node.numPoints,
+        if (byteSize === BigInt(0)) {
+          if (!decodeNodes.has(node)) {
+            continue;
+          }
+          console.warn(`loaded node with 0 bytes: ${node.name}`);
+          zeroByteLoads.push(this.decodeNode(node, new ArrayBuffer(0)));
+          continue;
+        }
+
+        pendingCandidates.push({
+          node,
+          byteOffset,
+          byteSize,
+          endExclusive: byteOffset + byteSize,
         });
       }
 
-      const workerType =
-        this.metadata.encoding === "BROTLI"
-          ? WorkerType.DECODER_WORKER_BROTLI
-          : WorkerType.DECODER_WORKER;
-      const worker = this.workerPool.getWorker(workerType);
-      const workerQueuedAt = performance.now();
-      let workerStartedAt: number | null = null;
-
-      worker.onmessage = (e) => {
-        const data = e.data;
-
-        if (data.type === "started") {
-          workerStartedAt = performance.now();
-          this.emitMeasurement({
-            stage: "worker-wait",
-            nodeName: node.name,
-            durationMs: workerStartedAt - workerQueuedAt,
-            byteSize: buffer.byteLength,
-            numPoints: node.numPoints,
-          });
-          return;
+      await Promise.all([
+        ...zeroByteLoads,
+        ...this.loadMergedOctreeRanges(pendingCandidates, decodeNodes),
+      ]);
+    } catch (error) {
+      for (const node of loadableNodes) {
+        if (!node.loading) {
+          continue;
         }
 
-        const buffers = data.attributeBuffers;
-        const receivedAt = performance.now();
-        const metrics = data.metrics;
-
-        this.emitMeasurement({
-          stage: "decompress-attribute-decode",
-          nodeName: node.name,
-          durationMs: metrics?.decodeMs ?? 0,
-          byteSize: buffer.byteLength,
-          numPoints: node.numPoints,
-        });
-
-        const transferBaseline = workerStartedAt ?? workerQueuedAt;
-        const transferDuration = Math.max(
-          0,
-          receivedAt - transferBaseline - (metrics?.totalWorkerMs ?? 0),
-        );
-        this.emitMeasurement({
-          stage: "worker-transfer",
-          nodeName: node.name,
-          durationMs: transferDuration,
-          byteSize: buffer.byteLength,
-          numPoints: node.numPoints,
-        });
-
-        this.workerPool.returnWorker(workerType, worker);
-
-        const geometryStartedAt = performance.now();
-        const geometry = new BufferGeometry();
-
-        for (const property in buffers) {
-          const buffer = buffers[property].buffer;
-
-          if (property === "position") {
-            geometry.setAttribute(
-              "position",
-              new BufferAttribute(new Float32Array(buffer), 3),
-            );
-          } else if (property === "rgba") {
-            geometry.setAttribute(
-              "rgba",
-              new BufferAttribute(new Uint8Array(buffer), 4, true),
-            );
-          } else if (property === "NORMAL") {
-            // geometry.setAttribute('rgba', new BufferAttribute(new Uint8Array(buffer), 4, true));
-            geometry.setAttribute(
-              "normal",
-              new BufferAttribute(new Float32Array(buffer), 3),
-            );
-          } else if (property === "INDICES") {
-            const bufferAttribute = new BufferAttribute(
-              new Uint8Array(buffer),
-              4,
-            );
-            bufferAttribute.normalized = true;
-            geometry.setAttribute("indices", bufferAttribute);
-          } else {
-            const bufferAttribute: BufferAttribute & {
-              potree?: object;
-            } = new BufferAttribute(new Float32Array(buffer), 1);
-
-            const batchAttribute = buffers[property].attribute;
-            bufferAttribute.potree = {
-              offset: buffers[property].offset,
-              scale: buffers[property].scale,
-              preciseBuffer: buffers[property].preciseBuffer,
-              range: batchAttribute.range,
-            };
-
-            geometry.setAttribute(property, bufferAttribute);
-          }
-        }
-
-        this.emitMeasurement({
-          stage: "geometry-creation",
-          nodeName: node.name,
-          durationMs: performance.now() - geometryStartedAt,
-          byteSize: buffer.byteLength,
-          numPoints: node.numPoints,
-        });
-
-        node.density = data.density;
-        node.geometry = geometry;
-        node.loaded = true;
+        node.loaded = false;
         node.loading = false;
-        // Potree.numNodesLoading--;
         node.octreeGeometry.numNodesLoading--;
-      };
-
-      const pointAttributes = node.octreeGeometry.pointAttributes;
-      const scale = node.octreeGeometry.scale;
-
-      const box = node.boundingBox;
-      const min = node.octreeGeometry.offset.clone().add(box.min);
-      const size = box.max.clone().sub(box.min);
-      const max = min.clone().add(size);
-      const numPoints = node.numPoints;
-
-      const offset = node.octreeGeometry.loader.offset;
-
-      const message = {
-        name: node.name,
-        buffer: buffer,
-        pointAttributes: pointAttributes,
-        scale: scale,
-        min: min,
-        max: max,
-        size: size,
-        offset: offset,
-        numPoints: numPoints,
-      };
-
-      worker.postMessage(message, [message.buffer]);
-    } catch {
-      node.loaded = false;
-      node.loading = false;
-      node.octreeGeometry.numNodesLoading--;
+      }
+      throw error;
     }
   }
 
@@ -363,6 +284,450 @@ export class NodeLoader {
   private emitMeasurement(measurement: PotreeLoadMeasurement) {
     this.instrumentation?.onStage?.(measurement);
   }
+
+  private loadMergedOctreeRanges(
+    pendingNodes: PendingOctreeNode[],
+    decodeNodes: Set<OctreeGeometryNode>,
+  ) {
+    const ranges = createMergedOctreeRanges(pendingNodes).filter((range) =>
+      range.nodes.some((pendingNode) => decodeNodes.has(pendingNode.node)),
+    );
+    return ranges.map((range) =>
+      this.loadMergedOctreeRange(range, decodeNodes),
+    );
+  }
+
+  private async loadMergedOctreeRange(
+    range: MergedOctreeRange,
+    decodeNodes: Set<OctreeGeometryNode>,
+  ) {
+    const urlOctree = await this.getOctreeUrl();
+    const cachedBuffer = await this.readFromOctreeCache(
+      urlOctree,
+      range.start,
+      range.endExclusive,
+    );
+
+    if (cachedBuffer !== null) {
+      const decodePendingNodes = range.nodes.filter((pendingNode) =>
+        decodeNodes.has(pendingNode.node),
+      );
+      return await Promise.all(
+        decodePendingNodes.map((pendingNode) => {
+          const buffer = sliceCachedOctreeBuffer(
+            cachedBuffer,
+            range.start,
+            pendingNode.byteOffset,
+            pendingNode.endExclusive,
+          );
+          this.emitOctreeReadMeasurement(
+            pendingNode,
+            0,
+            0,
+            range.nodes.length,
+            true,
+          );
+          return this.decodeNode(pendingNode.node, buffer);
+        }),
+      ).then(() => undefined);
+    }
+
+    const readStartedAt = performance.now();
+    const fetchedBuffer = await this.fetchOctreeRange(
+      urlOctree,
+      range.start,
+      range.endExclusive,
+    );
+    const readDurationMs = performance.now() - readStartedAt;
+    const decodePendingNodes = range.nodes.filter((pendingNode) =>
+      decodeNodes.has(pendingNode.node),
+    );
+
+    return await Promise.all(
+      decodePendingNodes.map((pendingNode, index) => {
+        const buffer = sliceCachedOctreeBuffer(
+          fetchedBuffer,
+          range.start,
+          pendingNode.byteOffset,
+          pendingNode.endExclusive,
+        );
+        this.emitOctreeReadMeasurement(
+          pendingNode,
+          index === 0 ? readDurationMs : 0,
+          index === 0 ? fetchedBuffer.byteLength : 0,
+          range.nodes.length,
+          index !== 0,
+        );
+        return this.decodeNode(pendingNode.node, buffer);
+      }),
+    ).then(() => undefined);
+  }
+
+  private emitOctreeReadMeasurement(
+    pendingNode: PendingOctreeNode,
+    durationMs: number,
+    fetchedByteSize: number,
+    mergedNodeCount: number,
+    cacheHit: boolean,
+  ) {
+    this.emitMeasurement({
+      stage: "octree-slice-read",
+      nodeName: pendingNode.node.name,
+      durationMs,
+      byteSize: Number(pendingNode.byteSize),
+      numPoints: pendingNode.node.numPoints,
+      metadata: {
+        cacheHit,
+        fetchedByteSize,
+        mergedNodeCount,
+      },
+    });
+  }
+
+  private decodeNode(node: OctreeGeometryNode, buffer: ArrayBuffer) {
+    return new Promise<void>((resolve, reject) => {
+      const workerType =
+        this.metadata.encoding === "BROTLI"
+          ? WorkerType.DECODER_WORKER_BROTLI
+          : WorkerType.DECODER_WORKER;
+      const worker = this.workerPool.getWorker(workerType);
+      const workerQueuedAt = performance.now();
+      const nodeByteSize = buffer.byteLength;
+      let workerStartedAt: number | null = null;
+      let workerReturned = false;
+
+      const returnWorker = () => {
+        if (workerReturned) {
+          return;
+        }
+
+        workerReturned = true;
+        this.workerPool.returnWorker(workerType, worker);
+      };
+
+      const fail = (error: unknown) => {
+        returnWorker();
+        node.loaded = false;
+        node.loading = false;
+        node.octreeGeometry.numNodesLoading--;
+        reject(error);
+      };
+
+      worker.onerror = (event) => {
+        fail(event.error ?? new Error(event.message));
+      };
+
+      worker.onmessage = (e) => {
+        const data = e.data;
+
+        if (data.type === "started") {
+          workerStartedAt = performance.now();
+          this.emitMeasurement({
+            stage: "worker-wait",
+            nodeName: node.name,
+            durationMs: workerStartedAt - workerQueuedAt,
+            byteSize: nodeByteSize,
+            numPoints: node.numPoints,
+          });
+          return;
+        }
+
+        const buffers = data.attributeBuffers;
+        const receivedAt = performance.now();
+        const metrics = data.metrics;
+
+        this.emitMeasurement({
+          stage: "decompress-attribute-decode",
+          nodeName: node.name,
+          durationMs: metrics?.decodeMs ?? 0,
+          byteSize: nodeByteSize,
+          numPoints: node.numPoints,
+        });
+
+        const transferBaseline = workerStartedAt ?? workerQueuedAt;
+        const transferDuration = Math.max(
+          0,
+          receivedAt - transferBaseline - (metrics?.totalWorkerMs ?? 0),
+        );
+        this.emitMeasurement({
+          stage: "worker-transfer",
+          nodeName: node.name,
+          durationMs: transferDuration,
+          byteSize: nodeByteSize,
+          numPoints: node.numPoints,
+        });
+
+        returnWorker();
+
+        const geometryStartedAt = performance.now();
+        const geometry = createGeometry(buffers);
+
+        this.emitMeasurement({
+          stage: "geometry-creation",
+          nodeName: node.name,
+          durationMs: performance.now() - geometryStartedAt,
+          byteSize: nodeByteSize,
+          numPoints: node.numPoints,
+        });
+
+        node.density = data.density;
+        node.geometry = geometry;
+        node.loaded = true;
+        node.loading = false;
+        node.octreeGeometry.numNodesLoading--;
+        resolve();
+      };
+
+      const pointAttributes = node.octreeGeometry.pointAttributes;
+      const scale = node.octreeGeometry.scale;
+
+      const box = node.boundingBox;
+      const min = node.octreeGeometry.offset.clone().add(box.min);
+      const size = box.max.clone().sub(box.min);
+      const max = min.clone().add(size);
+      const numPoints = node.numPoints;
+
+      const offset = node.octreeGeometry.loader.offset;
+
+      const message = {
+        name: node.name,
+        buffer,
+        pointAttributes,
+        scale,
+        min,
+        max,
+        size,
+        offset,
+        numPoints,
+      };
+
+      worker.postMessage(message, [message.buffer]);
+    });
+  }
+
+  private async getOctreeUrl() {
+    this.octreeUrlPromise ??= this.requestManager
+      .getUrl(this.url)
+      .then((url) => url.replace("/metadata.json", "/octree.bin"));
+
+    return this.octreeUrlPromise;
+  }
+
+  private async readFromOctreeCache(
+    url: string,
+    start: bigint,
+    endExclusive: bigint,
+  ) {
+    const cache = this.octreeReadCaches.find((entry) => {
+      return (
+        entry.url === url &&
+        start >= entry.start &&
+        endExclusive <= entry.endExclusive
+      );
+    });
+
+    if (cache === undefined) {
+      return null;
+    }
+
+    let buffer = cache.buffer;
+
+    if (buffer === undefined) {
+      try {
+        buffer = await cache.promise;
+      } catch (error) {
+        this.octreeReadCaches = this.octreeReadCaches.filter(
+          (entry) => entry !== cache,
+        );
+        throw error;
+      }
+    }
+
+    if (buffer === undefined) {
+      return null;
+    }
+
+    cache.buffer = buffer;
+    cache.endExclusive = cache.start + BigInt(buffer.byteLength);
+
+    if (endExclusive > cache.endExclusive) {
+      return null;
+    }
+
+    return sliceCachedOctreeBuffer(buffer, cache.start, start, endExclusive);
+  }
+
+  private async fetchOctreeRange(
+    urlOctree: string,
+    start: bigint,
+    endExclusive: bigint,
+  ) {
+    const fetchPromise = this.requestManager
+      .fetch(urlOctree, {
+        headers: {
+          "content-type": "multipart/byteranges",
+          Range: `bytes=${start}-${endExclusive - BigInt(1)}`,
+        },
+      })
+      .then((response) => response.arrayBuffer());
+
+    const cache: OctreeReadCacheEntry = {
+      url: urlOctree,
+      start,
+      endExclusive,
+      promise: fetchPromise,
+    };
+    this.octreeReadCaches.push(cache);
+
+    try {
+      const buffer = await fetchPromise;
+      cache.buffer = buffer;
+      cache.endExclusive = start + BigInt(buffer.byteLength);
+      this.pruneOctreeReadCaches();
+      return buffer;
+    } catch (error) {
+      this.octreeReadCaches = this.octreeReadCaches.filter(
+        (entry) => entry !== cache,
+      );
+      throw error;
+    }
+  }
+
+  private pruneOctreeReadCaches() {
+    let totalBytes = this.octreeReadCaches.reduce(
+      (total, cache) => total + (cache.buffer?.byteLength ?? 0),
+      0,
+    );
+
+    while (
+      totalBytes > MAX_OCTREE_RANGE_CACHE_BYTES &&
+      this.octreeReadCaches.length > 1
+    ) {
+      const cache = this.octreeReadCaches.shift();
+      totalBytes -= cache?.buffer?.byteLength ?? 0;
+    }
+  }
+}
+
+function sliceCachedOctreeBuffer(
+  buffer: ArrayBuffer,
+  cacheStart: bigint,
+  start: bigint,
+  endExclusive: bigint,
+) {
+  const sliceStart = Number(start - cacheStart);
+  const sliceEnd = Number(endExclusive - cacheStart);
+  return buffer.slice(sliceStart, sliceEnd);
+}
+
+function createMergedOctreeRanges(
+  pendingNodes: PendingOctreeNode[],
+): MergedOctreeRange[] {
+  const sortedNodes = [...pendingNodes].sort((a, b) =>
+    compareBigInts(a.byteOffset, b.byteOffset),
+  );
+  const ranges: MergedOctreeRange[] = [];
+
+  for (const pendingNode of sortedNodes) {
+    const nodeRangeSize = pendingNode.byteSize;
+    const currentRange = ranges.at(-1);
+
+    if (
+      currentRange === undefined ||
+      nodeRangeSize > MAX_MERGED_OCTREE_RANGE_BYTES
+    ) {
+      ranges.push({
+        start: pendingNode.byteOffset,
+        endExclusive: pendingNode.endExclusive,
+        nodes: [pendingNode],
+      });
+      continue;
+    }
+
+    const gap =
+      pendingNode.byteOffset > currentRange.endExclusive
+        ? pendingNode.byteOffset - currentRange.endExclusive
+        : BigInt(0);
+    const mergedEndExclusive =
+      pendingNode.endExclusive > currentRange.endExclusive
+        ? pendingNode.endExclusive
+        : currentRange.endExclusive;
+    const mergedByteSize = mergedEndExclusive - currentRange.start;
+
+    if (
+      gap <= MAX_MERGED_OCTREE_RANGE_GAP_BYTES &&
+      mergedByteSize <= MAX_MERGED_OCTREE_RANGE_BYTES
+    ) {
+      currentRange.endExclusive = mergedEndExclusive;
+      currentRange.nodes.push(pendingNode);
+      continue;
+    }
+
+    ranges.push({
+      start: pendingNode.byteOffset,
+      endExclusive: pendingNode.endExclusive,
+      nodes: [pendingNode],
+    });
+  }
+
+  return ranges;
+}
+
+function compareBigInts(a: bigint, b: bigint) {
+  if (a < b) {
+    return -1;
+  }
+
+  if (a > b) {
+    return 1;
+  }
+
+  return 0;
+}
+
+function createGeometry(buffers: Record<string, any>) {
+  const geometry = new BufferGeometry();
+
+  for (const property in buffers) {
+    const buffer = buffers[property].buffer;
+
+    if (property === "position") {
+      geometry.setAttribute(
+        "position",
+        new BufferAttribute(new Float32Array(buffer), 3),
+      );
+    } else if (property === "rgba") {
+      geometry.setAttribute(
+        "rgba",
+        new BufferAttribute(new Uint8Array(buffer), 4, true),
+      );
+    } else if (property === "NORMAL") {
+      geometry.setAttribute(
+        "normal",
+        new BufferAttribute(new Float32Array(buffer), 3),
+      );
+    } else if (property === "INDICES") {
+      const bufferAttribute = new BufferAttribute(new Uint8Array(buffer), 4);
+      bufferAttribute.normalized = true;
+      geometry.setAttribute("indices", bufferAttribute);
+    } else {
+      const bufferAttribute: BufferAttribute & {
+        potree?: object;
+      } = new BufferAttribute(new Float32Array(buffer), 1);
+
+      const batchAttribute = buffers[property].attribute;
+      bufferAttribute.potree = {
+        offset: buffers[property].offset,
+        scale: buffers[property].scale,
+        preciseBuffer: buffers[property].preciseBuffer,
+        range: batchAttribute.range,
+      };
+
+      geometry.setAttribute(property, bufferAttribute);
+    }
+  }
+
+  return geometry;
 }
 
 const tmpVec3 = new Vector3();

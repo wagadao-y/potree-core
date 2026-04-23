@@ -824,6 +824,7 @@ document.body.onload = () => {
       switchCamera(v);
       markPresetCustom();
     });
+  cameraFolder.close();
 
   // EDL folder
   const edlFolder = gui.addFolder("EDL");
@@ -874,6 +875,7 @@ document.body.onload = () => {
       for (const pco of pointClouds) pco.material.clipMode = mode;
       markPresetCustom();
     });
+  clipFolder.close();
 
   // Clip Plane sub-folder
   const planeFolder = clipFolder.addFolder("Clip Planes");
@@ -999,7 +1001,6 @@ document.body.onload = () => {
     .add(params, "pickMethod", ["Potree", "Raycaster"])
     .name("Pick Method");
   interactionFolder.close();
-  performanceFolder.close();
 
   // ---- Render loop ----
   renderer.autoClear = false;
@@ -1168,6 +1169,9 @@ type PerformanceRowKey =
   | "networkBytes"
   | "networkEvents"
   | "bytesPerFetch"
+  | "octreeNodesPerFetch"
+  | "octreeCacheHitRate"
+  | "octreeFetchRatio"
   | "networkThroughput"
   | "workerWaitMs"
   | "decodeMs"
@@ -1189,7 +1193,10 @@ type PerformanceRowKey =
 
 interface LoadStageSummary {
   count: number;
+  cacheHitCount: number;
   totalBytes: number;
+  totalFetchedBytes: number;
+  totalFetchCount: number;
   totalMs: number;
   totalPoints: number;
 }
@@ -1314,6 +1321,9 @@ function createPerformancePanel() {
         ["networkBytes", "Fetched bytes"],
         ["networkEvents", "Fetch events"],
         ["bytesPerFetch", "Bytes / fetch"],
+        ["octreeNodesPerFetch", "Octree nodes / fetch"],
+        ["octreeCacheHitRate", "Octree cache hit"],
+        ["octreeFetchRatio", "Octree fetched / node bytes"],
         ["networkThroughput", "Fetch throughput"],
       ],
     },
@@ -1451,8 +1461,10 @@ function createPerformancePanel() {
     const decode = metrics.loadMetrics["decompress-attribute-decode"];
     const transfer = metrics.loadMetrics["worker-transfer"];
     const geometry = metrics.loadMetrics["geometry-creation"];
-    const networkBytes = octreeRead.totalBytes + hierarchyLoad.totalBytes;
-    const networkEvents = octreeRead.count + hierarchyLoad.count;
+    const networkBytes =
+      octreeRead.totalFetchedBytes + hierarchyLoad.totalFetchedBytes;
+    const networkEvents =
+      octreeRead.totalFetchCount + hierarchyLoad.totalFetchCount;
     const networkMs = octreeRead.totalMs + hierarchyLoad.totalMs;
     const pointBudgetUse =
       pointBudget > 0 ? visibilityResult.numVisiblePoints / pointBudget : 0;
@@ -1537,6 +1549,24 @@ function createPerformancePanel() {
     setValue(
       "bytesPerFetch",
       networkEvents > 0 ? formatBytes(networkBytes / networkEvents) : "-",
+    );
+    setValue(
+      "octreeNodesPerFetch",
+      octreeRead.totalFetchCount > 0
+        ? formatNumber(octreeRead.count / octreeRead.totalFetchCount, 2)
+        : "-",
+    );
+    setValue(
+      "octreeCacheHitRate",
+      octreeRead.count > 0
+        ? formatPercent(octreeRead.cacheHitCount / octreeRead.count)
+        : "-",
+    );
+    setValue(
+      "octreeFetchRatio",
+      octreeRead.totalBytes > 0
+        ? `${formatNumber(octreeRead.totalFetchedBytes / octreeRead.totalBytes, 2)}x`
+        : "-",
     );
     setValue(
       "networkThroughput",
@@ -1643,7 +1673,10 @@ function createLoadMetrics() {
       stage,
       {
         count: 0,
+        cacheHitCount: 0,
         totalBytes: 0,
+        totalFetchedBytes: 0,
+        totalFetchCount: 0,
         totalMs: 0,
         totalPoints: 0,
       },
@@ -1654,16 +1687,27 @@ function createLoadMetrics() {
     instrumentation: {
       onStage(measurement: PotreeLoadMeasurement) {
         const stage = stats[measurement.stage];
+        const fetchedByteSize = measurement.metadata?.fetchedByteSize;
         stage.count++;
+        stage.cacheHitCount += measurement.metadata?.cacheHit === true ? 1 : 0;
         stage.totalMs += measurement.durationMs;
         stage.totalBytes += measurement.byteSize ?? 0;
+        stage.totalFetchedBytes +=
+          typeof fetchedByteSize === "number"
+            ? fetchedByteSize
+            : (measurement.byteSize ?? 0);
+        stage.totalFetchCount +=
+          measurement.metadata?.cacheHit === true ? 0 : 1;
         stage.totalPoints += measurement.numPoints ?? 0;
       },
     },
     reset() {
       for (const stage of stages) {
         stats[stage].count = 0;
+        stats[stage].cacheHitCount = 0;
         stats[stage].totalBytes = 0;
+        stats[stage].totalFetchedBytes = 0;
+        stats[stage].totalFetchCount = 0;
         stats[stage].totalMs = 0;
         stats[stage].totalPoints = 0;
       }

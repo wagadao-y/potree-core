@@ -20,6 +20,7 @@ import { getFeatures } from "./features";
 import type { LoadOctreeOptions } from "./loading2/LoadInstrumentation";
 import { loadOctree } from "./loading2/load-octree";
 import type { OctreeGeometry } from "./loading2/OctreeGeometry";
+import { OctreeGeometryNode } from "./loading2/OctreeGeometryNode";
 import type { RequestManager } from "./loading2/RequestManager";
 import { ClipMode, type PointCloudMaterial } from "./materials";
 import { PointCloudOctree } from "./point-cloud-octree";
@@ -282,9 +283,12 @@ export class Potree implements IPotree {
       unloadedGeometry.length,
     );
     const nodeLoadPromises: Promise<void>[] = [];
-    for (let i = 0; i < numNodesToLoad; i++) {
-      nodeLoadPromises.push(unloadedGeometry[i].load());
-    }
+    nodeLoadPromises.push(
+      ...this.loadGeometryNodes(
+        unloadedGeometry.slice(0, numNodesToLoad),
+        unloadedGeometry,
+      ),
+    );
 
     return {
       visibleNodes: visibleNodes,
@@ -295,6 +299,202 @@ export class Potree implements IPotree {
       nodeLoadFailed: nodeLoadFailed,
       nodeLoadPromises: nodeLoadPromises,
     };
+  }
+
+  private loadGeometryNodes(
+    nodes: PointCloudOctreeGeometryNode[],
+    candidates: PointCloudOctreeGeometryNode[],
+  ): Promise<void>[] {
+    const nodeLoadPromises: Promise<void>[] = [];
+    type BatchLoader = {
+      loadBatchWithCandidates: (
+        nodes: PointCloudOctreeGeometryNode[],
+        candidates: PointCloudOctreeGeometryNode[],
+      ) => Promise<void>;
+    };
+    const loading2NodesByLoader = new Map<
+      BatchLoader,
+      PointCloudOctreeGeometryNode[]
+    >();
+    const loading2CandidatesByLoader = new Map<
+      BatchLoader,
+      PointCloudOctreeGeometryNode[]
+    >();
+
+    for (const candidate of candidates) {
+      const anyCandidate = candidate as PointCloudOctreeGeometryNode & {
+        octreeGeometry?: {
+          loader?: {
+            loadBatchWithCandidates?: (
+              nodes: PointCloudOctreeGeometryNode[],
+              candidates: PointCloudOctreeGeometryNode[],
+            ) => Promise<void>;
+          };
+        };
+      };
+      const loader = anyCandidate.octreeGeometry?.loader;
+
+      if (loader?.loadBatchWithCandidates === undefined) {
+        continue;
+      }
+
+      const batchLoader = loader as BatchLoader;
+      const batch = loading2CandidatesByLoader.get(batchLoader);
+
+      if (batch === undefined) {
+        loading2CandidatesByLoader.set(batchLoader, [candidate]);
+      } else {
+        batch.push(candidate);
+      }
+    }
+
+    for (const node of nodes) {
+      const anyNode = node as PointCloudOctreeGeometryNode & {
+        octreeGeometry?: {
+          loader?: {
+            loadBatchWithCandidates?: (
+              nodes: PointCloudOctreeGeometryNode[],
+              candidates: PointCloudOctreeGeometryNode[],
+            ) => Promise<void>;
+          };
+        };
+      };
+      const loader = anyNode.octreeGeometry?.loader;
+
+      if (loader?.loadBatchWithCandidates !== undefined) {
+        const batchLoader = loader as BatchLoader;
+        const batch = loading2NodesByLoader.get(batchLoader);
+
+        if (batch === undefined) {
+          loading2NodesByLoader.set(batchLoader, [node]);
+        } else {
+          batch.push(node);
+        }
+        continue;
+      }
+
+      nodeLoadPromises.push(node.load());
+    }
+
+    for (const [loader, batch] of loading2NodesByLoader) {
+      const runCandidates = this.collectVisibleRunCandidates(
+        batch,
+        loading2CandidatesByLoader.get(loader) ?? batch,
+      );
+      nodeLoadPromises.push(
+        loader.loadBatchWithCandidates(
+          runCandidates,
+          runCandidates,
+        ),
+      );
+    }
+
+    return nodeLoadPromises;
+  }
+
+  private collectVisibleRunCandidates(
+    selectedNodes: PointCloudOctreeGeometryNode[],
+    candidates: PointCloudOctreeGeometryNode[],
+  ): PointCloudOctreeGeometryNode[] {
+    const loading2Candidates: OctreeGeometryNode[] = [];
+    for (const candidate of candidates) {
+      if (
+        candidate instanceof OctreeGeometryNode &&
+        candidate.byteOffset !== undefined &&
+        candidate.byteSize !== undefined
+      ) {
+        loading2Candidates.push(candidate);
+      }
+    }
+    const selectedSet = new Set<OctreeGeometryNode>();
+    for (const node of selectedNodes) {
+      if (
+        node instanceof OctreeGeometryNode &&
+        node.byteOffset !== undefined &&
+        node.byteSize !== undefined
+      ) {
+        selectedSet.add(node);
+      }
+    }
+
+    if (loading2Candidates.length === 0 || selectedSet.size === 0) {
+      return selectedNodes;
+    }
+
+    loading2Candidates.sort((a, b) =>
+      a.byteOffset! < b.byteOffset! ? -1 : a.byteOffset! > b.byteOffset! ? 1 : 0,
+    );
+
+    const selectedOrdered: OctreeGeometryNode[] = [];
+    for (const node of selectedNodes) {
+      if (
+        node instanceof OctreeGeometryNode &&
+        node.byteOffset !== undefined &&
+        node.byteSize !== undefined
+      ) {
+        selectedOrdered.push(node);
+      }
+    }
+
+    const runNodes = new Set<OctreeGeometryNode>();
+    let run: OctreeGeometryNode[] = [];
+    let runContainsSelected = false;
+    let previousEndExclusive: bigint | null = null;
+
+    const flushRun = () => {
+      if (!runContainsSelected) {
+        run = [];
+        runContainsSelected = false;
+        previousEndExclusive = null;
+        return;
+      }
+
+      for (const node of run) {
+        runNodes.add(node);
+      }
+
+      run = [];
+      runContainsSelected = false;
+      previousEndExclusive = null;
+    };
+
+    for (const candidate of loading2Candidates) {
+      const endExclusive = candidate.byteOffset! + candidate.byteSize!;
+      const contiguous =
+        previousEndExclusive !== null &&
+        candidate.byteOffset === previousEndExclusive;
+
+      if (!contiguous && run.length > 0) {
+        flushRun();
+      }
+
+      run.push(candidate);
+      runContainsSelected ||= selectedSet.has(candidate);
+      previousEndExclusive = endExclusive;
+    }
+
+    flushRun();
+
+    const orderedRunNodes: OctreeGeometryNode[] = [];
+    const appended = new Set<OctreeGeometryNode>();
+
+    for (const node of selectedOrdered) {
+      if (!runNodes.has(node) || appended.has(node)) {
+        continue;
+      }
+      orderedRunNodes.push(node);
+      appended.add(node);
+    }
+
+    for (const node of loading2Candidates) {
+      if (!runNodes.has(node) || appended.has(node)) {
+        continue;
+      }
+      orderedRunNodes.push(node);
+      appended.add(node);
+    }
+
+    return orderedRunNodes as unknown as PointCloudOctreeGeometryNode[];
   }
 
   private updateTreeNodeVisibility(

@@ -117,12 +117,14 @@ export class OctreeGeometryNode implements IPointCloudTreeNode {
       this.octreeGeometry.numNodesLoading >=
       this.octreeGeometry.maxNumNodesLoading
     ) {
-      return;
+      return Promise.resolve();
     }
 
     if (this.octreeGeometry.loader) {
-      this.octreeGeometry.loader.load(this);
+      return this.octreeGeometry.loader.load(this);
     }
+
+    return Promise.resolve();
   }
 
   public getNumPoints() {
