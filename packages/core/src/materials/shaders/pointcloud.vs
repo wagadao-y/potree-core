@@ -81,6 +81,7 @@ uniform float wReturnNumber;
 uniform float wSourceID;
 
 uniform sampler2D visibleNodes;
+uniform float visibleNodesTextureSize;
 uniform sampler2D gradient;
 uniform sampler2D classificationLUT;
 uniform sampler2D depthMap;
@@ -157,7 +158,7 @@ float getLOD() {
 		vec3 index3d = floor((position - offset) / nodeSizeAtLevel + 0.5);
 		int index = int(round(4.0 * index3d.x + 2.0 * index3d.y + index3d.z));
 		
-		vec4 value = texture(visibleNodes, vec2(float(iOffset) / 2048.0, 0.0));
+		vec4 value = texture(visibleNodes, vec2((float(iOffset) + 0.5) / visibleNodesTextureSize, 0.0));
 		int mask = int(round(value.r * 255.0));
 
 		if (isBitSet(mask, index)) {
@@ -194,7 +195,7 @@ float getLOD() {
 	vec3 pos = position;
 		
 	for (float i = 0.0; i <= 1000.0; i++) {
-		vec4 value = texture(visibleNodes, vec2(intOffset / 2048.0, 0.0));
+		vec4 value = texture(visibleNodes, vec2((intOffset + 0.5) / visibleNodesTextureSize, 0.0));
 		int children = int(value.r * 255.0);
 		float next = value.g * 255.0;
 		int split = int(value.b * 255.0);

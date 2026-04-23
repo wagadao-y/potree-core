@@ -173,6 +173,8 @@ export interface IPointCloudMaterialUniforms {
   uColor: IUniform<Color>;
   /** Texture containing visible node information */
   visibleNodes: IUniform<Texture>;
+  /** Width of the visible nodes texture in texels */
+  visibleNodesTextureSize: IUniform<number>;
   /** Starting index for visible nodes */
   vnStart: IUniform<number>;
   /** Weight factor for classification-based coloring */
@@ -261,6 +263,8 @@ const OUTPUT_COLOR_ENCODING = {
 };
 
 export class PointCloudMaterial extends RawShaderMaterial {
+  private static readonly INITIAL_VISIBLE_NODES_TEXTURE_SIZE = 2048;
+
   private static helperVec3 = new Vector3();
 
   lights = false;
@@ -278,6 +282,9 @@ export class PointCloudMaterial extends RawShaderMaterial {
   private numClipPlanes: number = 0;
 
   visibleNodesTexture: Texture | undefined;
+
+  private visibleNodesTextureSize =
+    PointCloudMaterial.INITIAL_VISIBLE_NODES_TEXTURE_SIZE;
 
   private visibleNodeTextureOffsets = new Map<string, number>();
 
@@ -339,6 +346,10 @@ export class PointCloudMaterial extends RawShaderMaterial {
     uColor: makeUniform("c", new Color(0xffffff)),
     // @ts-ignore
     visibleNodes: makeUniform("t", this.visibleNodesTexture || new Texture()),
+    visibleNodesTextureSize: makeUniform(
+      "f",
+      this.visibleNodesTextureSize,
+    ),
     vnStart: makeUniform("f", 0.0),
     wClassification: makeUniform("f", 0),
     wElevation: makeUniform("f", 0),
@@ -486,10 +497,8 @@ export class PointCloudMaterial extends RawShaderMaterial {
   constructor(parameters: Partial<IPointCloudMaterialParameters> = {}) {
     super();
 
-    const tex = generateDataTexture(2048, 1, new Color(0xffffff));
+    const tex = this.createVisibleNodesTexture(this.visibleNodesTextureSize);
     this.visibleNodesTexture = tex;
-    tex.minFilter = NearestFilter;
-    tex.magFilter = NearestFilter;
     this.setUniform("visibleNodes", tex);
 
     this.treeType = getValid(parameters.treeType, TreeType.OCTREE);
@@ -903,6 +912,8 @@ export class PointCloudMaterial extends RawShaderMaterial {
   private updateVisibilityTextureData(nodes: PointCloudOctreeNode[]) {
     nodes.sort(byLevelAndIndex);
 
+    this.ensureVisibleNodesTextureCapacity(nodes.length);
+
     const data = new Uint8Array(nodes.length * 4);
     const offsetsToChild = new Array(nodes.length).fill(Infinity);
 
@@ -940,6 +951,30 @@ export class PointCloudMaterial extends RawShaderMaterial {
       textureImage.data.set(data);
       texture.needsUpdate = true;
     }
+  }
+
+  private ensureVisibleNodesTextureCapacity(numNodes: number) {
+    if (numNodes <= this.visibleNodesTextureSize) {
+      return;
+    }
+
+    const textureSize = ceilPowerOfTwo(numNodes);
+    const previousTexture = this.visibleNodesTexture;
+    const texture = this.createVisibleNodesTexture(textureSize);
+
+    this.visibleNodesTexture = texture;
+    this.visibleNodesTextureSize = textureSize;
+    this.setUniform("visibleNodes", texture);
+    this.setUniform("visibleNodesTextureSize", textureSize);
+    previousTexture?.dispose();
+  }
+
+  private createVisibleNodesTexture(size: number) {
+    const texture = generateDataTexture(size, 1, new Color(0xffffff));
+    texture.minFilter = NearestFilter;
+    texture.magFilter = NearestFilter;
+
+    return texture;
   }
 
   static makeOnBeforeRender(
@@ -981,6 +1016,10 @@ function makeUniform<T>(type: string, value: T): IUniform<T> {
 
 function getValid<T>(a: T | undefined, b: T): T {
   return a === undefined ? b : a;
+}
+
+function ceilPowerOfTwo(value: number) {
+  return 2 ** Math.ceil(Math.log2(value));
 }
 
 // tslint:disable:no-invalid-this
