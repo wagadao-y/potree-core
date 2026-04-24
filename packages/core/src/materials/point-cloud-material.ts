@@ -981,7 +981,7 @@ export class PointCloudMaterial extends RawShaderMaterial {
   }
 
   static makeOnBeforeRender(
-    octree: PointCloudOctree,
+    _octree: PointCloudOctree,
     node: PointCloudOctreeNode,
     pcIndex?: number,
   ) {

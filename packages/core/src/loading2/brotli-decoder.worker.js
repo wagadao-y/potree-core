@@ -1,5 +1,14 @@
 import brotliPromise from "brotli-dec-wasm";
+import { ZSTDDecoder } from "zstddec";
 import { PointAttribute, PointAttributeTypes } from "./PointAttributes.ts";
+
+const zstdDecoder = new ZSTDDecoder();
+let zstdDecoderInitPromise;
+
+function initZstdDecoder() {
+  zstdDecoderInitPromise ??= zstdDecoder.init();
+  return zstdDecoderInitPromise;
+}
 
 const typedArrayMapping = {
   int8: Int8Array,
@@ -68,8 +77,17 @@ const mask_b0 = new Uint8Array([
 ]);
 
 onmessage = async function (event) {
-  const { pointAttributes, scale, name, min, max, size, offset, numPoints } =
-    event.data;
+  const {
+    encoding,
+    pointAttributes,
+    scale,
+    name,
+    min,
+    max,
+    size,
+    offset,
+    numPoints,
+  } = event.data;
 
   const tStart = performance.now();
 
@@ -83,8 +101,17 @@ onmessage = async function (event) {
     buffer = { buffer: new ArrayBuffer(0) };
   } else {
     try {
-      const brotli = await brotliPromise;
-      const decoded = brotli.decompress(new Uint8Array(event.data.buffer));
+      const compressed = new Uint8Array(event.data.buffer);
+      let decoded;
+
+      if (encoding === "ZSTD") {
+        await initZstdDecoder();
+        decoded = zstdDecoder.decode(compressed);
+      } else {
+        const brotli = await brotliPromise;
+        decoded = brotli.decompress(compressed);
+      }
+
       buffer = {
         buffer:
           decoded.byteOffset === 0 &&

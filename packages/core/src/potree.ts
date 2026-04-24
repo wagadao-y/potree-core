@@ -659,13 +659,16 @@ export class Potree implements IPotree {
 
       pointCloud.updateMatrixWorld(true);
 
-      const context =
-        existingContext ??
-        (contexts[i] = {
+      let context = existingContext;
+      if (context === undefined) {
+        context = {
           enabled: true,
           clipBoxCount: 0,
           clipBoxesWorld: [],
-        });
+        };
+        contexts[i] = context;
+      }
+
       const clipBoxesWorld = context.clipBoxesWorld;
       const clipBoxes = material.clipBoxes;
       context.enabled = true;

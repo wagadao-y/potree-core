@@ -64,6 +64,9 @@ importers:
       brotli-dec-wasm:
         specifier: ^2.3.2
         version: 2.3.2
+      zstddec:
+        specifier: ^0.2.0
+        version: 0.2.0
     devDependencies:
       '@types/node':
         specifier: ^25.6.0

@@ -11,6 +11,11 @@ export enum WorkerType {
   DECODER_WORKER_BROTLI = "DECODER_WORKER_BROTLI",
 
   /**
+   * Worker for decoding Zstd-compressed data.
+   */
+  DECODER_WORKER_ZSTD = "DECODER_WORKER_ZSTD",
+
+  /**
    * Worker for general decoding tasks.
    */
   DECODER_WORKER = "DECODER_WORKER",
@@ -26,6 +31,9 @@ export enum WorkerType {
 function createWorker(type: WorkerType): Worker {
   switch (type) {
     case WorkerType.DECODER_WORKER_BROTLI: {
+      return new BrotliDecoderWorker();
+    }
+    case WorkerType.DECODER_WORKER_ZSTD: {
       return new BrotliDecoderWorker();
     }
     case WorkerType.DECODER_WORKER: {
@@ -46,6 +54,7 @@ export class WorkerPool {
   public workers: { [key in WorkerType]: Worker[] } = {
     DECODER_WORKER: [],
     DECODER_WORKER_BROTLI: [],
+    DECODER_WORKER_ZSTD: [],
   };
 
   /**

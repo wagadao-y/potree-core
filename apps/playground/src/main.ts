@@ -306,6 +306,11 @@ document.body.onload = () => {
   const stats = new Stats();
   stats.showPanel(0);
   stats.dom.className = "playground-stats";
+  stats.dom.style.position = "fixed";
+  stats.dom.style.right = "16px";
+  stats.dom.style.bottom = "16px";
+  stats.dom.style.left = "auto";
+  stats.dom.style.top = "auto";
   document.body.appendChild(stats.dom);
 
   const performancePanel = createPerformancePanel();

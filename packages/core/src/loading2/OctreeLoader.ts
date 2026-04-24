@@ -386,10 +386,7 @@ export class NodeLoader {
 
   private decodeNode(node: OctreeGeometryNode, buffer: ArrayBuffer) {
     return new Promise<void>((resolve, reject) => {
-      const workerType =
-        this.metadata.encoding === "BROTLI"
-          ? WorkerType.DECODER_WORKER_BROTLI
-          : WorkerType.DECODER_WORKER;
+      const workerType = getDecoderWorkerType(this.metadata.encoding);
       const worker = this.workerPool.getWorker(workerType);
       const workerQueuedAt = performance.now();
       const nodeByteSize = buffer.byteLength;
@@ -491,6 +488,7 @@ export class NodeLoader {
 
       const message = {
         name: node.name,
+        encoding: this.metadata.encoding,
         buffer,
         pointAttributes,
         scale,
@@ -816,6 +814,17 @@ export interface Metadata {
   };
   encoding: string;
   attributes: Attribute[];
+}
+
+function getDecoderWorkerType(encoding: string): WorkerType {
+  switch (encoding) {
+    case "BROTLI":
+      return WorkerType.DECODER_WORKER_BROTLI;
+    case "ZSTD":
+      return WorkerType.DECODER_WORKER_ZSTD;
+    default:
+      return WorkerType.DECODER_WORKER;
+  }
 }
 
 /**
