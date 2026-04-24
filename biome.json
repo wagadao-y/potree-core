@@ -9,7 +9,8 @@
     "ignoreUnknown": false,
     "includes": [
       "**",
-      "!apps/playground/public/data"
+      "!apps/playground/public/data",
+      "!apps/benchmark-decode/src/legacy-brotli"
     ]
   },
   "formatter": {
