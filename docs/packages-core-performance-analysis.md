@@ -21,6 +21,23 @@
   - `packages/core/src/rendering/edl-pass.ts`
   - `apps/playground/src/main.ts`
 
+## 実施済み改善
+
+- 2026-04-24 / commit `5686e5e 可視判定と可視ノード更新の負荷を削減`
+  - `packages/core/src/potree.ts`
+    - 可視判定 hot loop 内の `renderer.getSize()` / `getPixelRatio()` を loop 外へ移動。
+    - `shouldClip()` の node ごとの `Box3.clone()` / `new Box3()` / `new Vector3()` を撤去し、scratch / cache を再利用。
+    - `hideDescendants(pointCloud)` による subtree walk をやめ、前フレームの `visibleNodes` だけを非表示化。
+  - `packages/core/src/materials/point-cloud-material.ts`
+    - 可視ノードテクスチャ更新の `Uint8Array` / child offset 配列を再利用。
+    - `onBeforeRender` の `visibleNodes.indexOf(node)` と `visibleNodeTextureOffsets.get(node.name)` を撤去。
+  - 最終確認値:
+    - `CPU work avg`: 16.12 ms -> 14.48 ms
+    - `LOD / Visibility Update avg`: 4.94 ms -> 4.40 ms
+    - `CPU render submit avg`: 10.99 ms -> 9.90 ms
+  - 備考:
+    - `visibleNodes.sort(byLevelAndIndex)` の撤去と `onBeforeRender` の uniform 条件分岐削減は計測上悪化したため未採用。
+
 ## 主要ボトルネック
 
 - 問題: 可視判定ホットループ内で、ノードごとにレンダラー状態取得とクリップ用オブジェクト生成を繰り返している
@@ -56,10 +73,13 @@
     - 優先度キュー走査の最内周で `renderer.getSize`, `getPixelRatio`, `Box3.clone`, `new Box3`, `new Vector3` が候補ノード数ぶん走る。
     - クリップボックス数が増えると `shouldClip` が `候補ノード数 x clipBoxes.length` で増え、CPU 時間と GC の両方を押し上げる。
   - 改善案:
-    - `halfHeight` は `while` ループの外で 1 回だけ算出する。
-    - `pointCloud.updateMatrixWorld(true)` も point cloud ごとに 1 回に寄せる。
-    - `clipBoxes` はフレーム開始時に point cloud ローカル空間へ変換した `Box3[]` をキャッシュし、`shouldClip` は scratch `Box3` 1 個で `intersectsBox` のみ行う。
+    - [実施済み] `halfHeight` は `while` ループの外で 1 回だけ算出する。
+    - [実施済み] `pointCloud.updateMatrixWorld(true)` も point cloud ごとに 1 回に寄せる。
+    - [実施済み] `clipBoxes` はフレーム開始時に world `Box3[]` としてキャッシュし、`shouldClip` は scratch `Box3` 1 個で `intersectsBox` のみ行う。
     - `shouldClip` に plane / sphere の粗判定も追加し、GPU に送る前に弾く。
+  - 実施状況:
+    - 2026-04-24 実施済み。`renderer.getSize()` / `getPixelRatio()` を hot loop 外へ移動し、`shouldClip` の `Box3.clone()` / `new Box3()` / `new Vector3()` を撤去した。
+    - commit: `5686e5e 可視判定と可視ノード更新の負荷を削減`
   - 優先度: 高
   - 検証指標:
     - `updateVisibility` の CPU 時間
@@ -92,9 +112,13 @@
     - `shift()` は配列の先頭削除なのでキュー実装として不利。
     - LOD 更新とは独立に、可視状態リセットだけで O(N) の CPU コストが乗る。
   - 改善案:
-    - 前フレームの `pointCloud.visibleNodes` のみを走査して `sceneNode.visible = false` にする。
+    - [実施済み] 前フレームの `pointCloud.visibleNodes` のみを走査して `sceneNode.visible = false` にする。
     - `hideDescendants` は削除するか、必要なら `pop()` ベースに変える。
     - `frameStamp` をノードに持たせ、今フレームで触れたノードだけ true にする差分更新へ変更する。
+  - 実施状況:
+    - 2026-04-24 実施済み。`updateVisibilityStructures()` で `hideDescendants(pointCloud)` を呼ばず、前フレームの `visibleNodes` だけを非表示化する `hideVisibleNodes()` へ変更した。
+    - `visibleNodes` / `visibleGeometry` は毎フレーム新規配列を作らず、`length = 0` で再利用する。
+    - commit: `5686e5e 可視判定と可視ノード更新の負荷を削減`
   - 優先度: 高
   - 検証指標:
     - `updateVisibilityStructures` の CPU 時間
@@ -133,10 +157,15 @@
     - `visibleNodes.indexOf(node)` は draw call ごとに線形探索なので、可視ノード数が増えると CPU コストが急増する。
     - `uniformsNeedUpdate` を draw call ごとに立てるため、Three.js 側の uniform 更新コストも増える。
   - 改善案:
-    - `updateTreeNodeVisibility` 時に `node.pcIndex` を確定させ、`indexOf` を撤去する。
-    - `vnStart` も node 側へ保持し、`Map` 参照を減らす。
-    - `visibleNodesTexture` 用のバッファを再利用し、可視集合が変わった時だけ更新する。
+    - [実施済み] `updateTreeNodeVisibility` 時に `node.pcIndex` を確定させ、`indexOf` を撤去する。
+    - [実施済み] `vnStart` も node 側へ保持し、`Map` 参照を減らす。
+    - [一部実施済み] `visibleNodesTexture` 用のバッファを再利用し、毎フレームの `Uint8Array` / child offset 配列 allocation を避ける。
     - `visibleNodes` のソート済み配列を LOD 更新側で保持し、マテリアル側の再ソートを避ける。
+  - 実施状況:
+    - 2026-04-24 実施済み。DataTexture の既存 `image.data` へ直接書き込み、child offset 用 `Uint32Array` を再利用するよう変更した。
+    - `PointCloudOctreeNode` に `visibleNodeTextureOffset` と `parent` を追加し、`onBeforeRender` の `visibleNodeTextureOffsets.get(node.name)` と `octree.visibleNodes.indexOf(node)` を撤去した。
+    - `visibleNodes.sort(byLevelAndIndex)` の撤去は試したが、計測で悪化したため未採用。
+    - commit: `5686e5e 可視判定と可視ノード更新の負荷を削減`
   - 優先度: 高
   - 検証指標:
     - `updateMaterial` の CPU 時間
@@ -549,13 +578,13 @@
 
 ## 優先順位
 
-1. `potree.ts` の可視判定ホットループと `shouldClip` の allocation 削減
+1. [実施済み] `potree.ts` の可視判定ホットループと `shouldClip` の allocation 削減
 2. clip relation enum / cache と clip-aware point budget
-3. `point-cloud-material.ts` の可視ノードテクスチャ再構築、`indexOf` 撤去
+3. [一部実施済み] `point-cloud-material.ts` の可視ノードテクスチャ再構築、`indexOf` 撤去
 4. clip plane / sphere の CPU 粗判定追加
 5. `OctreeLoader.ts` の Range request バッチ化
 6. worker 転送 payload の削減
-7. `hideDescendants` の差分更新化
+7. [実施済み] `hideDescendants` の差分更新化
 8. clip uniform 配列の再利用
 9. EDL の layer 再同期撤去
 10. LRU の段階解放
