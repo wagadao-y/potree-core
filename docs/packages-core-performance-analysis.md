@@ -145,34 +145,56 @@
     - JS heap 増分
     - FPS
 
-- 問題: ノード読み込みが node 単位の細かい HTTP Range request に分断されている
-  - 対象ファイル / 関数: `packages/core/src/loading2/OctreeLoader.ts` / `NodeLoader.load`
+- 問題: octree.bin の Range 取得は結合済みだが、結合後の node 切り出しで `ArrayBuffer.slice()` コピーが発生し、結合条件も厳しすぎる
+  - 対象ファイル / 関数: `packages/core/src/loading2/OctreeLoader.ts` / `loadBatchWithCandidates`, `loadMergedOctreeRange`, `sliceCachedOctreeBuffer`
   - 該当コード:
 
     ```ts
-    const response = await this.requestManager.fetch(urlOctree, {
-      headers: {
-        "content-type": "multipart/byteranges",
-        Range: `bytes=${first}-${last}`,
-      },
-    });
+    const fetchedBuffer = await this.fetchOctreeRange(
+      urlOctree,
+      range.start,
+      range.endExclusive,
+    );
 
-    buffer = await response.arrayBuffer();
+    const buffer = sliceCachedOctreeBuffer(
+      fetchedBuffer,
+      range.start,
+      pendingNode.byteOffset,
+      pendingNode.endExclusive,
+    );
+    ```
+
+    ```ts
+    const MAX_MERGED_OCTREE_RANGE_GAP_BYTES = BigInt(0);
+
+    function sliceCachedOctreeBuffer(
+      buffer: ArrayBuffer,
+      cacheStart: bigint,
+      start: bigint,
+      endExclusive: bigint,
+    ) {
+      const sliceStart = Number(start - cacheStart);
+      const sliceEnd = Number(endExclusive - cacheStart);
+      return buffer.slice(sliceStart, sliceEnd);
+    }
     ```
   - なぜ遅いか:
-    - ノードごとにリクエストを発行するため、RTT、ヘッダ、サーバー seek、ブラウザ側スケジューリングの固定費が大きい。
-    - 大規模点群ではロードが断続的になり、デコードワーカーがアイドルになりやすい。
+    - 現行実装は `createMergedOctreeRanges()` で連続ノードの Range 結合まではできているが、各 node を worker に渡す前に `buffer.slice()` で再コピーしている。
+    - まとめて取得した大きな `ArrayBuffer` を node 数ぶん複製する形になり、ネットワークより後段のメモリ帯域と GC が律速になりやすい。
+    - `MAX_MERGED_OCTREE_RANGE_GAP_BYTES = 0` のため、近接しているが完全連続ではない node を束ねられず、結合効率が頭打ちになる。
+    - 同時ロード制御が `maxNumNodesLoading` のみなので、巨大ノードが混ざると bytes in flight を抑えにくい。
   - 改善案:
-    - `unloadedGeometry` を `byteOffset` 順にまとめ、近接レンジを 256KB から 2MB 単位で束ねて取得する。
-    - 受信後に `ArrayBuffer` を node ごとの `slice` ではなく `Uint8Array.subarray` ベースで切り分け、worker に必要部分だけ渡す。
-    - `maxNumNodesLoading` に加えて `maxBytesInFlight` を導入し、ネットワーク帯域に合わせて制御する。
+    - node 切り出しを `Uint8Array.subarray()` やオフセット付きビュー化に寄せ、不要な `ArrayBuffer.slice()` を避ける。
+    - worker 側を `buffer + start/end` 受け取りに拡張し、共有バッファ上の範囲だけ decode できるようにする。
+    - `MAX_MERGED_OCTREE_RANGE_GAP_BYTES` に小さな許容量を持たせ、近接 Range をまとめる。
+    - `maxNumNodesLoading` に加えて `maxBytesInFlight` を導入し、帯域とメモリ量の両方でバックプレッシャーを掛ける。
   - 優先度: 高
   - 検証指標:
     - 初回表示までの時間
     - 全ロード時間
     - 1 秒あたり request 数
     - 平均 bytes/request
-    - ネットワークスループット
+    - `octree-slice-read` 後の JS heap 増分
 
 - 問題: worker から main thread への返送データが大きく、不要なバッファ返却も含んでいる
   - 対象ファイル / 関数: `packages/core/src/loading2/OctreeLoader.ts` / `NodeLoader.load`, `packages/core/src/loading2/decoder.worker.js`, `packages/core/src/loading2/brotli-decoder.worker.js`
@@ -211,7 +233,8 @@
     ```
   - なぜ遅いか:
     - main thread は worker から戻った `message.buffer` を使っていない。
-    - それでも属性バッファに加えて元バッファまで transfer しており、転送量と一時メモリ量が増えている。
+    - 通常 decoder worker は属性バッファに加えて元バッファまで transfer しており、転送量と一時メモリ量が増えている。
+    - Brotli worker は元バッファ transfer を避けている一方で、両 worker とも未使用属性を含む全属性 decode を続けている。
     - 属性ごとに `ArrayBuffer` を個別生成するため、デコード直後のヒープピークが高い。
   - 改善案:
     - worker から返す payload から `buffer` を削除する。
@@ -255,6 +278,15 @@
     - draw call 数
     - render target 切り替え回数
     - EDL 有無の FPS 差分
+
+## 今回のレビューで確認した補足
+
+- `packages/core/src/loading2/OctreeLoader.ts` の IO は、以前のメモにあった「node 単位で細かい HTTP Range request に分断」は現状そのままではない。
+  - `loadBatchWithCandidates()` と `createMergedOctreeRanges()` により、連続した octree.bin 範囲は結合取得される。
+  - 今の主課題は request 数そのものより、結合後のコピー回数、gap 許容量、bytes in flight 制御不足に移っている。
+- `packages/core/src/materials/point-cloud-material.ts` の `visibleNodes.indexOf(node)` は現行コードでも残っており、draw call 数に比例して CPU コストが増える。
+- `packages/core/src/potree.ts` の `renderer.getSize(...).height * renderer.getPixelRatio()` は可視ノード探索ループ内に残っており、フレーム不変計算の外出し余地がある。
+- `packages/core/src/potree.ts` の `shouldClip()` は `pointCloud.updateMatrixWorld(true)` と `Box3` / `Vector3` 生成を候補 node ごとに行っており、clip box 利用時の支配コストになりやすい。
 
 - 問題: LRU の解放閾値が大きく、破棄が一括でメモリスパイクを起こしやすい
   - 対象ファイル / 関数: `packages/core/src/utils/lru.ts` / `freeMemory`, `disposeSubtree`
