@@ -38,6 +38,16 @@
   - 備考:
     - `visibleNodes.sort(byLevelAndIndex)` の撤去と `onBeforeRender` の uniform 条件分岐削減は計測上悪化したため未採用。
 
+## 現在の実測上の支配要因
+
+- 2026-04-24 時点の最終確認では、CPU 側の改善後も GPU が frame time を支配している。
+  - `CPU work avg`: 14.48 ms
+  - `GPU time avg`: 39.30 ms
+  - `Submitted points est`: 33,040,439
+  - `Draw calls`: 2,244
+- そのため、以降の FPS 改善は CPU hot loop よりも、GPU に送る点数、draw call 数、adaptive shader の per-vertex 負荷を下げる施策を優先する。
+- ロード系の `OctreeLoader` / worker payload 改善は、初回表示、ロード中の heap peak、ネットワーク効率には有効だが、ロード完了後の steady-state FPS 改善としては次点にする。
+
 ## 主要ボトルネック
 
 - 問題: 可視判定ホットループ内で、ノードごとにレンダラー状態取得とクリップ用オブジェクト生成を繰り返している
@@ -578,25 +588,47 @@
 
 ## 優先順位
 
-1. [実施済み] `potree.ts` の可視判定ホットループと `shouldClip` の allocation 削減
-2. clip relation enum / cache と clip-aware point budget
-3. [一部実施済み] `point-cloud-material.ts` の可視ノードテクスチャ再構築、`indexOf` 撤去
-4. clip plane / sphere の CPU 粗判定追加
-5. `OctreeLoader.ts` の Range request バッチ化
-6. worker 転送 payload の削減
-7. [実施済み] `hideDescendants` の差分更新化
-8. clip uniform 配列の再利用
-9. EDL の layer 再同期撤去
-10. LRU の段階解放
-11. shader clip 判定の少数ケース特殊化
+現在の優先順位は、2026-04-24 の実測で GPU time が約 39 ms と支配的だったことを前提にする。初回ロードやロード中の heap peak を改善する場合は、`OctreeLoader.ts` / worker payload 系を別枠で優先する。
+
+1. submitted points を減らす LOD / density 制御
+   - `screenSpaceDensityLODEnabled` / `maxPointsPerPixel` の実用設定を詰める。
+   - adaptive point size 時に過密な child 展開を止め、`Submitted points est` と `GPU time` の低下を確認する。
+2. draw call 数の削減
+   - 現状 2,244 draw calls が `CPU render submit` と GPU command 処理の両方に効いている。
+   - 遠距離 / 小サイズ node の統合描画、または leaf node の batch 化を検討する。
+3. adaptive shader / visible nodes texture の GPU 負荷切り分け
+   - `PointSizeType.FIXED` / `ATTENUATED` / `ADAPTIVE` を同一カメラで比較し、adaptive shader の vertex cost を測る。
+   - GPU time が大きく落ちる場合は、adaptive path の texture lookup / LOD traversal 削減を優先する。
+4. clip relation enum / cache と clip-aware point budget
+   - clip 利用時に、完全外部 node を早期除外し、完全内部 node の shader clip 判定を避ける。
+   - 小さい clip 領域でも budget を有効に使えるようにする。
+5. clip plane / sphere の CPU 粗判定追加
+   - box 以外の clip volume でも GPU へ送る不要点を減らす。
+6. shader clip 判定の少数ケース特殊化
+   - 1 plane / 1 sphere / 1 box の最頻出ケースを loop なし path にする。
+7. EDL の layer 再同期撤去
+   - EDL 有効時の追加 render pass / layer 操作コストを確認してから着手する。
+8. `OctreeLoader.ts` の Range request バッチ化
+   - steady-state FPS より、初回表示とロード中 heap peak 改善目的で実施する。
+9. worker 転送 payload の削減
+   - decode / transfer / heap peak 改善目的で実施する。
+10. clip uniform 配列の再利用
+    - clip 操作中の allocation / input latency 改善目的で実施する。
+11. LRU の段階解放
+    - heap / GPU memory のピーク抑制目的で実施する。
+12. [実施済み] `potree.ts` の可視判定ホットループと `shouldClip` の allocation 削減
+13. [実施済み] `hideDescendants` の差分更新化
+14. [一部実施済み] `point-cloud-material.ts` の可視ノードテクスチャ再構築、`indexOf` 撤去
 
 ## 推奨計測項目
 
 - 描画
   - FPS
   - GPU frame time
+  - submitted points
   - draw call 数
   - visible nodes 数
+  - `PointSizeType` 別 GPU frame time
 - CPU
   - `updateVisibility` の実行時間
   - `updateMaterial` の実行時間
