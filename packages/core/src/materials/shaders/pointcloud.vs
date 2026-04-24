@@ -13,7 +13,6 @@ in float classification;
 in float returnNumber;
 in float numberOfReturns;
 in float pointSourceID;
-in vec4 indices;
 
 
 // Uniforms
@@ -79,6 +78,14 @@ uniform float wElevation;
 uniform float wClassification;
 uniform float wReturnNumber;
 uniform float wSourceID;
+
+vec3 getPointIndexColor() {
+	int index = gl_VertexID;
+	int r = index & 255;
+	int g = (index >> 8) & 255;
+	int b = (index >> 16) & 255;
+	return vec3(float(r), float(g), float(b)) / 255.0;
+}
 
 uniform sampler2D visibleNodes;
 uniform float visibleNodesTextureSize;
@@ -438,7 +445,7 @@ void main() {
 		float w = getLOD() / 10.0;
 		vColor = texture(gradient, vec2(w, 1.0 - w)).rgb;
 	#elif defined color_type_point_index
-		vColor = indices.rgb;
+		vColor = getPointIndexColor();
 	#elif defined color_type_classification
 		vec4 cl = getClassification();
 		vColor = cl.rgb;

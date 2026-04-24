@@ -178,21 +178,6 @@ onmessage = function (event) {
   // console.log(`${name}: #points: ${numPoints}: #occupiedCells: ${numOccupiedCells}, occupancy: ${occupancy} points/cell`);
 
   {
-    // add indices
-    const buff = new ArrayBuffer(numPoints * 4);
-    const indices = new Uint32Array(buff);
-
-    for (let i = 0; i < numPoints; i++) {
-      indices[i] = i;
-    }
-
-    attributeBuffers.INDICES = {
-      buffer: buff,
-      attribute: PointAttribute.INDICES,
-    };
-  }
-
-  {
     // handle attribute vectors
     const vectors = pointAttributes.vectors;
 

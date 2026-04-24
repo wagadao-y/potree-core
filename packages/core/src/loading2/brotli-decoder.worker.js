@@ -420,21 +420,6 @@ onmessage = async function (event) {
   const occupancy = parseInt(numPoints / numOccupiedCells);
 
   {
-    // add indices
-    const buff = new ArrayBuffer(numPoints * 4);
-    const indices = new Uint32Array(buff);
-
-    for (let i = 0; i < numPoints; i++) {
-      indices[i] = i;
-    }
-
-    attributeBuffers.INDICES = {
-      buffer: buff,
-      attribute: PointAttribute.INDICES,
-    };
-  }
-
-  {
     // handle attribute vectors
     const vectors = pointAttributes.vectors;
 
