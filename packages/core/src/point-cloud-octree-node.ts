@@ -32,6 +32,10 @@ export class PointCloudOctreeNode
    */
   public pcIndex: number | undefined = undefined;
 
+  public visibleNodeTextureOffset: number | undefined = undefined;
+
+  public parent: PointCloudOctreeNode | null = null;
+
   /**
    * The bounding box node for this octree node, if applicable.
    *

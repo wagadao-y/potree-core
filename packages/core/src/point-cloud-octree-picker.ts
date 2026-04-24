@@ -141,9 +141,6 @@ export class PointCloudOctreePicker {
       params,
     );
 
-    // Cleanup
-    pickMaterial.clearVisibleNodeTextureOffsets();
-
     // Read back image and decode hit point
     const pixels = PointCloudOctreePicker.readPixels(
       renderer,

@@ -230,6 +230,7 @@ export class PointCloudOctree extends PointCloudTree {
     points.onBeforeRender = PointCloudMaterial.makeOnBeforeRender(this, node);
 
     if (parent) {
+      node.parent = parent;
       parent.sceneNode.add(points);
       parent.children[geometryNode.index] = node;
 

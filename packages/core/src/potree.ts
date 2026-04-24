@@ -68,12 +68,27 @@ export class QueueItem {
   ) {}
 }
 
+interface ClipVisibilityContext {
+  enabled: boolean;
+  clipBoxCount: number;
+  clipBoxesWorld: Box3[];
+}
+
 export class Potree implements IPotree {
   public static picker: PointCloudOctreePicker | undefined;
 
   public _pointBudget: number = DEFAULT_POINT_BUDGET;
 
   public _rendererSize: Vector2 = new Vector2();
+
+  private readonly _clipUnitBox = new Box3(
+    new Vector3(-0.5, -0.5, -0.5),
+    new Vector3(0.5, 0.5, 0.5),
+  );
+
+  private readonly _clipNodeWorldBox = new Box3();
+
+  private readonly _clipContexts: (ClipVisibilityContext | undefined)[] = [];
 
   public maxNumNodesLoading: number = MAX_NUM_NODES_LOADING;
 
@@ -203,6 +218,12 @@ export class Potree implements IPotree {
     const { frustums, cameraPositions, priorityQueue } =
       this.updateVisibilityStructures(pointClouds, camera);
 
+    const halfHeight =
+      0.5 *
+      renderer.getSize(this._rendererSize).height *
+      renderer.getPixelRatio();
+    const clipContexts = this.prepareClipVisibilityContexts(pointClouds);
+
     let loadedToGPUThisFrame = 0;
     let exceededMaxLoadsToGPU = false;
     let nodeLoadFailed = false;
@@ -228,7 +249,11 @@ export class Potree implements IPotree {
       if (
         node.level > maxLevel ||
         !frustums[pointCloudIndex].intersectsBox(node.boundingBox) ||
-        this.shouldClip(pointCloud, node.boundingBox)
+        this.shouldClip(
+          pointCloud,
+          node.boundingBox,
+          clipContexts[pointCloudIndex],
+        )
       ) {
         continue;
       }
@@ -265,11 +290,6 @@ export class Potree implements IPotree {
         // @ts-ignore
         pointCloud.visibleGeometry.push(node.geometryNode);
       }
-
-      const halfHeight =
-        0.5 *
-        renderer.getSize(this._rendererSize).height *
-        renderer.getPixelRatio();
 
       this.updateChildVisibility(
         queueItem,
@@ -516,6 +536,7 @@ export class Potree implements IPotree {
       sceneNode.matrix,
     );
 
+    node.pcIndex = pointCloud.visibleNodes.length;
     visibleNodes.push(node);
     pointCloud.visibleNodes.push(node);
 
@@ -606,28 +627,76 @@ export class Potree implements IPotree {
     }
   }
 
-  private shouldClip(pointCloud: PointCloudOctree, boundingBox: Box3): boolean {
-    const material = pointCloud.material;
+  private hideVisibleNodes(pointCloud: PointCloudOctree): void {
+    const visibleNodes = pointCloud.visibleNodes;
 
-    if (
-      material.numClipBoxes === 0 ||
-      material.clipMode !== ClipMode.CLIP_OUTSIDE
-    ) {
+    for (let i = 0; i < visibleNodes.length; i++) {
+      visibleNodes[i].sceneNode.visible = false;
+    }
+  }
+
+  private prepareClipVisibilityContexts(
+    pointClouds: PointCloudOctree[],
+  ): (ClipVisibilityContext | undefined)[] {
+    const contexts = this._clipContexts;
+    contexts.length = pointClouds.length;
+
+    for (let i = 0; i < pointClouds.length; i++) {
+      const pointCloud = pointClouds[i];
+      const material = pointCloud.material;
+      const existingContext = contexts[i];
+
+      if (
+        material.numClipBoxes === 0 ||
+        material.clipMode !== ClipMode.CLIP_OUTSIDE
+      ) {
+        if (existingContext !== undefined) {
+          existingContext.enabled = false;
+          existingContext.clipBoxCount = 0;
+        }
+        continue;
+      }
+
+      pointCloud.updateMatrixWorld(true);
+
+      const context =
+        existingContext ??
+        (contexts[i] = {
+          enabled: true,
+          clipBoxCount: 0,
+          clipBoxesWorld: [],
+        });
+      const clipBoxesWorld = context.clipBoxesWorld;
+      const clipBoxes = material.clipBoxes;
+      context.enabled = true;
+      context.clipBoxCount = clipBoxes.length;
+
+      for (let j = 0; j < context.clipBoxCount; j++) {
+        const clipBoxWorld = clipBoxesWorld[j] ?? new Box3();
+        clipBoxWorld.copy(this._clipUnitBox).applyMatrix4(clipBoxes[j].matrix);
+        clipBoxesWorld[j] = clipBoxWorld;
+      }
+    }
+
+    return contexts;
+  }
+
+  private shouldClip(
+    pointCloud: PointCloudOctree,
+    boundingBox: Box3,
+    clipContext: ClipVisibilityContext | undefined,
+  ): boolean {
+    if (clipContext === undefined || !clipContext.enabled) {
       return false;
     }
 
-    const box2 = boundingBox.clone();
-    pointCloud.updateMatrixWorld(true);
-    box2.applyMatrix4(pointCloud.matrixWorld);
+    const nodeWorldBox = this._clipNodeWorldBox
+      .copy(boundingBox)
+      .applyMatrix4(pointCloud.matrixWorld);
+    const clipBoxesWorld = clipContext.clipBoxesWorld;
 
-    const clipBoxes = material.clipBoxes;
-    for (let i = 0; i < clipBoxes.length; i++) {
-      const clipMatrixWorld = clipBoxes[i].matrix;
-      const clipBoxWorld = new Box3(
-        new Vector3(-0.5, -0.5, -0.5),
-        new Vector3(0.5, 0.5, 0.5),
-      ).applyMatrix4(clipMatrixWorld);
-      if (box2.intersectsBox(clipBoxWorld)) {
+    for (let i = 0; i < clipContext.clipBoxCount; i++) {
+      if (nodeWorldBox.intersectsBox(clipBoxesWorld[i])) {
         return false;
       }
     }
@@ -662,8 +731,13 @@ export class Potree implements IPotree {
         }
 
         pointCloud.numVisiblePoints = 0;
-        pointCloud.visibleNodes = [];
-        pointCloud.visibleGeometry = [];
+
+        // Hide only nodes that were visible in the previous frame. Walking the
+        // Object3D subtree here is proportional to loaded nodes, not visible nodes.
+        this.hideVisibleNodes(pointCloud);
+
+        pointCloud.visibleNodes.length = 0;
+        pointCloud.visibleGeometry.length = 0;
 
         camera.updateMatrixWorld(false);
 
@@ -689,9 +763,6 @@ export class Potree implements IPotree {
           const weight = Number.MAX_VALUE;
           priorityQueue.push(new QueueItem(i, weight, pointCloud.root));
         }
-
-        // Hide any previously visible nodes. We will later show only the needed ones.
-        pointCloud.hideDescendants(pointCloud);
 
         for (const boundingBoxNode of pointCloud.boundingBoxNodes) {
           boundingBoxNode.visible = false;

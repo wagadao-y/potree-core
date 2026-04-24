@@ -286,7 +286,9 @@ export class PointCloudMaterial extends RawShaderMaterial {
   private visibleNodesTextureSize =
     PointCloudMaterial.INITIAL_VISIBLE_NODES_TEXTURE_SIZE;
 
-  private visibleNodeTextureOffsets = new Map<string, number>();
+  private visibleNodeTextureChildOffsets = new Uint32Array(
+    PointCloudMaterial.INITIAL_VISIBLE_NODES_TEXTURE_SIZE,
+  );
 
   private _gradient = SPECTRAL;
 
@@ -537,8 +539,6 @@ export class PointCloudMaterial extends RawShaderMaterial {
       this.visibleNodesTexture = undefined;
     }
 
-    this.clearVisibleNodeTextureOffsets();
-
     if (this.classificationTexture) {
       this.classificationTexture.dispose();
       this.classificationTexture = undefined;
@@ -548,10 +548,6 @@ export class PointCloudMaterial extends RawShaderMaterial {
       this.depthMap.dispose();
       this.depthMap = undefined;
     }
-  }
-
-  clearVisibleNodeTextureOffsets(): void {
-    this.visibleNodeTextureOffsets.clear();
   }
 
   updateShaderSource(): void {
@@ -914,43 +910,49 @@ export class PointCloudMaterial extends RawShaderMaterial {
 
     this.ensureVisibleNodesTextureCapacity(nodes.length);
 
-    const data = new Uint8Array(nodes.length * 4);
-    const offsetsToChild = new Array(nodes.length).fill(Infinity);
+    const texture = this.visibleNodesTexture;
+    if (!texture) {
+      return;
+    }
 
-    this.visibleNodeTextureOffsets.clear();
+    const textureImage = texture.image as { data: Uint8Array };
+    const data = textureImage.data;
+    const offsetsToChild = this.visibleNodeTextureChildOffsets;
+    data.fill(0, 0, nodes.length * 4);
+    offsetsToChild.fill(0, 0, nodes.length);
 
     for (let i = 0; i < nodes.length; i++) {
       const node = nodes[i];
 
-      this.visibleNodeTextureOffsets.set(node.name, i);
+      node.visibleNodeTextureOffset = i;
 
       if (i > 0) {
-        const parentName = node.name.slice(0, -1);
-        const parentOffset = this.visibleNodeTextureOffsets.get(parentName)!;
+        const parentOffset = node.parent?.visibleNodeTextureOffset;
+        if (parentOffset === undefined) {
+          data[i * 4 + 3] = node.name.length;
+          continue;
+        }
+
         const parentOffsetToChild = i - parentOffset;
 
-        offsetsToChild[parentOffset] = Math.min(
-          offsetsToChild[parentOffset],
-          parentOffsetToChild,
-        );
+        const previousOffsetToChild = offsetsToChild[parentOffset];
+        offsetsToChild[parentOffset] =
+          previousOffsetToChild === 0
+            ? parentOffsetToChild
+            : Math.min(previousOffsetToChild, parentOffsetToChild);
 
         // tslint:disable:no-bitwise
         const offset = parentOffset * 4;
         data[offset] = data[offset] | (1 << node.index);
         data[offset + 1] = offsetsToChild[parentOffset] >> 8;
-        data[offset + 2] = offsetsToChild[parentOffset] % 256;
+        data[offset + 2] = offsetsToChild[parentOffset] & 255;
         // tslint:enable:no-bitwise
       }
 
       data[i * 4 + 3] = node.name.length;
     }
 
-    const texture = this.visibleNodesTexture;
-    if (texture) {
-      const textureImage = texture.image as { data: Uint8Array };
-      textureImage.data.set(data);
-      texture.needsUpdate = true;
-    }
+    texture.needsUpdate = true;
   }
 
   private ensureVisibleNodesTextureCapacity(numNodes: number) {
@@ -964,6 +966,7 @@ export class PointCloudMaterial extends RawShaderMaterial {
 
     this.visibleNodesTexture = texture;
     this.visibleNodesTextureSize = textureSize;
+    this.visibleNodeTextureChildOffsets = new Uint32Array(textureSize);
     this.setUniform("visibleNodes", texture);
     this.setUniform("visibleNodesTextureSize", textureSize);
     previousTexture?.dispose();
@@ -995,13 +998,13 @@ export class PointCloudMaterial extends RawShaderMaterial {
         materialUniforms.level.value = node.level;
         materialUniforms.isLeafNode.value = node.isLeafNode;
 
-        const vnStart = material.visibleNodeTextureOffsets.get(node.name);
+        const vnStart = node.visibleNodeTextureOffset;
         if (vnStart !== undefined) {
           materialUniforms.vnStart.value = vnStart;
         }
 
         materialUniforms.pcIndex.value =
-          pcIndex !== undefined ? pcIndex : octree.visibleNodes.indexOf(node);
+          pcIndex !== undefined ? pcIndex : (node.pcIndex ?? 0);
 
         // Remove the cast to any after updating to Three.JS >= r113
         (material as RawShaderMaterial).uniformsNeedUpdate = true;
