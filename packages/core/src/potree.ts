@@ -41,6 +41,11 @@ import { BinaryHeap } from "./utils/binary-heap";
 import { Box3Helper } from "./utils/box3-helper";
 import { LRU } from "./utils/lru";
 
+const MAX_VISIBLE_RUN_BYTES_WITHOUT_TRIMMING = BigInt(2 * 1024 * 1024);
+const MAX_VISIBLE_RUN_SELECTED_SPAN_BYTES = BigInt(2 * 1024 * 1024);
+const MAX_VISIBLE_RUN_PREFETCH_BYTES = BigInt(512 * 1024);
+const MAX_VISIBLE_RUN_PREFETCH_NODES = 8;
+
 /**
  * Represents an item in a processing queue for point cloud operations.
  *
@@ -449,9 +454,7 @@ export class Potree implements IPotree {
         return;
       }
 
-      for (const node of run) {
-        runNodes.add(node);
-      }
+      addBoundedVisibleRunNodes(runNodes, run, selectedSet);
 
       run = [];
       runContainsSelected = false;
@@ -702,4 +705,115 @@ export class Potree implements IPotree {
       };
     };
   })();
+}
+
+function addBoundedVisibleRunNodes(
+  runNodes: Set<OctreeGeometryNode>,
+  run: OctreeGeometryNode[],
+  selectedSet: Set<OctreeGeometryNode>,
+) {
+  const runByteSize = getRunByteSize(run);
+  if (runByteSize <= MAX_VISIBLE_RUN_BYTES_WITHOUT_TRIMMING) {
+    for (const node of run) {
+      runNodes.add(node);
+    }
+    return;
+  }
+
+  const selectedIndices = run.flatMap((node, index) =>
+    selectedSet.has(node) ? [index] : [],
+  );
+  const selectedNodes = selectedIndices.map((index) => run[index]);
+  if (selectedNodes.length === 0) {
+    return;
+  }
+
+  const selectedSpanStart = selectedIndices[0];
+  const selectedSpanEnd = selectedIndices[selectedIndices.length - 1];
+  const selectedSpanByteSize = getRunByteSize(
+    run.slice(selectedSpanStart, selectedSpanEnd + 1),
+  );
+
+  if (selectedSpanByteSize <= MAX_VISIBLE_RUN_SELECTED_SPAN_BYTES) {
+    for (let i = selectedSpanStart; i <= selectedSpanEnd; i++) {
+      runNodes.add(run[i]);
+    }
+    return;
+  }
+
+  for (const node of selectedNodes) {
+    runNodes.add(node);
+  }
+
+  let prefetchBytes = BigInt(0);
+  let prefetchNodes = 0;
+  const prefetchCandidates = run
+    .filter((node) => !selectedSet.has(node))
+    .map((node) => ({
+      node,
+      distanceFromSelected: getByteDistanceFromClosestSelected(
+        node,
+        selectedNodes,
+      ),
+    }))
+    .sort((a, b) => {
+      if (a.distanceFromSelected !== b.distanceFromSelected) {
+        return a.distanceFromSelected < b.distanceFromSelected ? -1 : 1;
+      }
+
+      return a.node.byteOffset! < b.node.byteOffset! ? -1 : 1;
+    });
+
+  for (const { node } of prefetchCandidates) {
+    const byteSize = node.byteSize!;
+    if (
+      prefetchNodes >= MAX_VISIBLE_RUN_PREFETCH_NODES ||
+      prefetchBytes + byteSize > MAX_VISIBLE_RUN_PREFETCH_BYTES
+    ) {
+      continue;
+    }
+
+    runNodes.add(node);
+    prefetchBytes += byteSize;
+    prefetchNodes++;
+  }
+}
+
+function getByteDistanceFromClosestSelected(
+  node: OctreeGeometryNode,
+  selectedNodes: OctreeGeometryNode[],
+) {
+  const start = node.byteOffset!;
+  const endExclusive = start + node.byteSize!;
+  let closestDistance: bigint | null = null;
+
+  for (const selectedNode of selectedNodes) {
+    const selectedStart = selectedNode.byteOffset!;
+    const selectedEndExclusive = selectedStart + selectedNode.byteSize!;
+    let distance: bigint;
+
+    if (endExclusive <= selectedStart) {
+      distance = selectedStart - endExclusive;
+    } else if (start >= selectedEndExclusive) {
+      distance = start - selectedEndExclusive;
+    } else {
+      distance = BigInt(0);
+    }
+
+    if (closestDistance === null || distance < closestDistance) {
+      closestDistance = distance;
+    }
+  }
+
+  return closestDistance ?? BigInt(0);
+}
+
+function getRunByteSize(run: OctreeGeometryNode[]) {
+  if (run.length === 0) {
+    return BigInt(0);
+  }
+
+  const firstNode = run[0];
+  const lastNode = run[run.length - 1];
+  return lastNode.byteOffset! + lastNode.byteSize! - firstNode.byteOffset!;
 }

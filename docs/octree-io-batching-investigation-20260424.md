@@ -102,23 +102,45 @@
 - ただし先読み batch 強化案よりは大幅に少ない
 - fetch 回数削減と総転送量のバランスが最も良かった
 
+### 可視 run + 巨大 run のみ制限
+
+- 2MB 以下の可視 run は従来どおり丸ごと採用
+- 2MB 超の run でも、優先ロード対象ノード群をつなぐ span が 2MB 以下ならその span を採用
+- それでも大きい run だけ、優先ロード対象ノード周辺の `512KB / 8 nodes` に早取りを制限
+- 代表値:
+  - `Fetched bytes: 154.8 MB`
+  - `Fetch events: 647`
+  - `Bytes / fetch: 245.0 KB`
+  - `Octree read avg: 0.49 ms`
+  - `Octree nodes / fetch: 4.52`
+  - `Octree cache hit: 77.9%`
+  - `Octree fetched / node bytes: 1.06x`
+
+評価:
+
+- `Fetched bytes` はロード対象のみ batch 案に近い水準まで下がった
+- `Fetch events` は可視 run 方式よりやや増えるが、変更前より大幅に少ない
+- `Octree nodes / fetch` と cache hit も十分維持できている
+- 現時点では fetch 回数削減と総転送量のバランスが最も良い
+
 ## 解釈
 
 - `gap = 0` にすると、隙間をまたぐ overfetch は発生しない
 - それでも `Fetched bytes` が変更前より増えるのは、可視 run に含まれる「今すぐは不要だが、可視で将来使う可能性が高いノード」を先回りで取得しているため
 - したがって転送量増分の主因は「隙間」ではなく「可視ノードの早取り」
+- ただし可視 run 全体を一律に削ると fetch が細かく分断され、cache hit も悪化する
+- そのため、小さい run は維持し、巨大 run だけを制限する方が安定する
 
 ## 結論
 
-- 現時点の候補案としては「可視 run 方式」を採用するのが妥当
+- 現時点の候補案としては「可視 run + 巨大 run のみ制限」を採用するのが妥当
 - 理由:
   - `Fetch events` を大きく減らせる
   - `Octree nodes / fetch` も十分高い
-  - `Fetched bytes` は強い先読み案ほど膨らまない
+  - `Fetched bytes` は変更前に近い水準まで抑えられる
 
 ## 今後の改善候補
 
-- run の最大 byte 数を制限する
-- run の最大 node 数を制限する
-- 可視 run 全体ではなく、優先ノード周辺の部分 run のみ採用する
+- 別視点 / 別データセットで `2MB` / `512KB` / `8 nodes` の閾値を再検証する
+- 早取り制限の効果を見やすくするため、selected node 数 / prefetch node 数 / prefetch bytes を instrumentation に追加する
 - 可視であっても point budget や優先度が低いノードの早取り量をさらに抑える
