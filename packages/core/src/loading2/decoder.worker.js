@@ -226,7 +226,6 @@ onmessage = function (event) {
 
   const message = {
     type: "result",
-    buffer: buffer,
     attributeBuffers: attributeBuffers,
     density: occupancy,
     metrics: {
@@ -241,7 +240,6 @@ onmessage = function (event) {
   for (const property in message.attributeBuffers) {
     transferables.push(message.attributeBuffers[property].buffer);
   }
-  transferables.push(buffer);
   // console.log('new', message)
 
   postMessage(message, transferables);

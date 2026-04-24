@@ -466,7 +466,6 @@ onmessage = async function (event) {
 
   const message = {
     type: "result",
-    buffer: buffer,
     attributeBuffers: attributeBuffers,
     density: occupancy,
     metrics: {
@@ -481,7 +480,6 @@ onmessage = async function (event) {
   for (const property in message.attributeBuffers) {
     transferables.push(message.attributeBuffers[property].buffer);
   }
-  // transferables.push(buffer);
 
   postMessage(message, transferables);
 };
