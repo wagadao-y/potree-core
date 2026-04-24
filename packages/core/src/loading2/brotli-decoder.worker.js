@@ -97,10 +97,12 @@ onmessage = async function (event) {
   });
 
   let buffer;
+  let decompressMs = 0;
   if (numPoints == 0 || event.data.buffer.byteLength === 0) {
     buffer = { buffer: new ArrayBuffer(0) };
   } else {
     try {
+      const decompressStartedAt = performance.now();
       const compressed = new Uint8Array(event.data.buffer);
       let decoded;
 
@@ -119,6 +121,7 @@ onmessage = async function (event) {
             ? decoded.buffer
             : decoded.slice().buffer,
       };
+      decompressMs = performance.now() - decompressStartedAt;
     } catch (e) {
       buffer = {
         buffer: new ArrayBuffer(numPoints * (pointAttributes.byteSize + 12)),
@@ -126,6 +129,8 @@ onmessage = async function (event) {
       console.error(`problem with node ${name}: `, e);
     }
   }
+
+  const attributeDecodeStartedAt = performance.now();
   const view = new DataView(buffer.buffer);
 
   const attributeBuffers = {};
@@ -469,6 +474,7 @@ onmessage = async function (event) {
     }
   }
 
+  const attributeDecodeMs = performance.now() - attributeDecodeStartedAt;
   const totalWorkerMs = performance.now() - tStart;
   const pointsPerMs = numPoints / totalWorkerMs;
   // console.log(`duration: ${duration.toFixed(1)}ms, #points: ${numPoints}, points/ms: ${pointsPerMs.toFixed(1)}`);
@@ -480,6 +486,8 @@ onmessage = async function (event) {
     density: occupancy,
     metrics: {
       decodeMs: totalWorkerMs,
+      decompressMs,
+      attributeDecodeMs,
       totalWorkerMs,
     },
   };

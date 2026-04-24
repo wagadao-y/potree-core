@@ -3,6 +3,8 @@ export type PotreeLoadStage =
   | "hierarchy-parse"
   | "octree-slice-read"
   | "worker-wait"
+  | "decompress"
+  | "attribute-decode"
   | "decompress-attribute-decode"
   | "worker-transfer"
   | "geometry-creation";

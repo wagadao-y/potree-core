@@ -1179,6 +1179,8 @@ type PerformanceRowKey =
   | "octreeFetchRatio"
   | "networkThroughput"
   | "workerWaitMs"
+  | "decompressMs"
+  | "attributeDecodeMs"
   | "decodeMs"
   | "transferMs"
   | "geometryMs"
@@ -1337,6 +1339,8 @@ function createPerformancePanel() {
       open: true,
       rows: [
         ["workerWaitMs", "Worker wait avg"],
+        ["decompressMs", "Decompress avg"],
+        ["attributeDecodeMs", "Attribute decode avg"],
         ["decodeMs", "Decode avg"],
         ["transferMs", "Transfer avg"],
         ["geometryMs", "Geometry avg"],
@@ -1463,9 +1467,12 @@ function createPerformancePanel() {
     const hierarchyLoad = metrics.loadMetrics["hierarchy-load"];
     const hierarchyParse = metrics.loadMetrics["hierarchy-parse"];
     const workerWait = metrics.loadMetrics["worker-wait"];
-    const decode = metrics.loadMetrics["decompress-attribute-decode"];
+    const decompress = metrics.loadMetrics.decompress;
+    const attributeDecode = metrics.loadMetrics["attribute-decode"];
     const transfer = metrics.loadMetrics["worker-transfer"];
     const geometry = metrics.loadMetrics["geometry-creation"];
+    const decodeMs = decompress.totalMs + attributeDecode.totalMs;
+    const decodedPoints = attributeDecode.totalPoints;
     const networkBytes =
       octreeRead.totalFetchedBytes + hierarchyLoad.totalFetchedBytes;
     const networkEvents =
@@ -1578,13 +1585,15 @@ function createPerformancePanel() {
       formatByteThroughput(networkBytes, networkMs),
     );
     setValue("workerWaitMs", formatAverageMs(workerWait));
-    setValue("decodeMs", formatAverageMs(decode));
+    setValue("decompressMs", formatAverageMs(decompress));
+    setValue("attributeDecodeMs", formatAverageMs(attributeDecode));
+    setValue("decodeMs", formatAverageFromTotals(decodeMs, attributeDecode.count));
     setValue("transferMs", formatAverageMs(transfer));
     setValue("geometryMs", formatAverageMs(geometry));
-    setValue("decodedPoints", formatInteger(decode.totalPoints));
+    setValue("decodedPoints", formatInteger(decodedPoints));
     setValue(
       "decodeThroughput",
-      formatPointThroughput(decode.totalPoints, decode.totalMs),
+      formatPointThroughput(decodedPoints, decodeMs),
     );
     setValue("pixelRatio", formatNumber(renderer.getPixelRatio(), 2));
     setValue(
@@ -1669,7 +1678,8 @@ function createLoadMetrics() {
     "hierarchy-parse",
     "octree-slice-read",
     "worker-wait",
-    "decompress-attribute-decode",
+    "decompress",
+    "attribute-decode",
     "worker-transfer",
     "geometry-creation",
   ];
@@ -1907,6 +1917,14 @@ function formatAverageMs(summary: LoadStageSummary) {
   }
 
   return `${formatNumber(summary.totalMs / summary.count, 2)} ms`;
+}
+
+function formatAverageFromTotals(totalMs: number, count: number) {
+  if (count === 0) {
+    return "-";
+  }
+
+  return `${formatNumber(totalMs / count, 2)} ms`;
 }
 
 function formatMetricMs(summary: MetricSummary | null) {

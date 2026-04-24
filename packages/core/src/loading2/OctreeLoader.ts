@@ -432,11 +432,23 @@ export class NodeLoader {
         const buffers = data.attributeBuffers;
         const receivedAt = performance.now();
         const metrics = data.metrics;
+        const totalDecodeMs = metrics?.decodeMs ?? metrics?.totalWorkerMs ?? 0;
+        const decompressMs = metrics?.decompressMs ?? 0;
+        const attributeDecodeMs =
+          metrics?.attributeDecodeMs ?? Math.max(0, totalDecodeMs - decompressMs);
 
         this.emitMeasurement({
-          stage: "decompress-attribute-decode",
+          stage: "decompress",
           nodeName: node.name,
-          durationMs: metrics?.decodeMs ?? 0,
+          durationMs: decompressMs,
+          byteSize: nodeByteSize,
+          numPoints: node.numPoints,
+        });
+
+        this.emitMeasurement({
+          stage: "attribute-decode",
+          nodeName: node.name,
+          durationMs: attributeDecodeMs,
           byteSize: nodeByteSize,
           numPoints: node.numPoints,
         });

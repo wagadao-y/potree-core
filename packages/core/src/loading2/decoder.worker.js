@@ -35,6 +35,7 @@ onmessage = function (event) {
     name,
   });
 
+  const attributeDecodeStartedAt = performance.now();
   const view = new DataView(buffer);
 
   const attributeBuffers = {};
@@ -235,6 +236,7 @@ onmessage = function (event) {
   // let pointsPerMs = numPoints / duration;
   // console.log(`duration: ${duration.toFixed(1)}ms, #points: ${numPoints}, points/ms: ${pointsPerMs.toFixed(1)}`);
 
+  const attributeDecodeMs = performance.now() - attributeDecodeStartedAt;
   const totalWorkerMs = performance.now() - tStart;
 
   const message = {
@@ -244,6 +246,8 @@ onmessage = function (event) {
     density: occupancy,
     metrics: {
       decodeMs: totalWorkerMs,
+      decompressMs: 0,
+      attributeDecodeMs,
       totalWorkerMs,
     },
   };
