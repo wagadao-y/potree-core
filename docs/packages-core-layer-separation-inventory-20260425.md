@@ -24,6 +24,7 @@
 - `core/visibility` から `PointCloudOctree` クラスの直接参照を外し、必要な最小 shape を `VisibilityPointCloudTarget` として受け取る形へ変更済み。
 - `core/visibility` から `PointCloudOctreeNode` / `PointCloudOctreeGeometryNode` クラスの直接参照を外し、`IPointCloudRenderedNode` / `IPointCloudGeometryNode` の structural interface へ変更済み。
 - Three.js scene node 生成、material update、clip visibility、camera view 変換は `renderer-three/point-cloud-octree-renderer.ts` 側へ集約済み。
+- `Potree` から renderer-three 個別 helper への依存を減らし、`ThreePointCloudVisibilityAdapter` 経由で visibility callback を接続する形へ変更済み。
 - `point-cloud-octree.ts` の material 初期化、material bound 更新、scene node 生成は `src/renderer-three/point-cloud-octree-renderer.ts` へ一部切り出し済み。
 - `types.ts` は `src/core/types.ts` と `src/renderer-three/types.ts` へ最小分割し、既存の `src/types.ts` は再 export の入口に変更済み。
 - 現時点の変更は `packages/core` の `pnpm run typecheck` を通過している。

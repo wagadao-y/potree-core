@@ -110,6 +110,63 @@ export class PointCloudClipVisibilityEvaluator {
   }
 }
 
+export class ThreePointCloudVisibilityAdapter {
+  private readonly clipVisibility = new PointCloudClipVisibilityEvaluator();
+
+  public createViews(
+    pointClouds: PointCloudOctree[],
+    camera: Camera,
+  ): (PointCloudVisibilityView | undefined)[] {
+    return createPointCloudVisibilityViews(pointClouds, camera);
+  }
+
+  public createProjection(camera: Camera): VisibilityProjection {
+    return createVisibilityProjection(camera);
+  }
+
+  public resetRenderedVisibility(pointCloud: PointCloudOctree): void {
+    resetPointCloudOctreeRenderedVisibility(pointCloud);
+  }
+
+  public prepareClipVisibility(
+    pointClouds: PointCloudOctree[],
+  ): (ClipVisibilityContext | undefined)[] {
+    return this.clipVisibility.prepare(pointClouds);
+  }
+
+  public shouldClip(
+    pointCloud: PointCloudOctree,
+    boundingBox: Box3,
+    clipContext: ClipVisibilityContext | undefined,
+  ): boolean {
+    return this.clipVisibility.shouldClip(pointCloud, boundingBox, clipContext);
+  }
+
+  public materializeLoadedGeometryNode(
+    pointCloud: PointCloudOctree,
+    geometryNode: PointCloudOctreeGeometryNode,
+    parent: PointCloudOctreeNode | null,
+  ): PointCloudOctreeNode {
+    return materializePointCloudOctreeNode(pointCloud, geometryNode, parent);
+  }
+
+  public updateTreeNodeVisibility(
+    pointCloud: PointCloudOctree,
+    node: PointCloudOctreeNode,
+    visibleNodes: IPointCloudTreeNode[],
+  ): void {
+    updatePointCloudOctreeNodeVisibility(pointCloud, node, visibleNodes);
+  }
+
+  public updateAfterVisibility(
+    pointCloud: PointCloudOctree,
+    camera: Camera,
+    renderer: WebGLRenderer,
+  ): void {
+    updatePointCloudAfterVisibility(pointCloud, camera, renderer);
+  }
+}
+
 export function createDefaultPointCloudMaterial(
   pcoGeometry: PCOGeometry,
 ): PointCloudMaterial {

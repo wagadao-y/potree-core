@@ -10,11 +10,7 @@ import {
   DEFAULT_MAX_NUM_NODES_LOADING,
 } from "./constants";
 import {
-  QueueItem,
-} from "./core/visibility/visibility-structures";
-import {
   enqueueChildVisibilityItems,
-  type VisibilityProjection,
   updateVisibility,
 } from "./core/visibility/update-visibility";
 import { getFeatures } from "./features";
@@ -34,13 +30,7 @@ import {
 import type { IPointCloudTreeNode, IVisibilityUpdateResult } from "./core/types";
 import type { IPotree, PickPoint } from "./renderer-three/types";
 import {
-  PointCloudClipVisibilityEvaluator,
-  createPointCloudVisibilityViews,
-  createVisibilityProjection,
-  materializePointCloudOctreeNode,
-  resetPointCloudOctreeRenderedVisibility,
-  updatePointCloudAfterVisibility,
-  updatePointCloudOctreeNodeVisibility,
+  ThreePointCloudVisibilityAdapter,
   type ClipVisibilityContext,
 } from "./renderer-three/point-cloud-octree-renderer";
 import { LRU } from "./utils/lru";
@@ -57,7 +47,7 @@ export class Potree implements IPotree {
 
   public _rendererSize: Vector2 = new Vector2();
 
-  private readonly clipVisibility = new PointCloudClipVisibilityEvaluator();
+  private readonly visibilityAdapter = new ThreePointCloudVisibilityAdapter();
 
   public maxNumNodesLoading: number = DEFAULT_MAX_NUM_NODES_LOADING;
 
@@ -133,7 +123,7 @@ export class Potree implements IPotree {
         continue;
       }
 
-      updatePointCloudAfterVisibility(pointCloud, camera, renderer);
+      this.visibilityAdapter.updateAfterVisibility(pointCloud, camera, renderer);
     }
 
     this.lru.freeMemory();
@@ -170,8 +160,11 @@ export class Potree implements IPotree {
     renderer: WebGLRenderer,
   ): IVisibilityUpdateResult {
     const rendererSize = renderer.getSize(this._rendererSize);
-    const visibilityViews = createPointCloudVisibilityViews(pointClouds, camera);
-    const projection = createVisibilityProjection(camera);
+    const visibilityViews = this.visibilityAdapter.createViews(
+      pointClouds,
+      camera,
+    );
+    const projection = this.visibilityAdapter.createProjection(camera);
 
     return updateVisibility<
       PointCloudOctreeGeometryNode,
@@ -191,11 +184,11 @@ export class Potree implements IPotree {
       maxLoadsToGPU: this.maxLoadsToGPU,
       callbacks: {
         resetRenderedVisibility: (pointCloud) =>
-          resetPointCloudOctreeRenderedVisibility(pointCloud),
+          this.visibilityAdapter.resetRenderedVisibility(pointCloud),
         prepareClipVisibilityContexts: (targetPointClouds) =>
-          this.clipVisibility.prepare(targetPointClouds),
+          this.visibilityAdapter.prepareClipVisibility(targetPointClouds),
         shouldClip: (pointCloud, boundingBox, clipContext) =>
-          this.clipVisibility.shouldClip(
+          this.visibilityAdapter.shouldClip(
             pointCloud,
             boundingBox,
             clipContext,
@@ -203,7 +196,7 @@ export class Potree implements IPotree {
         updateTreeNodeVisibility: (pointCloud, node, visibleNodes) =>
           this.updateTreeNodeVisibility(pointCloud, node, visibleNodes),
         materializeLoadedGeometryNode: (pointCloud, geometryNode, parent) =>
-          this.materializeLoadedGeometryNode(
+          this.visibilityAdapter.materializeLoadedGeometryNode(
             pointCloud,
             geometryNode,
             parent,
@@ -218,7 +211,7 @@ export class Potree implements IPotree {
           densityLODStats,
           pushQueueItem,
         ) =>
-          this.updateChildVisibility(
+          enqueueChildVisibilityItems(
             queueItem,
             pointCloud,
             node,
@@ -232,14 +225,6 @@ export class Potree implements IPotree {
           this.loadGeometryNodes(nodes, candidates),
       },
     });
-  }
-
-  private materializeLoadedGeometryNode(
-    pointCloud: PointCloudOctree,
-    geometryNode: PointCloudOctreeGeometryNode,
-    parent: PointCloudOctreeNode | null,
-  ): PointCloudOctreeNode {
-    return materializePointCloudOctreeNode(pointCloud, geometryNode, parent);
   }
 
   private loadGeometryNodes(
@@ -442,28 +427,10 @@ export class Potree implements IPotree {
     visibleNodes: IPointCloudTreeNode[],
   ): void {
     this.lru.touch(node.geometryNode);
-    updatePointCloudOctreeNodeVisibility(pointCloud, node, visibleNodes);
-  }
-
-  private updateChildVisibility(
-    queueItem: QueueItem,
-    pointCloud: PointCloudOctree,
-    node: IPointCloudTreeNode,
-    cameraPosition: import("three").Vector3,
-    projection: VisibilityProjection,
-    halfHeight: number,
-    densityLODStats: { culledNodes: number; culledPoints: number },
-    pushQueueItem: (queueItem: QueueItem) => void,
-  ): void {
-    enqueueChildVisibilityItems(
-      queueItem,
+    this.visibilityAdapter.updateTreeNodeVisibility(
       pointCloud,
       node,
-      cameraPosition,
-      projection,
-      halfHeight,
-      densityLODStats,
-      pushQueueItem,
+      visibleNodes,
     );
   }
 
