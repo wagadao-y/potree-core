@@ -27,16 +27,8 @@ const typedArrayMapping = {
 
 workerScope.onmessage = (event) => {
   const request = event.data as DecoderWorkerRequest;
-  const {
-    buffer,
-    pointAttributes,
-    scale,
-    name,
-    min,
-    size,
-    offset,
-    numPoints,
-  } = request;
+  const { buffer, pointAttributes, scale, name, min, size, offset, numPoints } =
+    request;
 
   const tStart = performance.now();
 
@@ -254,5 +246,8 @@ workerScope.onmessage = (event) => {
   message.metrics.transferBufferBytes = transferBufferBytes;
   message.metrics.preciseBufferBytes = preciseBufferBytes;
 
-  workerScope.postMessage(message satisfies DecoderWorkerMessage, transferables);
+  workerScope.postMessage(
+    message satisfies DecoderWorkerMessage,
+    transferables,
+  );
 };

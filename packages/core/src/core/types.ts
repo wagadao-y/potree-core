@@ -54,7 +54,8 @@ export interface IPointCloudRenderedNode<
 
 export interface IPointCloudVisibilityTarget<
   TGeometryNode extends IPointCloudGeometryNode = IPointCloudGeometryNode,
-  TRenderedNode extends IPointCloudRenderedNode<TGeometryNode> = IPointCloudRenderedNode<TGeometryNode>,
+  TRenderedNode extends
+    IPointCloudRenderedNode<TGeometryNode> = IPointCloudRenderedNode<TGeometryNode>,
 > {
   root: IPointCloudTreeNode | null;
   visible: boolean;

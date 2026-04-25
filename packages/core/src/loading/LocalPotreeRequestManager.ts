@@ -15,12 +15,18 @@ export class LocalPotreeRequestManager implements RequestManager {
 
   private readonly baseUrl: string;
 
-  public constructor(files: Partial<LocalPotreeFiles>, baseUrl = "localpotree://dataset/") {
+  public constructor(
+    files: Partial<LocalPotreeFiles>,
+    baseUrl = "localpotree://dataset/",
+  ) {
     this.files = LocalPotreeRequestManager.validateFiles(files);
     this.baseUrl = baseUrl.endsWith("/") ? baseUrl : `${baseUrl}/`;
   }
 
-  public async fetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+  public async fetch(
+    input: RequestInfo | URL,
+    init?: RequestInit,
+  ): Promise<Response> {
     const resourceUrl = this.extractUrl(input);
     const fileName = this.resolveFileName(resourceUrl);
     const file = this.files[fileName];
@@ -36,9 +42,7 @@ export class LocalPotreeRequestManager implements RequestManager {
 
     const range = this.parseRangeHeader(init?.headers);
     const body =
-      range === null
-        ? file
-        : file.slice(range.start, range.endExclusive);
+      range === null ? file : file.slice(range.start, range.endExclusive);
 
     return new Response(body, {
       headers: {
@@ -74,11 +78,15 @@ export class LocalPotreeRequestManager implements RequestManager {
     return REQUIRED_FILES.every((fileName) => names.has(fileName));
   }
 
-  private static isRequiredFileName(fileName: string): fileName is LocalPotreeFileName {
+  private static isRequiredFileName(
+    fileName: string,
+  ): fileName is LocalPotreeFileName {
     return REQUIRED_FILES.includes(fileName as LocalPotreeFileName);
   }
 
-  private static validateFiles(files: Partial<LocalPotreeFiles>): LocalPotreeFiles {
+  private static validateFiles(
+    files: Partial<LocalPotreeFiles>,
+  ): LocalPotreeFiles {
     for (const fileName of REQUIRED_FILES) {
       if (!(files[fileName] instanceof File)) {
         throw new Error(`Missing local Potree file: ${fileName}`);
@@ -106,7 +114,10 @@ export class LocalPotreeRequestManager implements RequestManager {
       : new URL(url, this.baseUrl).toString();
     const fileName = new URL(normalizedUrl).pathname.split("/").at(-1);
 
-    if (fileName === undefined || !LocalPotreeRequestManager.isRequiredFileName(fileName)) {
+    if (
+      fileName === undefined ||
+      !LocalPotreeRequestManager.isRequiredFileName(fileName)
+    ) {
       throw new Error(`Unsupported local Potree resource: ${url}`);
     }
 
@@ -129,7 +140,11 @@ export class LocalPotreeRequestManager implements RequestManager {
     const start = Number.parseInt(match[1], 10);
     const endInclusive = Number.parseInt(match[2], 10);
 
-    if (!Number.isFinite(start) || !Number.isFinite(endInclusive) || endInclusive < start) {
+    if (
+      !Number.isFinite(start) ||
+      !Number.isFinite(endInclusive) ||
+      endInclusive < start
+    ) {
       throw new Error(`Invalid Range header: ${rangeHeader}`);
     }
 
@@ -149,7 +164,9 @@ export class LocalPotreeRequestManager implements RequestManager {
     }
 
     if (Array.isArray(headers)) {
-      const match = headers.find(([headerName]) => headerName.toLowerCase() === name.toLowerCase());
+      const match = headers.find(
+        ([headerName]) => headerName.toLowerCase() === name.toLowerCase(),
+      );
       return match?.[1] ?? null;
     }
 

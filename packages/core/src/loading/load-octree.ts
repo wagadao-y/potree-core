@@ -1,5 +1,5 @@
-import { OctreeLoader } from "./OctreeLoader";
 import type { LoadOctreeOptions } from "./LoadInstrumentation";
+import { OctreeLoader } from "./OctreeLoader";
 import type { RequestManager } from "./RequestManager";
 
 /**

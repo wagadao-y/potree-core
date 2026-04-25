@@ -6,12 +6,12 @@ import {
   type Points,
   Sphere,
 } from "three";
-import { toThreeBox3, toThreeSphere } from "./renderer-three/box3-like";
-import type { OctreeGeometryNode } from "./loading/OctreeGeometryNode";
 import type {
   IPointCloudRenderedNode,
   IPointCloudTreeNode,
 } from "./core/types";
+import type { OctreeGeometryNode } from "./loading/OctreeGeometryNode";
+import { toThreeBox3, toThreeSphere } from "./renderer-three/box3-like";
 
 export class PointCloudOctreeNode
   extends EventDispatcher
@@ -71,10 +71,7 @@ export class PointCloudOctreeNode
    */
   public readonly isGeometryNode = false;
 
-  public constructor(
-    geometryNode: OctreeGeometryNode,
-    sceneNode: Points,
-  ) {
+  public constructor(geometryNode: OctreeGeometryNode, sceneNode: Points) {
     super();
 
     this.geometryNode = geometryNode;

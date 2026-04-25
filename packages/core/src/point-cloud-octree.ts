@@ -9,6 +9,10 @@ import {
   type WebGLRenderer,
 } from "three";
 import { DEFAULT_MIN_NODE_PIXEL_SIZE } from "./constants";
+import type {
+  IPointCloudTreeNode,
+  IPointCloudVisibilityTarget,
+} from "./core/types";
 import type { OctreeGeometry } from "./loading/OctreeGeometry";
 import type { OctreeGeometryNode } from "./loading/OctreeGeometryNode";
 import type { PointCloudMaterial, PointSizeType } from "./materials";
@@ -18,6 +22,7 @@ import {
   PointCloudOctreePicker,
 } from "./point-cloud-octree-picker";
 import { PointCloudTree } from "./point-cloud-tree";
+import { toThreeBox3, toThreeVector3 } from "./renderer-three/box3-like";
 import {
   createDefaultPointCloudMaterial,
   getPointCloudBoundingBoxWorld,
@@ -27,22 +32,15 @@ import {
   movePointCloudToGroundPlane,
   movePointCloudToOrigin,
   updatePointCloudBoundingBoxes,
-  updatePointCloudVisibleBounds,
   updatePointCloudMaterialBounds,
+  updatePointCloudVisibleBounds,
 } from "./renderer-three/point-cloud-octree-renderer";
-import { toThreeBox3, toThreeVector3 } from "./renderer-three/box3-like";
 import type { IPotree, PickPoint } from "./renderer-three/types";
-import type {
-  IPointCloudVisibilityTarget,
-  IPointCloudTreeNode,
-} from "./core/types";
 
-export class PointCloudOctree extends PointCloudTree
+export class PointCloudOctree
+  extends PointCloudTree
   implements
-    IPointCloudVisibilityTarget<
-      OctreeGeometryNode,
-      PointCloudOctreeNode
-    >
+    IPointCloudVisibilityTarget<OctreeGeometryNode, PointCloudOctreeNode>
 {
   /**
    * The name of the point cloud octree.
@@ -173,8 +171,7 @@ export class PointCloudOctree extends PointCloudTree
     this.position.copy(toThreeVector3(pcoGeometry.offset));
     this.updateMatrix();
 
-    this.material =
-      material || createDefaultPointCloudMaterial(pcoGeometry);
+    this.material = material || createDefaultPointCloudMaterial(pcoGeometry);
   }
 
   public dispose(): void {

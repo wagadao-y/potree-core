@@ -1,3 +1,4 @@
+import { BinaryHeap } from "../../utils/binary-heap";
 import type {
   Box3Like,
   IPointCloudGeometryNode,
@@ -6,7 +7,6 @@ import type {
   IPointCloudVisibilityTarget,
   Vec3Like,
 } from "../types";
-import { BinaryHeap } from "../../utils/binary-heap";
 
 export class QueueItem {
   public constructor(
@@ -24,7 +24,8 @@ export interface PointCloudVisibilityView {
 
 export type VisibilityPointCloudTarget<
   TGeometryNode extends IPointCloudGeometryNode = IPointCloudGeometryNode,
-  TRenderedNode extends IPointCloudRenderedNode<TGeometryNode> = IPointCloudRenderedNode<TGeometryNode>,
+  TRenderedNode extends
+    IPointCloudRenderedNode<TGeometryNode> = IPointCloudRenderedNode<TGeometryNode>,
 > = IPointCloudVisibilityTarget<TGeometryNode, TRenderedNode>;
 
 export interface VisibilityStructureCallbacks<TPointCloud> {

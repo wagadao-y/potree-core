@@ -10,16 +10,16 @@ import {
   Vector3,
   type WebGLRenderer,
 } from "three";
+import type { Box3Like, IPointCloudTreeNode } from "../core/types";
+import type { VisibilityProjection } from "../core/visibility/update-visibility";
+import type { PointCloudVisibilityView } from "../core/visibility/visibility-structures";
 import type { OctreeGeometryNode } from "../loading/OctreeGeometryNode";
 import { ClipMode, PointCloudMaterial } from "../materials";
 import type { PointCloudOctree } from "../point-cloud-octree";
 import { PointCloudOctreeNode } from "../point-cloud-octree-node";
-import type { Box3Like, IPointCloudTreeNode } from "../core/types";
-import type { VisibilityProjection } from "../core/visibility/update-visibility";
-import type { PointCloudVisibilityView } from "../core/visibility/visibility-structures";
-import { toThreeBox3 } from "./box3-like";
-import { Box3Helper } from "../utils/box3-helper";
 import { computeTransformedBoundingBox } from "../utils/bounds";
+import { Box3Helper } from "../utils/box3-helper";
+import { toThreeBox3 } from "./box3-like";
 import { materializeOctreeNodeGeometry } from "./octree-node-geometry";
 
 export interface ClipVisibilityContext {
@@ -273,7 +273,10 @@ export function getPointCloudBoundingBoxWorld(
   pointCloud: PointCloudOctree,
 ): Box3 {
   pointCloud.updateMatrixWorld(true);
-  return computeTransformedBoundingBox(pointCloud.boundingBox, pointCloud.matrixWorld);
+  return computeTransformedBoundingBox(
+    pointCloud.boundingBox,
+    pointCloud.matrixWorld,
+  );
 }
 
 export function movePointCloudToOrigin(pointCloud: PointCloudOctree): void {
@@ -312,7 +315,10 @@ export function createPointCloudOctreeNode(
     geometryNode.boundingBox.min.z,
   );
   points.frustumCulled = false;
-  points.onBeforeRender = PointCloudMaterial.makeOnBeforeRender(pointCloud, node);
+  points.onBeforeRender = PointCloudMaterial.makeOnBeforeRender(
+    pointCloud,
+    node,
+  );
   return node;
 }
 

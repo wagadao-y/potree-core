@@ -1,8 +1,8 @@
 import type { BufferGeometry } from "three";
 import { getBoundingSphereForBox3 } from "../core/box3-like-utils";
 import type { Box3Like, SphereLike } from "../core/types";
-import type { DecodedPointAttributes } from "./DecodedPointAttributes";
 import type { IPointCloudTreeNode } from "./../types";
+import type { DecodedPointAttributes } from "./DecodedPointAttributes";
 import type { OctreeGeometry } from "./OctreeGeometry";
 
 /**

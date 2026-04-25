@@ -11,7 +11,10 @@ export function toThreeBox3(box: Box3Like, target = new Box3()): Box3 {
   return target;
 }
 
-export function toThreeSphere(sphere: SphereLike, target = new Sphere()): Sphere {
+export function toThreeSphere(
+  sphere: SphereLike,
+  target = new Sphere(),
+): Sphere {
   target.center.set(sphere.center.x, sphere.center.y, sphere.center.z);
   target.radius = sphere.radius;
   return target;

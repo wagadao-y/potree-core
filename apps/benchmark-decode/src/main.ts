@@ -1,8 +1,8 @@
 import "./style.css";
 import type {
   BenchmarkFixtureIndex,
-  BenchmarkSummary,
   BenchmarkSuite,
+  BenchmarkSummary,
   BenchmarkWorkerMessage,
 } from "./types";
 
@@ -107,12 +107,17 @@ const jsResult = requireElement<HTMLDivElement>("#js-result");
 const brotliResult = requireElement<HTMLDivElement>("#brotli-result");
 const zstdResult = requireElement<HTMLDivElement>("#zstd-result");
 
-const benchmarkWorker = new Worker(new URL("./benchmark.worker.ts", import.meta.url), {
-  type: "module",
-});
+const benchmarkWorker = new Worker(
+  new URL("./benchmark.worker.ts", import.meta.url),
+  {
+    type: "module",
+  },
+);
 
-let fixtureIndexes: { brotli: BenchmarkFixtureIndex; zstd: BenchmarkFixtureIndex } | null =
-  null;
+let fixtureIndexes: {
+  brotli: BenchmarkFixtureIndex;
+  zstd: BenchmarkFixtureIndex;
+} | null = null;
 let isRunning = false;
 
 void initialize();
@@ -129,10 +134,14 @@ async function initialize() {
     ]);
 
     if (!brotliResponse.ok) {
-      throw new Error(`Brotli fixture index fetch failed with ${brotliResponse.status}`);
+      throw new Error(
+        `Brotli fixture index fetch failed with ${brotliResponse.status}`,
+      );
     }
     if (!zstdResponse.ok) {
-      throw new Error(`Zstd fixture index fetch failed with ${zstdResponse.status}`);
+      throw new Error(
+        `Zstd fixture index fetch failed with ${zstdResponse.status}`,
+      );
     }
 
     fixtureIndexes = {
@@ -157,9 +166,9 @@ async function runBenchmarks() {
   const roundCount = clampRounds(roundInput.valueAsNumber);
   roundInput.value = String(roundCount);
   statusLine.textContent = `計測を開始します。Brotli 2 系統と Zstd を各 ${roundCount} ラウンドで順に比較します。`;
-  jsResult.innerHTML = "<p class=\"placeholder\">計測中...</p>";
-  brotliResult.innerHTML = "<p class=\"placeholder\">計測中...</p>";
-  zstdResult.innerHTML = "<p class=\"placeholder\">計測待機中...</p>";
+  jsResult.innerHTML = '<p class="placeholder">計測中...</p>';
+  brotliResult.innerHTML = '<p class="placeholder">計測中...</p>';
+  zstdResult.innerHTML = '<p class="placeholder">計測待機中...</p>';
   winnerPanel.classList.add("muted");
   winnerPanel.textContent = "計測結果を集計中です。";
   setProgress(jsProgress, "待機中", false);
@@ -177,7 +186,8 @@ async function runBenchmarks() {
     zstdResult.innerHTML = renderResult(zstdSummary);
 
     renderWinner(jsSummary, brotliSummary, zstdSummary);
-    statusLine.textContent = "計測が完了しました。steady-state の平均時間で比較しています。";
+    statusLine.textContent =
+      "計測が完了しました。steady-state の平均時間で比較しています。";
   } catch (error) {
     statusLine.textContent = formatError(error);
   } finally {
@@ -235,7 +245,8 @@ function renderFixtureSummary(
   const compressedDeltaPercent =
     brotliIndex.totals.compressedBytes === 0
       ? 0
-      : ((zstdIndex.totals.compressedBytes - brotliIndex.totals.compressedBytes) /
+      : ((zstdIndex.totals.compressedBytes -
+          brotliIndex.totals.compressedBytes) /
           brotliIndex.totals.compressedBytes) *
         100;
   const items = [
@@ -248,11 +259,17 @@ function renderFixtureSummary(
     ],
     [
       "ポイント総数",
-      formatComparableInteger(brotliIndex.totals.points, zstdIndex.totals.points),
+      formatComparableInteger(
+        brotliIndex.totals.points,
+        zstdIndex.totals.points,
+      ),
     ],
     [
       "生データ総量",
-      formatComparableBytes(brotliIndex.totals.rawBytes, zstdIndex.totals.rawBytes),
+      formatComparableBytes(
+        brotliIndex.totals.rawBytes,
+        zstdIndex.totals.rawBytes,
+      ),
     ],
     ["Brotli 圧縮量", formatBytes(brotliIndex.totals.compressedBytes)],
     ["Zstd 圧縮量", formatBytes(zstdIndex.totals.compressedBytes)],
@@ -311,7 +328,9 @@ function renderWinner(
   zstdSummary: BenchmarkSummary,
 ) {
   const summaries = [jsSummary, brotliSummary, zstdSummary];
-  const sorted = [...summaries].sort((left, right) => left.meanMs - right.meanMs);
+  const sorted = [...summaries].sort(
+    (left, right) => left.meanMs - right.meanMs,
+  );
   const faster = sorted[0];
   const runnerUp = sorted[1];
   const speedup = runnerUp.meanMs / faster.meanMs;
@@ -319,7 +338,8 @@ function renderWinner(
   const compressedDeltaPercent =
     brotliSummary.totalCompressedBytes === 0
       ? 0
-      : ((zstdSummary.totalCompressedBytes - brotliSummary.totalCompressedBytes) /
+      : ((zstdSummary.totalCompressedBytes -
+          brotliSummary.totalCompressedBytes) /
           brotliSummary.totalCompressedBytes) *
         100;
   const suiteLabel = SUITE_LABELS[faster.suite];

@@ -72,7 +72,9 @@ async function runBenchmark(
     });
   }
 
-  const durations = rounds.map((round) => round.durationMs).sort((a, b) => a - b);
+  const durations = rounds
+    .map((round) => round.durationMs)
+    .sort((a, b) => a - b);
   const durationTotal = durations.reduce((total, value) => total + value, 0);
   const meanMs = durationTotal / durations.length;
   const middleIndex = Math.floor(durations.length / 2);
@@ -112,7 +114,9 @@ async function loadFixture(indexUrl: string, payloadUrl: string) {
         throw new Error(`Fixture index fetch failed: ${indexResponse.status}`);
       }
       if (!payloadResponse.ok) {
-        throw new Error(`Fixture payload fetch failed: ${payloadResponse.status}`);
+        throw new Error(
+          `Fixture payload fetch failed: ${payloadResponse.status}`,
+        );
       }
 
       const index = (await indexResponse.json()) as BenchmarkFixtureIndex;
@@ -180,7 +184,11 @@ async function getDecoder(suite: BenchmarkSuite) {
         new Int8Array(input.buffer, input.byteOffset, input.byteLength),
       );
 
-      return new Uint8Array(output.buffer, output.byteOffset, output.byteLength);
+      return new Uint8Array(
+        output.buffer,
+        output.byteOffset,
+        output.byteLength,
+      );
     };
   }
 

@@ -1,6 +1,6 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
-import { searchForWorkspaceRoot, type Plugin, defineConfig } from "vite";
+import { defineConfig, type Plugin, searchForWorkspaceRoot } from "vite";
 import { createBenchmarkAssets } from "./benchmark-fixture";
 
 const FIXTURE_PATHS = {

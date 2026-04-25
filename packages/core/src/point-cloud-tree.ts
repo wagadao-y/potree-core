@@ -8,7 +8,9 @@ import type { IPointCloudTreeNode } from "./types";
 export class PointCloudTree extends Object3D {
   public readonly treeModel: PointCloudTreeModel;
 
-  public constructor(treeModel: PointCloudTreeModel = new PointCloudTreeModel()) {
+  public constructor(
+    treeModel: PointCloudTreeModel = new PointCloudTreeModel(),
+  ) {
     super();
     this.treeModel = treeModel;
   }

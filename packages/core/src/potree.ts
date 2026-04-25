@@ -1,18 +1,14 @@
+import { type Camera, type Ray, Vector2, type WebGLRenderer } from "three";
 import {
-  type Camera,
-  type Ray,
-  Vector2,
-  type WebGLRenderer,
-} from "three";
-import {
-  DEFAULT_POINT_BUDGET,
   DEFAULT_MAX_LOADS_TO_GPU,
   DEFAULT_MAX_NUM_NODES_LOADING,
+  DEFAULT_POINT_BUDGET,
 } from "./constants";
 import {
   PointCloudVisibilityScheduler,
   type PointCloudVisibilityUpdateInput,
 } from "./core";
+import type { IVisibilityUpdateResult } from "./core/types";
 import type { LoadOctreeOptions } from "./loading/LoadInstrumentation";
 import { loadOctree } from "./loading/load-octree";
 import type { OctreeGeometry } from "./loading/OctreeGeometry";
@@ -24,13 +20,12 @@ import {
   type PickParams,
   PointCloudOctreePicker,
 } from "./point-cloud-octree-picker";
-import type { IVisibilityUpdateResult } from "./core/types";
-import type { IPotree, PickPoint } from "./renderer-three/types";
-import {
-  ThreePointCloudVisibilityAdapter,
-  type ClipVisibilityContext,
-} from "./renderer-three/point-cloud-octree-renderer";
 import { getFeatures } from "./renderer-three/features";
+import {
+  type ClipVisibilityContext,
+  ThreePointCloudVisibilityAdapter,
+} from "./renderer-three/point-cloud-octree-renderer";
+import type { IPotree, PickPoint } from "./renderer-three/types";
 import { LRU } from "./utils/lru";
 
 export class Potree implements IPotree {
@@ -46,23 +41,20 @@ export class Potree implements IPotree {
 
   private readonly visibilityAdapter = new ThreePointCloudVisibilityAdapter();
 
-  private readonly visibilityScheduler =
-    new PointCloudVisibilityScheduler<
-      OctreeGeometryNode,
-      PointCloudOctreeNode,
-      PointCloudOctree,
-      ClipVisibilityContext
-    >(this.lru, {
+  private readonly visibilityScheduler = new PointCloudVisibilityScheduler<
+    OctreeGeometryNode,
+    PointCloudOctreeNode,
+    PointCloudOctree,
+    ClipVisibilityContext
+  >(
+    this.lru,
+    {
       resetRenderedVisibility: (pointCloud) =>
         this.visibilityAdapter.resetRenderedVisibility(pointCloud),
       prepareClipVisibilityContexts: (pointClouds) =>
         this.visibilityAdapter.prepareClipVisibility(pointClouds),
       shouldClip: (pointCloud, boundingBox, clipContext) =>
-        this.visibilityAdapter.shouldClip(
-          pointCloud,
-          boundingBox,
-          clipContext,
-        ),
+        this.visibilityAdapter.shouldClip(pointCloud, boundingBox, clipContext),
       updateTreeNodeVisibility: (pointCloud, node, visibleNodes) =>
         this.visibilityAdapter.updateTreeNodeVisibility(
           pointCloud,
@@ -75,11 +67,13 @@ export class Potree implements IPotree {
           geometryNode,
           parent,
         ),
-    }, {
+    },
+    {
       pointBudget: DEFAULT_POINT_BUDGET,
       maxNumNodesLoading: DEFAULT_MAX_NUM_NODES_LOADING,
       maxLoadsToGPU: DEFAULT_MAX_LOADS_TO_GPU,
-    });
+    },
+  );
 
   public async loadPointCloud(
     url: string,
@@ -142,7 +136,11 @@ export class Potree implements IPotree {
         continue;
       }
 
-      this.visibilityAdapter.updateAfterVisibility(pointCloud, camera, renderer);
+      this.visibilityAdapter.updateAfterVisibility(
+        pointCloud,
+        camera,
+        renderer,
+      );
     }
 
     return result;

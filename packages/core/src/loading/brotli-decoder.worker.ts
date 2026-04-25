@@ -362,5 +362,8 @@ workerScope.onmessage = async (event) => {
   message.metrics.transferBufferBytes = transferBufferBytes;
   message.metrics.preciseBufferBytes = preciseBufferBytes;
 
-  workerScope.postMessage(message satisfies DecoderWorkerMessage, transferables);
+  workerScope.postMessage(
+    message satisfies DecoderWorkerMessage,
+    transferables,
+  );
 };

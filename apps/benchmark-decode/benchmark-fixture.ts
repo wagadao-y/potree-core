@@ -1,8 +1,8 @@
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
+import { ZSTDDecoder } from "zstddec";
 // @ts-ignore Legacy JS module is used as a benchmark baseline.
 import { BrotliDecode } from "./src/legacy-brotli/decode.js";
-import { ZSTDDecoder } from "zstddec";
 
 export interface BenchmarkFixtureNode {
   name: string;
@@ -67,9 +67,7 @@ interface FixtureDefinition {
   sourceOctreePath: string;
 }
 
-export async function createBenchmarkAssets(
-  appRoot: string,
-) {
+export async function createBenchmarkAssets(appRoot: string) {
   const zstdDecoder = new ZSTDDecoder();
   await zstdDecoder.init();
 
@@ -77,7 +75,10 @@ export async function createBenchmarkAssets(
     brotli: {
       suite: "brotli",
       algorithm: "brotli",
-      metadataPath: resolve(appRoot, "../playground/public/data/pump/metadata.json"),
+      metadataPath: resolve(
+        appRoot,
+        "../playground/public/data/pump/metadata.json",
+      ),
       octreePath: resolve(appRoot, "../playground/public/data/pump/octree.bin"),
       sourceMetadataPath: "apps/playground/public/data/pump/metadata.json",
       sourceOctreePath: "apps/playground/public/data/pump/octree.bin",
@@ -136,8 +137,14 @@ async function createFixtureAssets(
       continue;
     }
 
-    const rawOffset = bigIntToNumber(node.byteOffset, `${node.name} byteOffset`);
-    const compressedSize = bigIntToNumber(node.byteSize, `${node.name} byteSize`);
+    const rawOffset = bigIntToNumber(
+      node.byteOffset,
+      `${node.name} byteOffset`,
+    );
+    const compressedSize = bigIntToNumber(
+      node.byteSize,
+      `${node.name} byteSize`,
+    );
     const compressedChunk = octreeBuffer.subarray(
       rawOffset,
       rawOffset + compressedSize,
@@ -145,7 +152,8 @@ async function createFixtureAssets(
     const rawSize =
       compressedSize === 0
         ? 0
-        : decodeChunk(definition.algorithm, compressedChunk, zstdDecoder).byteLength;
+        : decodeChunk(definition.algorithm, compressedChunk, zstdDecoder)
+            .byteLength;
 
     nodes.push({
       name: node.name,
@@ -173,8 +181,7 @@ async function createFixtureAssets(
       points,
       rawBytes,
       compressedBytes,
-      compressionRatio:
-        compressedBytes === 0 ? 0 : rawBytes / compressedBytes,
+      compressionRatio: compressedBytes === 0 ? 0 : rawBytes / compressedBytes,
     },
     nodes,
   };

@@ -113,10 +113,13 @@ export function updateVisibility<
     culledPoints: 0,
   };
 
-  const { views, priorityQueue } =
-    updateVisibilityStructures(options.pointClouds, options.views, {
+  const { views, priorityQueue } = updateVisibilityStructures(
+    options.pointClouds,
+    options.views,
+    {
       resetRenderedVisibility: options.callbacks.resetRenderedVisibility,
-    });
+    },
+  );
 
   const halfHeight =
     0.5 * options.viewport.height * options.viewport.pixelRatio;
@@ -281,9 +284,7 @@ export function enqueueChildVisibilityItems(
       projectionFactor = halfHeight / (slope * distance);
       screenPixelRadius = radius * projectionFactor;
       weight =
-        distance < radius
-          ? Number.MAX_VALUE
-          : screenPixelRadius + 1 / distance;
+        distance < radius ? Number.MAX_VALUE : screenPixelRadius + 1 / distance;
     } else {
       projectionFactor =
         ((2 * halfHeight) / projection.verticalSpan) * projection.zoom;

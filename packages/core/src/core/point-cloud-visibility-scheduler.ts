@@ -9,9 +9,9 @@ import type {
 } from "./types";
 import {
   enqueueChildVisibilityItems,
+  updateVisibility,
   type VisibilityProjection,
   type VisibilityViewport,
-  updateVisibility,
 } from "./visibility/update-visibility";
 import type { PointCloudVisibilityView } from "./visibility/visibility-structures";
 
@@ -214,15 +214,11 @@ export class PointCloudVisibilityScheduler<
   ): Promise<void>[] {
     const nodeLoadPromises: Promise<void>[] = [];
     const nodesByLoader = new Map<
-      NonNullable<
-        NonNullable<TGeometryNode["octreeGeometry"]>["loader"]
-      >,
+      NonNullable<NonNullable<TGeometryNode["octreeGeometry"]>["loader"]>,
       TGeometryNode[]
     >();
     const candidatesByLoader = new Map<
-      NonNullable<
-        NonNullable<TGeometryNode["octreeGeometry"]>["loader"]
-      >,
+      NonNullable<NonNullable<TGeometryNode["octreeGeometry"]>["loader"]>,
       TGeometryNode[]
     >();
 
@@ -442,10 +438,7 @@ function addBoundedVisibleRunNodes<
 
 function getByteDistanceFromClosestSelected<
   TGeometryNode extends { byteOffset: bigint; byteSize: bigint },
->(
-  node: TGeometryNode,
-  selectedNodes: TGeometryNode[],
-) {
+>(node: TGeometryNode, selectedNodes: TGeometryNode[]) {
   const start = node.byteOffset;
   const endExclusive = start + node.byteSize;
   let closestDistance: bigint | null = null;
@@ -471,9 +464,9 @@ function getByteDistanceFromClosestSelected<
   return closestDistance ?? BigInt(0);
 }
 
-function getRunByteSize<TGeometryNode extends { byteOffset: bigint; byteSize: bigint }>(
-  run: TGeometryNode[],
-) {
+function getRunByteSize<
+  TGeometryNode extends { byteOffset: bigint; byteSize: bigint },
+>(run: TGeometryNode[]) {
   if (run.length === 0) {
     return BigInt(0);
   }
