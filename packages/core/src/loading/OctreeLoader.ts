@@ -11,6 +11,7 @@ import type {
   PotreeLoadInstrumentation,
   PotreeLoadMeasurement,
 } from "./LoadInstrumentation";
+import { loadOctreeHierarchy } from "./load-octree-hierarchy";
 import { OctreeGeometry } from "./OctreeGeometry";
 import { OctreeGeometryNode } from "./OctreeGeometryNode";
 import {
@@ -25,7 +26,6 @@ import {
   PointAttributes,
   PointAttributeTypes,
 } from "./PointAttributes";
-import { parseOctreeHierarchy } from "./parse-octree-hierarchy";
 import {
   markLoadableOctreeNodes,
   planOctreeLoadBatch,
@@ -124,47 +124,11 @@ export class NodeLoader {
   }
 
   async loadHierarchy(node: OctreeGeometryNode) {
-    const { hierarchyByteOffset, hierarchyByteSize } = node;
-
-    if (hierarchyByteOffset === undefined || hierarchyByteSize === undefined) {
-      throw new Error(
-        `hierarchyByteOffset and hierarchyByteSize are undefined for node ${node.name}`,
-      );
-    }
-
-    const hierarchyPath = (await this.requestManager.getUrl(this.url)).replace(
-      "/metadata.json",
-      "/hierarchy.bin",
-    );
-
-    const first = hierarchyByteOffset;
-    const last = first + hierarchyByteSize - BigInt(1);
-
-    const hierarchyLoadStartedAt = performance.now();
-    const response = await this.requestManager.fetch(hierarchyPath, {
-      headers: {
-        "content-type": "multipart/byteranges",
-        Range: `bytes=${first}-${last}`,
-      },
-    });
-
-    const buffer = await response.arrayBuffer();
-    this.emitMeasurement({
-      stage: "hierarchy-load",
-      nodeName: node.name,
-      durationMs: performance.now() - hierarchyLoadStartedAt,
-      byteSize: buffer.byteLength,
-      numPoints: node.numPoints,
-    });
-
-    const hierarchyParseStartedAt = performance.now();
-    parseOctreeHierarchy(node, buffer);
-    this.emitMeasurement({
-      stage: "hierarchy-parse",
-      nodeName: node.name,
-      durationMs: performance.now() - hierarchyParseStartedAt,
-      byteSize: buffer.byteLength,
-      numPoints: node.numPoints,
+    await loadOctreeHierarchy({
+      url: this.url,
+      node,
+      requestManager: this.requestManager,
+      emitMeasurement: (measurement) => this.emitMeasurement(measurement),
     });
   }
 
