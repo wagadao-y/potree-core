@@ -2,6 +2,10 @@
 
 ## 現在参照する文書
 
+- `packages-core-layer-separation-inventory-20260425.md`
+  - 2026-04-25 時点の `packages/core` 層分離棚卸し。
+  - pure core 相当、renderer 相当、混在箇所の整理と、最初に分離すべき対象をここで管理する。
+
 - `packages-core-webgpu-strategy-20260425.md`
   - 2026-04-25 時点の WebGPU 化の設計方針。
   - `packages/core` の責務分離、`ref/potree-renderer` の位置づけ、playground の参照方針をここで管理する。
