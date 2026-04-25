@@ -1,13 +1,13 @@
 import { type Camera, type Ray, Vector2, type WebGLRenderer } from "three";
 import {
-  DEFAULT_MAX_LOADS_TO_GPU,
-  DEFAULT_MAX_NUM_NODES_LOADING,
-  DEFAULT_POINT_BUDGET,
-} from "./constants";
-import {
   PointCloudVisibilityScheduler,
   type PointCloudVisibilityUpdateInput,
 } from "./core";
+import {
+  DEFAULT_MAX_LOADS_TO_GPU,
+  DEFAULT_MAX_NUM_NODES_LOADING,
+  DEFAULT_POINT_BUDGET,
+} from "./core/constants";
 import type { IVisibilityUpdateResult } from "./core/types";
 import type { LoadOctreeOptions } from "./loading/LoadInstrumentation";
 import { loadOctree } from "./loading/load-octree";

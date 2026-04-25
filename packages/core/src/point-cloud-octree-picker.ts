@@ -15,10 +15,13 @@ import {
   type WebGLRenderer,
   WebGLRenderTarget,
 } from "three";
-import { COLOR_BLACK, DEFAULT_PICK_WINDOW_SIZE } from "./constants";
 import { ClipMode, PointCloudMaterial, PointColorType } from "./materials";
 import type { PointCloudOctree } from "./point-cloud-octree";
 import type { PointCloudOctreeNode } from "./point-cloud-octree-node";
+import {
+  COLOR_BLACK,
+  DEFAULT_PICK_WINDOW_SIZE,
+} from "./renderer-three/constants";
 import type { PickPoint, PointCloudHit } from "./types";
 import { clamp } from "./utils/math";
 

@@ -18,19 +18,20 @@ import {
   type WebGLRenderer,
   WebGLRenderTarget,
 } from "three";
-
 import {
-  DEFAULT_HIGHLIGHT_COLOR,
   DEFAULT_MAX_POINT_SIZE,
   DEFAULT_MIN_POINT_SIZE,
   DEFAULT_RGB_BRIGHTNESS,
   DEFAULT_RGB_CONTRAST,
   DEFAULT_RGB_GAMMA,
-  PERSPECTIVE_CAMERA,
 } from "../constants";
 import { getBox3Size } from "../core/box3-like-utils";
 import type { PointCloudOctree } from "../point-cloud-octree";
 import type { PointCloudOctreeNode } from "../point-cloud-octree-node";
+import {
+  DEFAULT_HIGHLIGHT_COLOR,
+  PERSPECTIVE_CAMERA,
+} from "../renderer-three/constants";
 import { byLevelAndIndex } from "../utils/utils";
 import { DEFAULT_CLASSIFICATION } from "./classification";
 import { ClipMode, type IClipBox, type IClipSphere } from "./clipping";

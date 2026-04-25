@@ -13,9 +13,9 @@ import {
   type WebGLRenderer,
   WebGLRenderTarget,
 } from "three";
-import { ORTHOGRAPHIC_CAMERA } from "../constants";
 import { EyeDomeLightingMaterial } from "../materials/eye-dome-lighting-material";
 import type { PointCloudOctree } from "../point-cloud-octree";
+import { ORTHOGRAPHIC_CAMERA } from "../renderer-three/constants";
 import { ScreenPass } from "./screen-pass";
 
 export type EDLPassParams = {

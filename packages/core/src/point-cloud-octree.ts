@@ -8,7 +8,7 @@ import {
   Sphere,
   type WebGLRenderer,
 } from "three";
-import { DEFAULT_MIN_NODE_PIXEL_SIZE } from "./constants";
+import { DEFAULT_MIN_NODE_PIXEL_SIZE } from "./core/constants";
 import type {
   IPointCloudTreeNode,
   IPointCloudVisibilityTarget,

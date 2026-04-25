@@ -1,5 +1,5 @@
-import { DEFAULT_MAX_NUM_NODES_LOADING } from "../constants";
 import { cloneBox3, getBoundingSphereForBox3 } from "../core/box3-like-utils";
+import { DEFAULT_MAX_NUM_NODES_LOADING } from "../core/constants";
 import type { Box3Like, SphereLike, Vec3Like } from "../core/types";
 import type { PotreeLoadInstrumentation } from "./LoadInstrumentation";
 import type { OctreeGeometryNode } from "./OctreeGeometryNode";
