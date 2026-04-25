@@ -7,7 +7,7 @@ import {
   type Sphere,
 } from "three";
 import type { PointCloudOctreeGeometryNode } from "./point-cloud-octree-geometry-node";
-import type { IPointCloudTreeNode } from "./types";
+import type { IPointCloudTreeNode } from "./core/types";
 
 export class PointCloudOctreeNode
   extends EventDispatcher

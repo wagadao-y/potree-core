@@ -3,7 +3,6 @@ import {
   type Camera,
   type Intersection,
   Object3D,
-  Points,
   type Ray,
   type Raycaster,
   Sphere,
@@ -11,7 +10,6 @@ import {
   type WebGLRenderer,
 } from "three";
 import { DEFAULT_MIN_NODE_PIXEL_SIZE } from "./constants";
-import { OctreeGeometry } from "./loading2/OctreeGeometry";
 import { PointCloudMaterial, type PointSizeType } from "./materials";
 import type { PointCloudOctreeGeometryNode } from "./point-cloud-octree-geometry-node";
 import { PointCloudOctreeNode } from "./point-cloud-octree-node";
@@ -20,12 +18,15 @@ import {
   PointCloudOctreePicker,
 } from "./point-cloud-octree-picker";
 import { PointCloudTree } from "./point-cloud-tree";
+import {
+  createDefaultPointCloudMaterial,
+  createPointCloudOctreeNode,
+  updatePointCloudMaterialBounds,
+} from "./renderer-three/point-cloud-octree-renderer";
+import type { IPotree, PCOGeometry, PickPoint } from "./renderer-three/types";
 import type {
   IPointCloudTreeNode,
-  IPotree,
-  PCOGeometry,
-  PickPoint,
-} from "./types";
+} from "./core/types";
 import { computeTransformedBoundingBox } from "./utils/bounds";
 
 export class PointCloudOctree extends PointCloudTree {
@@ -164,10 +165,7 @@ export class PointCloudOctree extends PointCloudTree {
     this.updateMatrix();
 
     this.material =
-      material ||
-      (pcoGeometry instanceof OctreeGeometry
-        ? new PointCloudMaterial({ newFormat: true })
-        : new PointCloudMaterial());
+      material || createDefaultPointCloudMaterial(pcoGeometry);
   }
 
   public dispose(): void {
@@ -198,16 +196,7 @@ export class PointCloudOctree extends PointCloudTree {
 
   public set material(material: PointCloudMaterial) {
     this._material = material;
-    this.updateMatrixWorld(true);
-
-    const { min, max } = computeTransformedBoundingBox(
-      this.pcoGeometry.tightBoundingBox || this.getBoundingBoxWorld(),
-      this.matrixWorld,
-    );
-
-    const bWidth = max.z - min.z;
-    this.material.heightMin = min.z - 0.2 * bWidth;
-    this.material.heightMax = max.z + 0.2 * bWidth;
+    updatePointCloudMaterialBounds(this, material);
   }
 
   public get pointSizeType(): PointSizeType {
@@ -222,12 +211,9 @@ export class PointCloudOctree extends PointCloudTree {
     geometryNode: PointCloudOctreeGeometryNode,
     parent?: PointCloudOctreeNode | null,
   ): PointCloudOctreeNode {
-    const points = new Points(geometryNode.geometry, this.material);
-    const node = new PointCloudOctreeNode(geometryNode, points);
+    const node = createPointCloudOctreeNode(this, geometryNode);
+    const points = node.sceneNode;
     points.name = geometryNode.name;
-    points.position.copy(geometryNode.boundingBox.min);
-    points.frustumCulled = false;
-    points.onBeforeRender = PointCloudMaterial.makeOnBeforeRender(this, node);
 
     if (parent) {
       node.parent = parent;

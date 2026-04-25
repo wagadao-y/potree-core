@@ -14,6 +14,13 @@
 - ただし、loader、request manager、worker、属性定義、一部ユーティリティは pure core 相当に寄せやすい。
 - 問題は renderer 依存が一箇所にまとまっていないことであり、公開 API でも `PointCloudOctree`、`Potree.updatePointClouds`、`PointCloudMaterial` などが混在している。
 
+## 着手済み
+
+- `potree.ts` の visibility scheduling 入口と `updateVisibility` 本体は `src/core/visibility/*` へ切り出し済み。
+- `point-cloud-octree.ts` の material 初期化、material bound 更新、scene node 生成は `src/renderer-three/point-cloud-octree-renderer.ts` へ一部切り出し済み。
+- `types.ts` は `src/core/types.ts` と `src/renderer-three/types.ts` へ最小分割し、既存の `src/types.ts` は再 export の入口に変更済み。
+- 現時点の変更は `packages/core` の `pnpm run typecheck` を通過している。
+
 ## 分類基準
 
 ### pure core 相当
@@ -209,6 +216,11 @@
 - `potree.ts` から visibility scheduler 相当を切り出す。
 - `point-cloud-octree.ts` から scene object と material 依存を切り出す。
 - `types.ts` の pure core 用型と renderer 用型を分ける。
+
+現状:
+
+- 3 項目とも最小単位の切り出しには着手済み。
+- ただし `point-cloud-octree.ts` と `potree.ts` にはまだ renderer 依存が残っており、分離途中の段階である。
 
 ### 第2段階
 

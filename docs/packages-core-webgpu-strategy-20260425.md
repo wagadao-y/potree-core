@@ -29,6 +29,12 @@
 - これは開発効率のためであり、反映速度、型追跡、デバッグ容易性を優先する。
 - ただし src 直参照だけに依存せず、package entry と build 出力を通す検証経路は別途維持する。
 
+実装状況:
+
+- `apps/playground` は `potree-core` を `../../packages/core/src/index.ts` へ直接エイリアスする構成へ変更済み。
+- `apps/playground/package.json` の `dev` / `build` は `potree-core` の事前 build を前提にしない構成へ変更済み。
+- 検証は `apps/playground` での `pnpm run typecheck` と `pnpm run build` を通して行う。
+
 ## 設計方針
 
 ### `ref/potree-renderer` から採用するもの
@@ -105,6 +111,12 @@
 2. WebGPU 実装で必要なデータ構造を Three.js 非依存で定義する。
 3. Three.js WebGPU との統合層を adapter として実装する。
 4. playground からは src 直参照で開発し、build と typecheck で package 面の破綻を検出する。
+
+進捗メモ:
+
+- 1 は棚卸し文書の追加まで完了している。
+- 4 は `apps/playground` の src 直参照化と build / typecheck 通過まで完了している。
+- 現在は 1 の続きとして、`packages/core` の WebGL 実装を保ったまま `potree.ts`、`point-cloud-octree.ts`、`types.ts` の責務分離を進めている。
 
 ## 関連文書
 

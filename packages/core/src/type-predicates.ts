@@ -1,4 +1,5 @@
 import type { PointCloudOctreeGeometryNode } from "./point-cloud-octree-geometry-node";
+import type { PointCloudOctreeNode } from "./point-cloud-octree-node";
 
 /**
  * Checks if the given node is a geometry node.
@@ -18,6 +19,6 @@ export function isGeometryNode(
  * @param node - Node to check.
  * @returns True if the node is a tree node, false otherwise.
  */
-export function isTreeNode(node?: any) {
+export function isTreeNode(node?: any): node is PointCloudOctreeNode {
   return node?.isTreeNode;
 }

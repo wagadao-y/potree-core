@@ -11,7 +11,7 @@ import {
   Vector3,
 } from "three";
 import type { PointCloudOctreeGeometry } from "./point-cloud-octree-geometry";
-import type { IPointCloudTreeNode } from "./types";
+import type { IPointCloudTreeNode } from "./core/types";
 import { createChildAABB } from "./utils/bounds";
 import { getIndexFromName } from "./utils/utils";
 
