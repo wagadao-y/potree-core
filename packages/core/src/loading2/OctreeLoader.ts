@@ -435,7 +435,8 @@ export class NodeLoader {
         const totalDecodeMs = metrics?.decodeMs ?? metrics?.totalWorkerMs ?? 0;
         const decompressMs = metrics?.decompressMs ?? 0;
         const attributeDecodeMs =
-          metrics?.attributeDecodeMs ?? Math.max(0, totalDecodeMs - decompressMs);
+          metrics?.attributeDecodeMs ??
+          Math.max(0, totalDecodeMs - decompressMs);
 
         this.emitMeasurement({
           stage: "decompress",
@@ -451,6 +452,11 @@ export class NodeLoader {
           durationMs: attributeDecodeMs,
           byteSize: nodeByteSize,
           numPoints: node.numPoints,
+          metadata: {
+            generatedBufferBytes: metrics?.generatedBufferBytes,
+            preciseBufferBytes: metrics?.preciseBufferBytes,
+            rawBufferBytes: metrics?.rawBufferBytes,
+          },
         });
 
         const transferBaseline = workerStartedAt ?? workerQueuedAt;
@@ -464,6 +470,9 @@ export class NodeLoader {
           durationMs: transferDuration,
           byteSize: nodeByteSize,
           numPoints: node.numPoints,
+          metadata: {
+            transferBufferBytes: metrics?.transferBufferBytes,
+          },
         });
 
         returnWorker();

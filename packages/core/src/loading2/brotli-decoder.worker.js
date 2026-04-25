@@ -480,6 +480,19 @@ onmessage = async function (event) {
   for (const property in message.attributeBuffers) {
     transferables.push(message.attributeBuffers[property].buffer);
   }
+  let generatedBufferBytes = 0;
+  let transferBufferBytes = 0;
+  let preciseBufferBytes = 0;
+  for (const property in message.attributeBuffers) {
+    const attributeBuffer = message.attributeBuffers[property];
+    generatedBufferBytes += attributeBuffer.buffer?.byteLength ?? 0;
+    transferBufferBytes += attributeBuffer.buffer?.byteLength ?? 0;
+    preciseBufferBytes += attributeBuffer.preciseBuffer?.byteLength ?? 0;
+  }
+  message.metrics.rawBufferBytes = buffer.buffer.byteLength;
+  message.metrics.generatedBufferBytes = generatedBufferBytes;
+  message.metrics.transferBufferBytes = transferBufferBytes;
+  message.metrics.preciseBufferBytes = preciseBufferBytes;
 
   postMessage(message, transferables);
 };
