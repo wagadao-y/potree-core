@@ -1,4 +1,16 @@
-import { PointAttribute, PointAttributeTypes } from "./PointAttributes.ts";
+import { PointAttribute, PointAttributeTypes } from "./PointAttributes";
+import type {
+  DecoderWorkerMessage,
+  DecoderWorkerRequest,
+  DecoderWorkerResultMessage,
+} from "./WorkerProtocol";
+
+type WorkerScope = typeof globalThis & {
+  postMessage: (message: unknown, transfer?: Transferable[]) => void;
+  onmessage: ((event: MessageEvent) => void) | null;
+};
+
+const workerScope = globalThis as WorkerScope;
 
 const typedArrayMapping = {
   int8: Int8Array,
@@ -13,24 +25,22 @@ const typedArrayMapping = {
   double: Float64Array,
 };
 
-// Potree = {};
-
-onmessage = function (event) {
+workerScope.onmessage = function (event) {
+  const request = event.data as DecoderWorkerRequest;
   const {
     buffer,
     pointAttributes,
     scale,
     name,
     min,
-    max,
     size,
     offset,
     numPoints,
-  } = event.data;
+  } = request;
 
   const tStart = performance.now();
 
-  postMessage({
+  workerScope.postMessage({
     type: "started",
     name,
   });
@@ -49,22 +59,15 @@ onmessage = function (event) {
   const gridSize = 32;
   const grid = new Uint32Array(gridSize ** 3);
   const toIndex = (x, y, z) => {
-    // let dx = gridSize * (x - min.x) / size.x;
-    // let dy = gridSize * (y - min.y) / size.y;
-    // let dz = gridSize * (z - min.z) / size.z;
-
-    // min is already subtracted
     const dx = (gridSize * x) / size.x;
     const dy = (gridSize * y) / size.y;
     const dz = (gridSize * z) / size.z;
 
-    const ix = Math.min(parseInt(dx), gridSize - 1);
-    const iy = Math.min(parseInt(dy), gridSize - 1);
-    const iz = Math.min(parseInt(dz), gridSize - 1);
+    const ix = Math.min(Math.floor(dx), gridSize - 1);
+    const iy = Math.min(Math.floor(dy), gridSize - 1);
+    const iz = Math.min(Math.floor(dz), gridSize - 1);
 
-    const index = ix + iy * gridSize + iz * gridSize * gridSize;
-
-    return index;
+    return ix + iy * gridSize + iz * gridSize * gridSize;
   };
 
   let numOccupiedCells = 0;
@@ -131,54 +134,51 @@ onmessage = function (event) {
       const TypedArray = typedArrayMapping[pointAttribute.type.name];
       const preciseBuffer = new TypedArray(numPoints);
 
-      let [offset, scale] = [0, 1];
+      let [attributeOffsetBase, attributeScale] = [0, 1];
 
       const getterMap = {
         int8: view.getInt8,
         int16: view.getInt16,
         int32: view.getInt32,
-        // 'int64':  view.getInt64,
         uint8: view.getUint8,
         uint16: view.getUint16,
         uint32: view.getUint32,
-        // 'uint64': view.getUint64,
         float: view.getFloat32,
         double: view.getFloat64,
       };
       const getter = getterMap[pointAttribute.type.name].bind(view);
 
-      // compute offset and scale to pack larger types into 32 bit floats
       if (pointAttribute.type.size > 4) {
         const [amin, amax] = pointAttribute.range;
-        offset = amin;
-        scale = 1 / (amax - amin);
+        if (typeof amin === "number" && typeof amax === "number") {
+          attributeOffsetBase = amin;
+          attributeScale = 1 / (amax - amin);
+        }
       }
 
       for (let j = 0; j < numPoints; j++) {
         const pointOffset = j * bytesPerPoint;
         const value = getter(pointOffset + attributeOffset, true);
 
-        f32[j] = (value - offset) * scale;
+        f32[j] = (value - attributeOffsetBase) * attributeScale;
         preciseBuffer[j] = value;
       }
 
       attributeBuffers[pointAttribute.name] = {
         buffer: buff,
-        preciseBuffer: preciseBuffer,
+        preciseBuffer,
         attribute: pointAttribute,
-        offset: offset,
-        scale: scale,
+        offset: attributeOffsetBase,
+        scale: attributeScale,
       };
     }
 
     attributeOffset += pointAttribute.byteSize;
   }
 
-  const occupancy = parseInt(numPoints / numOccupiedCells);
-  // console.log(`${name}: #points: ${numPoints}: #occupiedCells: ${numOccupiedCells}, occupancy: ${occupancy} points/cell`);
+  const occupancy = Math.floor(numPoints / numOccupiedCells);
 
   {
-    // handle attribute vectors
     const vectors = pointAttributes.vectors;
 
     for (const vector of vectors) {
@@ -211,28 +211,28 @@ onmessage = function (event) {
       );
 
       attributeBuffers[name] = {
-        buffer: buffer,
+        buffer,
         attribute: vecAttribute,
       };
     }
   }
 
-  // let duration = performance.now() - tStart;
-  // let pointsPerMs = numPoints / duration;
-  // console.log(`duration: ${duration.toFixed(1)}ms, #points: ${numPoints}, points/ms: ${pointsPerMs.toFixed(1)}`);
-
   const attributeDecodeMs = performance.now() - attributeDecodeStartedAt;
   const totalWorkerMs = performance.now() - tStart;
 
-  const message = {
+  const message: DecoderWorkerResultMessage = {
     type: "result",
-    attributeBuffers: attributeBuffers,
+    attributeBuffers,
     density: occupancy,
     metrics: {
       decodeMs: totalWorkerMs,
       decompressMs: 0,
       attributeDecodeMs,
       totalWorkerMs,
+      rawBufferBytes: 0,
+      generatedBufferBytes: 0,
+      transferBufferBytes: 0,
+      preciseBufferBytes: 0,
     },
   };
 
@@ -253,7 +253,6 @@ onmessage = function (event) {
   message.metrics.generatedBufferBytes = generatedBufferBytes;
   message.metrics.transferBufferBytes = transferBufferBytes;
   message.metrics.preciseBufferBytes = preciseBufferBytes;
-  // console.log('new', message)
 
-  postMessage(message, transferables);
+  workerScope.postMessage(message satisfies DecoderWorkerMessage, transferables);
 };

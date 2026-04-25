@@ -18,7 +18,7 @@
     "useDefineForClassFields": false,
     "experimentalDecorators": true,
     "types": ["vite/client"],
-    "lib": ["es2022", "dom"],
+    "lib": ["es2022", "dom", "esnext.disposable"],
     "plugins": []
   },
   "include": ["src/**/*.ts"],

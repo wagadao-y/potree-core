@@ -24,6 +24,10 @@ import {
 } from "./PointAttributes";
 import type { RequestManager } from "./RequestManager";
 import { WorkerPool, WorkerType } from "./WorkerPool";
+import type {
+  DecoderWorkerMessage,
+  DecoderWorkerRequest,
+} from "./WorkerProtocol";
 
 const MAX_MERGED_OCTREE_RANGE_BYTES = BigInt(2 * 1024 * 1024);
 const MAX_MERGED_OCTREE_RANGE_GAP_BYTES = BigInt(0);
@@ -425,7 +429,7 @@ export class NodeLoader {
         fail(event.error ?? new Error(event.message));
       };
 
-      worker.onmessage = (e) => {
+      worker.onmessage = (e: MessageEvent<DecoderWorkerMessage>) => {
         const data = e.data;
 
         if (data.type === "started") {
@@ -507,7 +511,7 @@ export class NodeLoader {
 
       const offset = node.octreeGeometry.loader.offset;
 
-      const message = {
+      const message: DecoderWorkerRequest = {
         name: node.name,
         encoding: this.metadata.encoding,
         buffer,

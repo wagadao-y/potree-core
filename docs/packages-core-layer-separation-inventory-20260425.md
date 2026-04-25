@@ -99,7 +99,7 @@
 - `utils/lru.ts`
   - pure core 相当。
 
-- `utils/binary-heap.js`
+- `utils/binary-heap.ts`
   - pure core 相当。
 
 - `workers/custom-array-view.ts`
