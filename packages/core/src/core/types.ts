@@ -52,6 +52,22 @@ export interface IPointCloudRenderedNode<
   parent: IPointCloudRenderedNode<TGeometryNode> | null;
 }
 
+export interface IPointCloudVisibilityTarget<
+  TGeometryNode extends IPointCloudGeometryNode = IPointCloudGeometryNode,
+  TRenderedNode extends IPointCloudRenderedNode<TGeometryNode> = IPointCloudRenderedNode<TGeometryNode>,
+> {
+  root: IPointCloudTreeNode | null;
+  visible: boolean;
+  maxLevel?: number;
+  minNodePixelSize: number;
+  screenSpaceDensityLODEnabled: boolean;
+  maxPointsPerPixel: number;
+  numVisiblePoints: number;
+  visibleNodes: TRenderedNode[];
+  visibleGeometry: TGeometryNode[];
+  initialized(): boolean;
+}
+
 export interface IVisibilityUpdateResult {
   visibleNodes: IPointCloudTreeNode[];
   numVisiblePoints: number;

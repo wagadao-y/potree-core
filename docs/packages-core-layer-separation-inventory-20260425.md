@@ -27,6 +27,7 @@
 - `Potree` から renderer-three 個別 helper への依存を減らし、`ThreePointCloudVisibilityAdapter` 経由で visibility callback を接続する形へ変更済み。
 - `Potree.updatePointCloudVisibility()` を追加し、renderer / camera を受け取らず precomputed visibility input だけで LOD / load scheduling を実行できる入口を追加済み。
 - `core/types.ts` と `core/visibility/*` から Three.js math 型 import を外し、`Box3Like` / `SphereLike` / `Vec3Like` と structural visibility view を使う形へ変更済み。
+- `IPointCloudVisibilityTarget` を追加し、`PointCloudOctree` は既存 Object3D 継承を維持しつつ visibility target interface を実装する形へ変更済み。
 - `point-cloud-octree.ts` の material 初期化、material bound 更新、scene node 生成は `src/renderer-three/point-cloud-octree-renderer.ts` へ一部切り出し済み。
 - `types.ts` は `src/core/types.ts` と `src/renderer-three/types.ts` へ最小分割し、既存の `src/types.ts` は再 export の入口に変更済み。
 - 現時点の変更は `packages/core` の `pnpm run typecheck` を通過している。

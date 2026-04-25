@@ -3,6 +3,7 @@ import type {
   IPointCloudGeometryNode,
   IPointCloudRenderedNode,
   IPointCloudTreeNode,
+  IPointCloudVisibilityTarget,
   Vec3Like,
 } from "../types";
 import { BinaryHeap } from "../../utils/binary-heap";
@@ -21,21 +22,10 @@ export interface PointCloudVisibilityView {
   cameraPosition: Vec3Like;
 }
 
-export interface VisibilityPointCloudTarget<
+export type VisibilityPointCloudTarget<
   TGeometryNode extends IPointCloudGeometryNode = IPointCloudGeometryNode,
   TRenderedNode extends IPointCloudRenderedNode<TGeometryNode> = IPointCloudRenderedNode<TGeometryNode>,
-> {
-  root: IPointCloudTreeNode | null;
-  visible: boolean;
-  maxLevel?: number;
-  minNodePixelSize: number;
-  screenSpaceDensityLODEnabled: boolean;
-  maxPointsPerPixel: number;
-  numVisiblePoints: number;
-  visibleNodes: TRenderedNode[];
-  visibleGeometry: TGeometryNode[];
-  initialized(): boolean;
-}
+> = IPointCloudVisibilityTarget<TGeometryNode, TRenderedNode>;
 
 export interface VisibilityStructureCallbacks<TPointCloud> {
   resetRenderedVisibility: (pointCloud: TPointCloud) => void;

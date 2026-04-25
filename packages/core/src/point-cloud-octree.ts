@@ -25,11 +25,18 @@ import {
 } from "./renderer-three/point-cloud-octree-renderer";
 import type { IPotree, PCOGeometry, PickPoint } from "./renderer-three/types";
 import type {
+  IPointCloudVisibilityTarget,
   IPointCloudTreeNode,
 } from "./core/types";
 import { computeTransformedBoundingBox } from "./utils/bounds";
 
-export class PointCloudOctree extends PointCloudTree {
+export class PointCloudOctree extends PointCloudTree
+  implements
+    IPointCloudVisibilityTarget<
+      PointCloudOctreeGeometryNode,
+      PointCloudOctreeNode
+    >
+{
   /**
    * The name of the point cloud octree.
    */
