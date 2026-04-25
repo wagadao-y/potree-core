@@ -11,6 +11,8 @@ import {
 } from "./constants";
 import {
   enqueueChildVisibilityItems,
+  type VisibilityProjection,
+  type VisibilityViewport,
   updateVisibility,
 } from "./core/visibility/update-visibility";
 import { getFeatures } from "./features";
@@ -28,6 +30,7 @@ import {
   PointCloudOctreePicker,
 } from "./point-cloud-octree-picker";
 import type { IPointCloudTreeNode, IVisibilityUpdateResult } from "./core/types";
+import type { PointCloudVisibilityView } from "./core/visibility/visibility-structures";
 import type { IPotree, PickPoint } from "./renderer-three/types";
 import {
   ThreePointCloudVisibilityAdapter,
@@ -39,6 +42,12 @@ const MAX_VISIBLE_RUN_BYTES_WITHOUT_TRIMMING = BigInt(2 * 1024 * 1024);
 const MAX_VISIBLE_RUN_SELECTED_SPAN_BYTES = BigInt(2 * 1024 * 1024);
 const MAX_VISIBLE_RUN_PREFETCH_BYTES = BigInt(512 * 1024);
 const MAX_VISIBLE_RUN_PREFETCH_NODES = 8;
+
+export interface PotreeVisibilityUpdateInput {
+  views: (PointCloudVisibilityView | undefined)[];
+  projection: VisibilityProjection;
+  viewport: VisibilityViewport;
+}
 
 export class Potree implements IPotree {
   public static picker: PointCloudOctreePicker | undefined;
@@ -115,7 +124,15 @@ export class Potree implements IPotree {
     camera: Camera,
     renderer: WebGLRenderer,
   ): IVisibilityUpdateResult {
-    const result = this.updateVisibility(pointClouds, camera, renderer);
+    const rendererSize = renderer.getSize(this._rendererSize);
+    const result = this.updatePointCloudVisibility(pointClouds, {
+      views: this.visibilityAdapter.createViews(pointClouds, camera),
+      projection: this.visibilityAdapter.createProjection(camera),
+      viewport: {
+        height: rendererSize.height,
+        pixelRatio: renderer.getPixelRatio(),
+      },
+    });
 
     for (let i = 0; i < pointClouds.length; i++) {
       const pointCloud = pointClouds[i];
@@ -126,8 +143,15 @@ export class Potree implements IPotree {
       this.visibilityAdapter.updateAfterVisibility(pointCloud, camera, renderer);
     }
 
-    this.lru.freeMemory();
+    return result;
+  }
 
+  public updatePointCloudVisibility(
+    pointClouds: PointCloudOctree[],
+    input: PotreeVisibilityUpdateInput,
+  ): IVisibilityUpdateResult {
+    const result = this.updateVisibility(pointClouds, input);
+    this.lru.freeMemory();
     return result;
   }
 
@@ -156,16 +180,8 @@ export class Potree implements IPotree {
 
   private updateVisibility(
     pointClouds: PointCloudOctree[],
-    camera: Camera,
-    renderer: WebGLRenderer,
+    input: PotreeVisibilityUpdateInput,
   ): IVisibilityUpdateResult {
-    const rendererSize = renderer.getSize(this._rendererSize);
-    const visibilityViews = this.visibilityAdapter.createViews(
-      pointClouds,
-      camera,
-    );
-    const projection = this.visibilityAdapter.createProjection(camera);
-
     return updateVisibility<
       PointCloudOctreeGeometryNode,
       PointCloudOctreeNode,
@@ -173,12 +189,9 @@ export class Potree implements IPotree {
       ClipVisibilityContext
     >({
       pointClouds,
-      views: visibilityViews,
-      projection,
-      viewport: {
-        height: rendererSize.height,
-        pixelRatio: renderer.getPixelRatio(),
-      },
+      views: input.views,
+      projection: input.projection,
+      viewport: input.viewport,
       pointBudget: this.pointBudget,
       maxNumNodesLoading: this.maxNumNodesLoading,
       maxLoadsToGPU: this.maxLoadsToGPU,
