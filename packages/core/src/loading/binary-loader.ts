@@ -1,42 +1,24 @@
-import {
-  Box3,
-  BufferAttribute,
-  BufferGeometry,
-  Uint8BufferAttribute,
-  Vector3,
-} from "three";
+import { Box3, Vector3 } from "three";
+import type { Box3Like } from "../core/types";
+import type { DecodedPointAttributes } from "../loading2/DecodedPointAttributes";
 import {
   PointAttributeName,
-  type PointAttributeType,
 } from "../point-attributes";
 import type { PointCloudOctreeGeometryNode } from "../point-cloud-octree-geometry-node";
+import { toThreeBox3 } from "../renderer-three/box3-like";
 import { Version } from "../version";
-import BinaryDecoderWorker from "../workers/binary-decoder.worker.js?worker&inline";
+import BinaryDecoderWorker from "../workers/binary-decoder.worker.ts?worker&inline";
+import type {
+  LegacyBinaryDecoderAttribute,
+  LegacyBinaryDecoderRequest,
+  LegacyBinaryDecoderResponse,
+} from "./WorkerProtocol";
 import type { GetUrlFn, XhrRequest } from "./types";
-
-interface AttributeData {
-  attribute: {
-    name: PointAttributeName;
-    type: PointAttributeType;
-    byteSize: number;
-    numElements: number;
-  };
-  buffer: ArrayBuffer;
-}
-
-interface WorkerResponse {
-  data: {
-    attributeBuffers: { [name: string]: AttributeData };
-    indices: ArrayBuffer;
-    tightBoundingBox: { min: number[]; max: number[] };
-    mean: number[];
-  };
-}
 
 interface BinaryLoaderOptions {
   getUrl?: GetUrlFn;
   version: string;
-  boundingBox: Box3;
+  boundingBox: Box3Like;
   scale: number;
   xhrRequest: XhrRequest;
 }
@@ -46,7 +28,7 @@ type Callback = (node: PointCloudOctreeGeometryNode) => void;
 export class BinaryLoader {
   version: Version;
 
-  boundingBox: Box3;
+  boundingBox: Box3Like;
 
   scale: number;
 
@@ -138,7 +120,7 @@ export class BinaryLoader {
       node.numPoints = numPoints;
     }
 
-    worker.onmessage = (e: WorkerResponse) => {
+    worker.onmessage = (e: MessageEvent<LegacyBinaryDecoderResponse>) => {
       if (this.disposed) {
         resolve();
         return;
@@ -146,19 +128,9 @@ export class BinaryLoader {
 
       const data = e.data;
 
-      if (!node.geometry) {
-        node.geometry = new BufferGeometry();
-      }
-
-      const geometry = node.geometry;
-      geometry.boundingBox = node.boundingBox;
-
-      this.addBufferAttributes(geometry, data.attributeBuffers);
-      this.addIndices(geometry, data.indices);
-      this.addNormalAttribute(geometry, numPoints);
-
       node.mean = new Vector3().fromArray(data.mean);
       node.tightBoundingBox = this.getTightBoundingBox(data.tightBoundingBox);
+      node.decodedPointAttributes = this.toDecodedPointAttributes(data);
       node.loaded = true;
       node.loading = false;
       node.failed = false;
@@ -173,15 +145,16 @@ export class BinaryLoader {
       resolve();
     };
 
-    const message = {
+    const message: LegacyBinaryDecoderRequest = {
       buffer: buffer,
       pointAttributes: pointAttributes,
       version: this.version.version,
-      min: node.boundingBox.min.toArray(),
-      offset: node.pcoGeometry.offset.toArray(),
+      offset: [
+        node.pcoGeometry.offset.x,
+        node.pcoGeometry.offset.y,
+        node.pcoGeometry.offset.z,
+      ],
       scale: this.scale,
-      spacing: node.spacing,
-      hasChildren: node.hasChildren,
     };
 
     worker.postMessage(message, [message.buffer]);
@@ -204,93 +177,56 @@ export class BinaryLoader {
     this.workers.push(worker);
   }
 
-  private getTightBoundingBox({
-    min,
-    max,
-  }: {
-    min: number[];
-    max: number[];
-  }): Box3 {
-    const box = new Box3(
-      new Vector3().fromArray(min),
-      new Vector3().fromArray(max),
-    );
-    box.max.sub(box.min);
-    box.min.set(0, 0, 0);
+  private getTightBoundingBox(box: Box3Like): Box3 {
+    const tightBoundingBox = toThreeBox3(box);
+    tightBoundingBox.max.sub(tightBoundingBox.min);
+    tightBoundingBox.min.set(0, 0, 0);
 
-    return box;
+    return tightBoundingBox;
   }
 
-  private addBufferAttributes(
-    geometry: BufferGeometry,
-    buffers: { [name: string]: { buffer: ArrayBuffer } },
-  ): void {
-    Object.keys(buffers).forEach((property) => {
-      const buffer = buffers[property].buffer;
+  private toDecodedPointAttributes(
+    data: LegacyBinaryDecoderResponse,
+  ): DecodedPointAttributes {
+    const decodedPointAttributes: DecodedPointAttributes = {
+      INDICES: {
+        buffer: data.indices,
+      },
+    };
 
-      if (this.isAttribute(property, PointAttributeName.POSITION_CARTESIAN)) {
-        geometry.setAttribute(
-          "position",
-          new BufferAttribute(new Float32Array(buffer), 3),
-        );
-      } else if (this.isAttribute(property, PointAttributeName.COLOR_PACKED)) {
-        geometry.setAttribute(
-          "color",
-          new BufferAttribute(new Uint8Array(buffer), 3, true),
-        );
-      } else if (this.isAttribute(property, PointAttributeName.INTENSITY)) {
-        geometry.setAttribute(
-          "intensity",
-          new BufferAttribute(new Float32Array(buffer), 1),
-        );
-      } else if (
-        this.isAttribute(property, PointAttributeName.CLASSIFICATION)
-      ) {
-        geometry.setAttribute(
-          "classification",
-          new BufferAttribute(new Uint8Array(buffer), 1),
-        );
-      } else if (
-        this.isAttribute(property, PointAttributeName.NORMAL_SPHEREMAPPED)
-      ) {
-        geometry.setAttribute(
-          "normal",
-          new BufferAttribute(new Float32Array(buffer), 3),
-        );
-      } else if (this.isAttribute(property, PointAttributeName.NORMAL_OCT16)) {
-        geometry.setAttribute(
-          "normal",
-          new BufferAttribute(new Float32Array(buffer), 3),
-        );
-      } else if (this.isAttribute(property, PointAttributeName.NORMAL)) {
-        geometry.setAttribute(
-          "normal",
-          new BufferAttribute(new Float32Array(buffer), 3),
-        );
+    for (const property in data.attributeBuffers) {
+      const decodedAttribute = data.attributeBuffers[property];
+      const attributeName = this.getDecodedAttributeName(decodedAttribute);
+      if (attributeName === null) {
+        continue;
       }
-    });
-  }
 
-  private addIndices(geometry: BufferGeometry, indices: ArrayBuffer): void {
-    const indicesAttribute = new Uint8BufferAttribute(indices, 4);
-    indicesAttribute.normalized = true;
-    geometry.setAttribute("indices", indicesAttribute);
-  }
-
-  private addNormalAttribute(
-    geometry: BufferGeometry,
-    numPoints: number,
-  ): void {
-    if (!geometry.getAttribute("normal")) {
-      const buffer = new Float32Array(numPoints * 3);
-      geometry.setAttribute(
-        "normal",
-        new BufferAttribute(new Float32Array(buffer), 3),
-      );
+      decodedPointAttributes[attributeName] = {
+        buffer: decodedAttribute.buffer,
+      };
     }
+
+    return decodedPointAttributes;
   }
 
-  private isAttribute(property: string, name: PointAttributeName): boolean {
-    return parseInt(property, 10) === name;
+  private getDecodedAttributeName(
+    decodedAttribute: LegacyBinaryDecoderAttribute,
+  ): string | null {
+    switch (decodedAttribute.attribute.name) {
+      case PointAttributeName.POSITION_CARTESIAN:
+        return "position";
+      case PointAttributeName.COLOR_PACKED:
+        return "color";
+      case PointAttributeName.INTENSITY:
+        return "intensity";
+      case PointAttributeName.CLASSIFICATION:
+        return "classification";
+      case PointAttributeName.NORMAL_SPHEREMAPPED:
+      case PointAttributeName.NORMAL_OCT16:
+      case PointAttributeName.NORMAL:
+        return "NORMAL";
+      default:
+        return null;
+    }
   }
 }

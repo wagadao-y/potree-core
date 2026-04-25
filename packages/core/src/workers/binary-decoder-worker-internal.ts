@@ -9,6 +9,10 @@ import {
   POINT_ATTRIBUTES,
   PointAttributeName,
 } from "../point-attributes";
+import type {
+  LegacyBinaryDecoderRequest,
+  LegacyBinaryDecoderResponse,
+} from "../loading/WorkerProtocol";
 import { Version } from "../version";
 import { CustomArrayView } from "./custom-array-view";
 
@@ -40,7 +44,7 @@ interface Ctx {
   version: Version;
 }
 
-export function handleMessage(event: MessageEvent) {
+export function handleMessage(event: MessageEvent<LegacyBinaryDecoderRequest>) {
   const buffer = event.data.buffer;
   const pointAttributes: IPointAttributes = event.data.pointAttributes;
 
@@ -82,11 +86,22 @@ export function handleMessage(event: MessageEvent) {
     addEmptyClassificationBuffer(ctx);
   }
 
-  const message = {
+  const message: LegacyBinaryDecoderResponse = {
     buffer: buffer,
     mean: ctx.mean,
     attributeBuffers: ctx.attributeBuffers,
-    tightBoundingBox: { min: ctx.tightBoxMin, max: ctx.tightBoxMax },
+    tightBoundingBox: {
+      min: {
+        x: ctx.tightBoxMin[0],
+        y: ctx.tightBoxMin[1],
+        z: ctx.tightBoxMin[2],
+      },
+      max: {
+        x: ctx.tightBoxMax[0],
+        y: ctx.tightBoxMax[1],
+        z: ctx.tightBoxMax[2],
+      },
+    },
     indices: indices,
   };
 
@@ -95,8 +110,8 @@ export function handleMessage(event: MessageEvent) {
 }
 
 function addEmptyClassificationBuffer(ctx: Ctx): void {
-  const buffer = new ArrayBuffer(ctx.numPoints * 4);
-  const classifications = new Float32Array(buffer);
+  const buffer = new ArrayBuffer(ctx.numPoints);
+  const classifications = new Uint8Array(buffer);
 
   for (let i = 0; i < ctx.numPoints; i++) {
     classifications[i] = 0;

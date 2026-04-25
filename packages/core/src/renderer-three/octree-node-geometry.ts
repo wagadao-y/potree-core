@@ -4,7 +4,7 @@ import type { PointCloudOctreeGeometryNode } from "../point-cloud-octree-geometr
 export function materializeOctreeNodeGeometry(
   geometryNode: PointCloudOctreeGeometryNode,
 ): BufferGeometry {
-  if (geometryNode.geometry !== null) {
+  if (geometryNode.geometry != null) {
     return geometryNode.geometry;
   }
 
@@ -16,6 +16,7 @@ export function materializeOctreeNodeGeometry(
   }
 
   const geometry = new BufferGeometry();
+  geometry.boundingBox = geometryNode.boundingBox;
 
   for (const property in decodedPointAttributes) {
     const decodedAttribute = decodedPointAttributes[property];
@@ -29,10 +30,26 @@ export function materializeOctreeNodeGeometry(
       continue;
     }
 
+    if (property === "color") {
+      geometry.setAttribute(
+        "color",
+        new BufferAttribute(new Uint8Array(buffer), 3, true),
+      );
+      continue;
+    }
+
     if (property === "rgba") {
       geometry.setAttribute(
         "rgba",
         new BufferAttribute(new Uint8Array(buffer), 4, true),
+      );
+      continue;
+    }
+
+    if (property === "classification") {
+      geometry.setAttribute(
+        "classification",
+        new BufferAttribute(new Uint8Array(buffer), 1),
       );
       continue;
     }
@@ -64,6 +81,16 @@ export function materializeOctreeNodeGeometry(
     };
 
     geometry.setAttribute(property, bufferAttribute);
+  }
+
+  if (!geometry.getAttribute("normal")) {
+    const positionAttribute = geometry.getAttribute("position");
+    if (positionAttribute) {
+      geometry.setAttribute(
+        "normal",
+        new BufferAttribute(new Float32Array(positionAttribute.count * 3), 3),
+      );
+    }
   }
 
   geometryNode.geometry = geometry;

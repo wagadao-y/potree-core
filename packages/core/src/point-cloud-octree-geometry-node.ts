@@ -63,7 +63,7 @@ export class PointCloudOctreeGeometryNode
 
   public numPoints: number = 0;
 
-  public geometry: BufferGeometry | undefined;
+  public geometry: BufferGeometry | null = null;
 
   public decodedPointAttributes: DecodedPointAttributes | null = null;
 
@@ -107,7 +107,7 @@ export class PointCloudOctreeGeometryNode
     }
 
     this.geometry.dispose();
-    this.geometry = undefined;
+    this.geometry = null;
     this.loaded = false;
     this.decodedPointAttributes = null;
 
