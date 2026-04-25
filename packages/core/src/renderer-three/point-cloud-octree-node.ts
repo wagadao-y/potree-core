@@ -9,66 +9,32 @@ import {
 import type {
   IPointCloudRenderedNode,
   IPointCloudTreeNode,
-} from "./core/types";
-import type { OctreeGeometryNode } from "./loading/OctreeGeometryNode";
-import { toThreeBox3, toThreeSphere } from "./renderer-three/box3-like";
+} from "../core/types";
+import type { OctreeGeometryNode } from "../loading/OctreeGeometryNode";
+import { toThreeBox3, toThreeSphere } from "./box3-like";
 
 export class PointCloudOctreeNode
   extends EventDispatcher
   implements IPointCloudRenderedNode<OctreeGeometryNode>
 {
-  /**
-   * Unique identifier for the node, automatically incremented.
-   */
   public geometryNode: OctreeGeometryNode;
 
-  /**
-   * The scene node that represents this octree node in the 3D scene.
-   *
-   * It contains the points of the point cloud.
-   */
   public sceneNode: Points;
 
-  /**
-   * The index of the point cloud in the scene, if applicable.
-   *
-   * This is used to identify which point cloud this node belongs to.
-   */
   public pcIndex: number | undefined = undefined;
 
   public visibleNodeTextureOffset: number | undefined = undefined;
 
   public parent: PointCloudOctreeNode | null = null;
 
-  /**
-   * The bounding box node for this octree node, if applicable.
-   *
-   * This is used for visualizing the bounding box in the scene.
-   */
   public boundingBoxNode: Object3D | null = null;
 
-  /**
-   * An array of child nodes, which can be null if there are no children at that position.
-   *
-   * This is used to traverse the octree structure.
-   */
   public readonly children: (IPointCloudTreeNode | null)[];
 
-  /**
-   * Indicates whether the node's geometry has been loaded.
-   */
   public readonly loaded = true;
 
-  /**
-   * Indicates whether the node is currently loading.
-   */
   public readonly isTreeNode = true;
 
-  /**
-   * Indicates whether this node is a geometry node.
-   *
-   * This is always false for PointCloudOctreeNode, as it represents a tree node.
-   */
   public readonly isGeometryNode = false;
 
   public constructor(geometryNode: OctreeGeometryNode, sceneNode: Points) {
@@ -79,27 +45,16 @@ export class PointCloudOctreeNode
     this.children = geometryNode.children.slice();
   }
 
-  /**
-   * Disposes of the resources used by this node.
-   *
-   * This method should be called when the node is no longer needed to free up memory.
-   */
   public dispose(): void {
     this.geometryNode.dispose();
   }
 
-  /**
-   * Disposes of the scene node associated with this octree node.
-   *
-   * This method removes the geometry and its attributes from the scene node to free up resources.
-   */
   public disposeSceneNode(): void {
     const node = this.sceneNode;
 
     if (node.geometry instanceof BufferGeometry) {
       const attributes = node.geometry.attributes;
 
-      // tslint:disable-next-line:forin
       for (const key in attributes) {
         if (key === "position") {
           delete (attributes[key] as any).array;
@@ -113,12 +68,6 @@ export class PointCloudOctreeNode
     }
   }
 
-  /**
-   * Traverses the octree node and executes a callback function for each node.
-   *
-   * @param cb - The callback function to execute for each node.
-   * @param includeSelf - If true, the callback will also be executed for this node.
-   */
   public traverse(
     cb: (node: IPointCloudTreeNode) => void,
     includeSelf?: boolean,

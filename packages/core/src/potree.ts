@@ -15,8 +15,8 @@ import type { OctreeGeometry } from "./loading/OctreeGeometry";
 import type { OctreeGeometryNode } from "./loading/OctreeGeometryNode";
 import type { RequestManager } from "./loading/RequestManager";
 import { PointCloudOctree } from "./point-cloud-octree";
-import type { PointCloudOctreeNode } from "./point-cloud-octree-node";
 import { getFeatures } from "./renderer-three/features";
+import type { PointCloudOctreeNode } from "./renderer-three/point-cloud-octree-node";
 import {
   type PickParams,
   PointCloudOctreePicker,

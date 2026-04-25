@@ -27,11 +27,11 @@ import {
 } from "../constants";
 import { getBox3Size } from "../core/box3-like-utils";
 import type { PointCloudOctree } from "../point-cloud-octree";
-import type { PointCloudOctreeNode } from "../point-cloud-octree-node";
 import {
   DEFAULT_HIGHLIGHT_COLOR,
   PERSPECTIVE_CAMERA,
 } from "../renderer-three/constants";
+import type { PointCloudOctreeNode } from "../renderer-three/point-cloud-octree-node";
 import { byLevelAndIndex } from "../utils/utils";
 import { DEFAULT_CLASSIFICATION } from "./classification";
 import { ClipMode, type IClipBox, type IClipSphere } from "./clipping";

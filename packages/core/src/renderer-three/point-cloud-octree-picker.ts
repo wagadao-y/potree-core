@@ -17,10 +17,10 @@ import {
 } from "three";
 import { ClipMode, PointCloudMaterial, PointColorType } from "../materials";
 import type { PointCloudOctree } from "../point-cloud-octree";
-import type { PointCloudOctreeNode } from "../point-cloud-octree-node";
 import type { PickPoint, PointCloudHit } from "../types";
 import { clamp } from "../utils/math";
 import { COLOR_BLACK, DEFAULT_PICK_WINDOW_SIZE } from "./constants";
+import type { PointCloudOctreeNode } from "./point-cloud-octree-node";
 
 export interface PickParams {
   pickWindowSize: number;

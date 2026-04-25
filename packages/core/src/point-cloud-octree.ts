@@ -16,9 +16,8 @@ import type {
 import type { OctreeGeometry } from "./loading/OctreeGeometry";
 import type { OctreeGeometryNode } from "./loading/OctreeGeometryNode";
 import type { PointCloudMaterial, PointSizeType } from "./materials";
-import type { PointCloudOctreeNode } from "./point-cloud-octree-node";
-import { PointCloudTree } from "./point-cloud-tree";
 import { toThreeBox3, toThreeVector3 } from "./renderer-three/box3-like";
+import type { PointCloudOctreeNode } from "./renderer-three/point-cloud-octree-node";
 import {
   type PickParams,
   PointCloudOctreePicker,
@@ -35,6 +34,7 @@ import {
   updatePointCloudMaterialBounds,
   updatePointCloudVisibleBounds,
 } from "./renderer-three/point-cloud-octree-renderer";
+import { PointCloudTree } from "./renderer-three/point-cloud-tree";
 import type { IPotree, PickPoint } from "./renderer-three/types";
 
 export class PointCloudOctree
