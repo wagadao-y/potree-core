@@ -1,5 +1,9 @@
-import { type Box3, Sphere, type Vector3 } from "three";
 import { DEFAULT_MAX_NUM_NODES_LOADING } from "../constants";
+import {
+  cloneBox3,
+  getBoundingSphereForBox3,
+} from "../core/box3-like-utils";
+import type { Box3Like, SphereLike, Vec3Like } from "../core/types";
 import type { PotreeLoadInstrumentation } from "./LoadInstrumentation";
 import type { OctreeGeometryNode } from "./OctreeGeometryNode";
 import type { Metadata, NodeLoader } from "./OctreeLoader";
@@ -14,17 +18,17 @@ export class OctreeGeometry {
 
   public spacing: number = 0;
 
-  public tightBoundingBox: Box3;
+  public tightBoundingBox: Box3Like;
 
   public numNodesLoading: number = 0;
 
   public maxNumNodesLoading: number = DEFAULT_MAX_NUM_NODES_LOADING;
 
-  public boundingSphere: Sphere;
+  public boundingSphere: SphereLike;
 
-  public tightBoundingSphere: Sphere;
+  public tightBoundingSphere: SphereLike;
 
-  public offset!: Vector3;
+  public offset!: Vec3Like;
 
   public scale!: [number, number, number];
 
@@ -36,11 +40,11 @@ export class OctreeGeometry {
 
   constructor(
     public loader: NodeLoader,
-    public boundingBox: Box3, // Need to be get from metadata.json
+    public boundingBox: Box3Like, // Need to be get from metadata.json
   ) {
-    this.tightBoundingBox = this.boundingBox.clone();
-    this.boundingSphere = this.boundingBox.getBoundingSphere(new Sphere());
-    this.tightBoundingSphere = this.boundingBox.getBoundingSphere(new Sphere());
+    this.tightBoundingBox = cloneBox3(this.boundingBox);
+    this.boundingSphere = getBoundingSphereForBox3(this.boundingBox);
+    this.tightBoundingSphere = getBoundingSphereForBox3(this.boundingBox);
   }
 
   public dispose(): void {

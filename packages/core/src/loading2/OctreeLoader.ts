@@ -1,4 +1,14 @@
-import { Box3, Sphere, Vector3 } from "three";
+import {
+  addVec3,
+  cloneBox3,
+  createBox3,
+  createChildBox3,
+  createVec3,
+  getBoundingSphereForBox3,
+  getBox3Size,
+  subtractVec3,
+} from "../core/box3-like-utils";
+import type { Box3Like } from "../core/types";
 import type { DecodedPointAttributes } from "./DecodedPointAttributes";
 import type {
   LoadOctreeOptions,
@@ -490,9 +500,9 @@ export class NodeLoader {
       const scale = node.octreeGeometry.scale;
 
       const box = node.boundingBox;
-      const min = node.octreeGeometry.offset.clone().add(box.min);
-      const size = box.max.clone().sub(box.min);
-      const max = min.clone().add(size);
+      const min = addVec3(node.octreeGeometry.offset, box.min);
+      const size = getBox3Size(box);
+      const max = addVec3(min, size);
       const numPoints = node.numPoints;
 
       const offset = node.octreeGeometry.loader.offset;
@@ -694,8 +704,6 @@ function compareBigInts(a: bigint, b: bigint) {
   return 0;
 }
 
-const tmpVec3 = new Vector3();
-
 /**
  * Creates a child AABB from the given parent AABB based on the specified index.
  *
@@ -703,30 +711,8 @@ const tmpVec3 = new Vector3();
  * @param index - The index of the child AABB to create, which determines its position relative to the parent AABB.
  * @returns The newly created child AABB.
  */
-function createChildAABB(aabb: Box3, index: number) {
-  const min = aabb.min.clone();
-  const max = aabb.max.clone();
-  const size = tmpVec3.subVectors(max, min);
-
-  if ((index & 0b0001) > 0) {
-    min.z += size.z / 2;
-  } else {
-    max.z -= size.z / 2;
-  }
-
-  if ((index & 0b0010) > 0) {
-    min.y += size.y / 2;
-  } else {
-    max.y -= size.y / 2;
-  }
-
-  if ((index & 0b0100) > 0) {
-    min.x += size.x / 2;
-  } else {
-    max.x -= size.x / 2;
-  }
-
-  return new Box3(min, max);
+function createChildAABB(aabb: Box3Like, index: number) {
+  return createChildBox3(aabb, index);
 }
 
 const typenameTypeattributeMap = {
@@ -907,28 +893,28 @@ export class OctreeLoader {
 
     const octree = new OctreeGeometry(
       loader,
-      new Box3(
-        new Vector3(...metadata.boundingBox.min),
-        new Vector3(...metadata.boundingBox.max),
+      createBox3(
+        createVec3(...metadata.boundingBox.min),
+        createVec3(...metadata.boundingBox.max),
       ),
     );
     octree.url = await requestManager.getUrl(url);
     octree.spacing = metadata.spacing;
     octree.scale = metadata.scale;
 
-    const min = new Vector3(...metadata.boundingBox.min);
-    const max = new Vector3(...metadata.boundingBox.max);
-    const boundingBox = new Box3(min, max);
-
-    const offset = min.clone();
-    boundingBox.min.sub(offset);
-    boundingBox.max.sub(offset);
+    const min = createVec3(...metadata.boundingBox.min);
+    const max = createVec3(...metadata.boundingBox.max);
+    const offset = createVec3(min.x, min.y, min.z);
+    const boundingBox = createBox3(
+      subtractVec3(min, offset),
+      subtractVec3(max, offset),
+    );
 
     octree.projection = metadata.projection;
     octree.boundingBox = boundingBox;
-    octree.tightBoundingBox = boundingBox.clone();
-    octree.boundingSphere = boundingBox.getBoundingSphere(new Sphere());
-    octree.tightBoundingSphere = boundingBox.getBoundingSphere(new Sphere());
+    octree.tightBoundingBox = cloneBox3(boundingBox);
+    octree.boundingSphere = getBoundingSphereForBox3(boundingBox);
+    octree.tightBoundingSphere = getBoundingSphereForBox3(boundingBox);
     octree.offset = offset;
     octree.pointAttributes = OctreeLoader.parseAttributes(metadata.attributes);
     octree.instrumentation = options?.instrumentation;

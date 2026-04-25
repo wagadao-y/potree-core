@@ -1,3 +1,4 @@
+export * from "./box3-like-utils";
 export * from "./point-cloud-visibility-scheduler";
 export * from "./point-cloud-tree-model";
 export * from "./types";

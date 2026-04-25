@@ -19,6 +19,7 @@ import type { Box3Like, IPointCloudTreeNode } from "../core/types";
 import type { VisibilityProjection } from "../core/visibility/update-visibility";
 import type { PointCloudVisibilityView } from "../core/visibility/visibility-structures";
 import type { PCOGeometry } from "./types";
+import { toThreeBox3 } from "./box3-like";
 import { Box3Helper } from "../utils/box3-helper";
 import { computeTransformedBoundingBox } from "../utils/bounds";
 import { materializeOctreeNodeGeometry } from "./octree-node-geometry";
@@ -98,7 +99,7 @@ export class PointCloudClipVisibilityEvaluator {
     }
 
     const nodeWorldBox = this.clipNodeWorldBox
-      .copy(boundingBox as Box3)
+      .copy(toThreeBox3(boundingBox))
       .applyMatrix4(pointCloud.matrixWorld);
     const clipBoxesWorld = clipContext.clipBoxesWorld;
 
@@ -184,7 +185,9 @@ export function updatePointCloudMaterialBounds(
   pointCloud.updateMatrixWorld(true);
 
   const { min, max } = computeTransformedBoundingBox(
-    pointCloud.pcoGeometry.tightBoundingBox || pointCloud.getBoundingBoxWorld(),
+    pointCloud.pcoGeometry.tightBoundingBox
+      ? toThreeBox3(pointCloud.pcoGeometry.tightBoundingBox)
+      : pointCloud.getBoundingBoxWorld(),
     pointCloud.matrixWorld,
   );
 
@@ -307,7 +310,11 @@ export function createPointCloudOctreeNode(
   );
   const node = new PointCloudOctreeNode(geometryNode, points);
   points.name = geometryNode.name;
-  points.position.copy(geometryNode.boundingBox.min);
+  points.position.set(
+    geometryNode.boundingBox.min.x,
+    geometryNode.boundingBox.min.y,
+    geometryNode.boundingBox.min.z,
+  );
   points.frustumCulled = false;
   points.onBeforeRender = PointCloudMaterial.makeOnBeforeRender(pointCloud, node);
   return node;
@@ -377,8 +384,10 @@ export function createPointCloudVisibilityViews(
       .multiply(camera.matrixWorld);
 
     const frustum = new Frustum().setFromProjectionMatrix(frustumMatrix);
+    const tempBox = new Box3();
     views[i] = {
-      intersectsBox: (box: Box3Like) => frustum.intersectsBox(box as Box3),
+      intersectsBox: (box: Box3Like) =>
+        frustum.intersectsBox(toThreeBox3(box, tempBox)),
       cameraPosition: new Vector3().setFromMatrixPosition(cameraMatrix),
     };
   }
@@ -445,7 +454,7 @@ function updatePointCloudOctreeNodeBoundingBoxVisibility(
   node: PointCloudOctreeNode,
 ): void {
   if (pointCloud.showBoundingBox && !node.boundingBoxNode) {
-    const boxHelper = new Box3Helper(node.boundingBox);
+    const boxHelper = new Box3Helper(toThreeBox3(node.boundingBox));
     boxHelper.matrixAutoUpdate = false;
     pointCloud.boundingBoxNodes.push(boxHelper);
     node.boundingBoxNode = boxHelper;

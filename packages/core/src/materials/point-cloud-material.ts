@@ -28,6 +28,7 @@ import {
   DEFAULT_RGB_GAMMA,
   PERSPECTIVE_CAMERA,
 } from "../constants";
+import { getBox3Size } from "../core/box3-like-utils";
 import type { PointCloudOctree } from "../point-cloud-octree";
 import type { PointCloudOctreeNode } from "../point-cloud-octree-node";
 import { byLevelAndIndex } from "../utils/utils";
@@ -264,8 +265,6 @@ const OUTPUT_COLOR_ENCODING = {
 
 export class PointCloudMaterial extends RawShaderMaterial {
   private static readonly INITIAL_VISIBLE_NODES_TEXTURE_SIZE = 2048;
-
-  private static helperVec3 = new Vector3();
 
   lights = false;
 
@@ -887,9 +886,7 @@ export class PointCloudMaterial extends RawShaderMaterial {
 
     const maxScale = Math.max(octree.scale.x, octree.scale.y, octree.scale.z);
     this.spacing = octree.pcoGeometry.spacing * maxScale;
-    this.octreeSize = octree.pcoGeometry.boundingBox.getSize(
-      PointCloudMaterial.helperVec3,
-    ).x;
+    this.octreeSize = getBox3Size(octree.pcoGeometry.boundingBox).x;
     const view = (camera as any).view;
     if (view?.enabled) {
       this.viewScale = view.fullWidth / view.width;

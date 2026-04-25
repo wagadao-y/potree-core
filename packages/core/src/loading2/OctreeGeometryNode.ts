@@ -1,4 +1,6 @@
-import { type Box3, type BufferGeometry, Sphere } from "three";
+import type { BufferGeometry } from "three";
+import { getBoundingSphereForBox3 } from "../core/box3-like-utils";
+import type { Box3Like, SphereLike } from "../core/types";
 import type { DecodedPointAttributes } from "./DecodedPointAttributes";
 import type { IPointCloudTreeNode } from "./../types";
 import type { OctreeGeometry } from "./OctreeGeometry";
@@ -77,7 +79,7 @@ export class OctreeGeometryNode implements IPointCloudTreeNode {
   public index: number;
 
   /** Bounding sphere enclosing the node's geometry. */
-  public boundingSphere: Sphere;
+  public boundingSphere: SphereLike;
 
   /** Number of points contained in this node. */
   public numPoints: number;
@@ -91,11 +93,11 @@ export class OctreeGeometryNode implements IPointCloudTreeNode {
   constructor(
     public name: string,
     public octreeGeometry: OctreeGeometry,
-    public boundingBox: Box3,
+    public boundingBox: Box3Like,
   ) {
     this.id = OctreeGeometryNode.IDCount++;
     this.index = parseInt(name.charAt(name.length - 1), 10);
-    this.boundingSphere = boundingBox.getBoundingSphere(new Sphere());
+    this.boundingSphere = getBoundingSphereForBox3(boundingBox);
     this.numPoints = 0;
     this.oneTimeDisposeHandlers = [];
   }
