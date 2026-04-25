@@ -17,12 +17,42 @@ const workerScope = globalThis as WorkerScope;
 const zstdDecoder = new ZSTDDecoder();
 let zstdDecoderInitPromise: Promise<void> | undefined;
 
+type NumericArray = {
+  [index: number]: number;
+  buffer: ArrayBufferLike;
+};
+
+type NumericArrayConstructor = new (length: number) => NumericArray;
+
+type DecoderAttributeBuffer = {
+  buffer: ArrayBuffer;
+  preciseBuffer?: ArrayBuffer;
+  attribute?: unknown;
+  offset?: number;
+  scale?: number;
+};
+
+type DecoderAttributeTypeName =
+  | "int8"
+  | "int16"
+  | "int32"
+  | "int64"
+  | "uint8"
+  | "uint16"
+  | "uint32"
+  | "uint64"
+  | "float"
+  | "double";
+
 function initZstdDecoder() {
   zstdDecoderInitPromise ??= zstdDecoder.init();
   return zstdDecoderInitPromise;
 }
 
-const typedArrayMapping = {
+const typedArrayMapping: Record<
+  DecoderAttributeTypeName,
+  NumericArrayConstructor
+> = {
   int8: Int8Array,
   int16: Int16Array,
   int32: Int32Array,
@@ -126,11 +156,11 @@ workerScope.onmessage = async (event) => {
   const attributeDecodeStartedAt = performance.now();
   const view = new DataView(buffer.buffer);
 
-  const attributeBuffers = {};
+  const attributeBuffers: Record<string, DecoderAttributeBuffer> = {};
 
   const gridSize = 32;
   const grid = new Uint32Array(gridSize ** 3);
-  const toIndex = (x, y, z) => {
+  const toIndex = (x: number, y: number, z: number): number => {
     const dx = (gridSize * x) / size.x;
     const dy = (gridSize * y) / size.y;
     const dz = (gridSize * z) / size.z;
@@ -239,22 +269,36 @@ workerScope.onmessage = async (event) => {
       const buff = new ArrayBuffer(numPoints * 4);
       const f32 = new Float32Array(buff);
 
-      const TypedArray = typedArrayMapping[pointAttribute.type.name];
-      const preciseBuffer = new TypedArray(numPoints);
+      const typeName = pointAttribute.type.name as DecoderAttributeTypeName;
+      const TypedArray = typedArrayMapping[typeName];
+      const preciseValues = new TypedArray(numPoints);
 
       let [attributeOffsetBase, attributeScale] = [0, 1];
 
-      const getterMap = {
-        int8: view.getInt8,
-        int16: view.getInt16,
-        int32: view.getInt32,
-        uint8: view.getUint8,
-        uint16: view.getUint16,
-        uint32: view.getUint32,
-        float: view.getFloat32,
-        double: view.getFloat64,
+      const getterMap: Record<
+        DecoderAttributeTypeName,
+        (byteOffset: number, littleEndian?: boolean) => number
+      > = {
+        int8: (byteOffset) => view.getInt8(byteOffset),
+        int16: (byteOffset, littleEndian) =>
+          view.getInt16(byteOffset, littleEndian),
+        int32: (byteOffset, littleEndian) =>
+          view.getInt32(byteOffset, littleEndian),
+        int64: (byteOffset, littleEndian) =>
+          view.getFloat64(byteOffset, littleEndian),
+        uint8: (byteOffset) => view.getUint8(byteOffset),
+        uint16: (byteOffset, littleEndian) =>
+          view.getUint16(byteOffset, littleEndian),
+        uint32: (byteOffset, littleEndian) =>
+          view.getUint32(byteOffset, littleEndian),
+        uint64: (byteOffset, littleEndian) =>
+          view.getFloat64(byteOffset, littleEndian),
+        float: (byteOffset, littleEndian) =>
+          view.getFloat32(byteOffset, littleEndian),
+        double: (byteOffset, littleEndian) =>
+          view.getFloat64(byteOffset, littleEndian),
       };
-      const getter = getterMap[pointAttribute.type.name].bind(view);
+      const getter = getterMap[typeName];
 
       if (pointAttribute.type.size > 4) {
         const [amin, amax] = pointAttribute.range;
@@ -269,12 +313,12 @@ workerScope.onmessage = async (event) => {
         byteOffset += pointAttribute.byteSize;
 
         f32[j] = (value - attributeOffsetBase) * attributeScale;
-        preciseBuffer[j] = value;
+        preciseValues[j] = value;
       }
 
       attributeBuffers[pointAttribute.name] = {
         buffer: buff,
-        preciseBuffer,
+        preciseBuffer: preciseValues.buffer as ArrayBuffer,
         attribute: pointAttribute,
         offset: attributeOffsetBase,
         scale: attributeScale,
@@ -296,7 +340,7 @@ workerScope.onmessage = async (event) => {
       let iElement = 0;
       for (const sourceName of attributes) {
         const sourceBuffer = attributeBuffers[sourceName];
-        const { offset, scale } = sourceBuffer;
+        const { offset = 0, scale = 1 } = sourceBuffer;
         const view = new DataView(sourceBuffer.buffer);
 
         const getter = view.getFloat32.bind(view);
@@ -330,7 +374,8 @@ workerScope.onmessage = async (event) => {
 
   const message: DecoderWorkerResultMessage = {
     type: "result",
-    attributeBuffers,
+    attributeBuffers:
+      attributeBuffers as DecoderWorkerResultMessage["attributeBuffers"],
     density: occupancy,
     metrics: {
       decodeMs: totalWorkerMs,
