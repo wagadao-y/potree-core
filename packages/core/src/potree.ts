@@ -1,4 +1,4 @@
-import { type Camera, type Ray, Vector2, type WebGLRenderer } from "three";
+import type { Camera, Ray, WebGLRenderer } from "three";
 import {
   PointCloudVisibilityScheduler,
   type PointCloudVisibilityUpdateInput,
@@ -29,8 +29,6 @@ import type { IPotree, PickPoint } from "./renderer-three/types";
 import { LRU } from "./utils/lru";
 
 export class Potree implements IPotree {
-  public _rendererSize: Vector2 = new Vector2();
-
   public get features() {
     return getFeatures();
   }
@@ -118,28 +116,20 @@ export class Potree implements IPotree {
     camera: Camera,
     renderer: WebGLRenderer,
   ): IVisibilityUpdateResult {
-    const rendererSize = renderer.getSize(this._rendererSize);
-    const result = this.updatePointCloudVisibility(pointClouds, {
-      views: this.visibilityAdapter.createViews(pointClouds, camera),
-      projection: this.visibilityAdapter.createProjection(camera),
-      viewport: {
-        height: rendererSize.height,
-        pixelRatio: renderer.getPixelRatio(),
-      },
-    });
-
-    for (let i = 0; i < pointClouds.length; i++) {
-      const pointCloud = pointClouds[i];
-      if (pointCloud.disposed) {
-        continue;
-      }
-
-      this.visibilityAdapter.updateAfterVisibility(
-        pointCloud,
+    const result = this.updatePointCloudVisibility(
+      pointClouds,
+      this.visibilityAdapter.createVisibilityInput(
+        pointClouds,
         camera,
         renderer,
-      );
-    }
+      ),
+    );
+
+    this.visibilityAdapter.updatePointCloudsAfterVisibility(
+      pointClouds,
+      camera,
+      renderer,
+    );
 
     return result;
   }

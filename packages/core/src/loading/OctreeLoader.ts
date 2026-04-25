@@ -26,6 +26,7 @@ import {
   PointAttributeTypes,
 } from "./PointAttributes";
 import { parseOctreeHierarchy } from "./parse-octree-hierarchy";
+import { planOctreeLoadBatch } from "./plan-octree-load-batch";
 import type { RequestManager } from "./RequestManager";
 import { WorkerPool } from "./WorkerPool";
 
@@ -78,21 +79,8 @@ export class NodeLoader {
     nodes: OctreeGeometryNode[],
     candidates: OctreeGeometryNode[],
   ) {
-    const loadableNodes: OctreeGeometryNode[] = [];
-
-    for (const node of nodes) {
-      if (
-        !node.loaded &&
-        !node.loading &&
-        !node.octreeGeometry.disposed &&
-        node.octreeGeometry.numNodesLoading <
-          node.octreeGeometry.maxNumNodesLoading
-      ) {
-        node.loading = true;
-        node.octreeGeometry.numNodesLoading++;
-        loadableNodes.push(node);
-      }
-    }
+    const { loadableNodes, zeroByteNodes, pendingNodes, decodeNodes } =
+      planOctreeLoadBatch(nodes, candidates);
 
     if (loadableNodes.length === 0) {
       return;
@@ -105,40 +93,14 @@ export class NodeLoader {
         ),
       );
 
-      const zeroByteLoads: Array<Promise<void>> = [];
-      const pendingCandidates: PendingOctreeNode<OctreeGeometryNode>[] = [];
-      const decodeNodes = new Set(loadableNodes);
-
-      for (const node of candidates) {
-        const { byteOffset, byteSize } = node;
-
-        if (byteOffset === undefined || byteSize === undefined) {
-          if (!decodeNodes.has(node)) {
-            continue;
-          }
-          throw new Error("byteOffset and byteSize are required");
-        }
-
-        if (byteSize === BigInt(0)) {
-          if (!decodeNodes.has(node)) {
-            continue;
-          }
-          console.warn(`loaded node with 0 bytes: ${node.name}`);
-          zeroByteLoads.push(this.decodeNode(node, new ArrayBuffer(0)));
-          continue;
-        }
-
-        pendingCandidates.push({
-          node,
-          byteOffset,
-          byteSize,
-          endExclusive: byteOffset + byteSize,
-        });
-      }
+      const zeroByteLoads = zeroByteNodes.map((node) => {
+        console.warn(`loaded node with 0 bytes: ${node.name}`);
+        return this.decodeNode(node, new ArrayBuffer(0));
+      });
 
       await Promise.all([
         ...zeroByteLoads,
-        ...this.loadMergedOctreeRanges(pendingCandidates, decodeNodes),
+        ...this.loadMergedOctreeRanges(pendingNodes, decodeNodes),
       ]);
     } catch (error) {
       for (const node of loadableNodes) {

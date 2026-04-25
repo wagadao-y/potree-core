@@ -7,9 +7,11 @@ import {
   type OrthographicCamera,
   type PerspectiveCamera,
   Points,
+  Vector2,
   Vector3,
   type WebGLRenderer,
 } from "three";
+import type { PointCloudVisibilityUpdateInput } from "../core";
 import type { Box3Like, IPointCloudTreeNode } from "../core/types";
 import type { VisibilityProjection } from "../core/visibility/update-visibility";
 import type { PointCloudVisibilityView } from "../core/visibility/visibility-structures";
@@ -126,6 +128,8 @@ export class PointCloudClipVisibilityEvaluator {
 export class ThreePointCloudVisibilityAdapter {
   private readonly clipVisibility = new PointCloudClipVisibilityEvaluator();
 
+  private readonly rendererSize = new Vector2();
+
   public createViews(
     pointClouds: PointCloudOctree[],
     camera: Camera,
@@ -135,6 +139,23 @@ export class ThreePointCloudVisibilityAdapter {
 
   public createProjection(camera: Camera): VisibilityProjection {
     return createVisibilityProjection(camera);
+  }
+
+  public createVisibilityInput(
+    pointClouds: PointCloudOctree[],
+    camera: Camera,
+    renderer: WebGLRenderer,
+  ): PointCloudVisibilityUpdateInput {
+    const rendererSize = renderer.getSize(this.rendererSize);
+
+    return {
+      views: this.createViews(pointClouds, camera),
+      projection: this.createProjection(camera),
+      viewport: {
+        height: rendererSize.y,
+        pixelRatio: renderer.getPixelRatio(),
+      },
+    };
   }
 
   public resetRenderedVisibility(pointCloud: PointCloudOctree): void {
@@ -177,6 +198,21 @@ export class ThreePointCloudVisibilityAdapter {
     renderer: WebGLRenderer,
   ): void {
     updatePointCloudAfterVisibility(pointCloud, camera, renderer);
+  }
+
+  public updatePointCloudsAfterVisibility(
+    pointClouds: PointCloudOctree[],
+    camera: Camera,
+    renderer: WebGLRenderer,
+  ): void {
+    for (let i = 0; i < pointClouds.length; i++) {
+      const pointCloud = pointClouds[i];
+      if (pointCloud.disposed) {
+        continue;
+      }
+
+      this.updateAfterVisibility(pointCloud, camera, renderer);
+    }
   }
 }
 
