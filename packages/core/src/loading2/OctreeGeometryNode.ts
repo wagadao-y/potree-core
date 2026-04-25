@@ -1,4 +1,5 @@
 import { type Box3, type BufferGeometry, Sphere } from "three";
+import type { DecodedPointAttributes } from "./DecodedPointAttributes";
 import type { IPointCloudTreeNode } from "./../types";
 import type { OctreeGeometry } from "./OctreeGeometry";
 
@@ -17,6 +18,9 @@ export class OctreeGeometryNode implements IPointCloudTreeNode {
 
   /** The geometry data associated with this node, or null if not loaded. */
   public geometry: BufferGeometry | null = null;
+
+  /** Decoded point attribute buffers before renderer-side geometry materialization. */
+  public decodedPointAttributes: DecodedPointAttributes | null = null;
 
   /** Optional type identifier for the node. */
   public nodeType?: number;
@@ -136,12 +140,16 @@ export class OctreeGeometryNode implements IPointCloudTreeNode {
       this.geometry.dispose();
       this.geometry = null;
       this.loaded = false;
+      this.decodedPointAttributes = null;
 
       for (let i = 0; i < this.oneTimeDisposeHandlers.length; i++) {
         const handler = this.oneTimeDisposeHandlers[i];
         handler();
       }
       this.oneTimeDisposeHandlers = [];
+    } else if (this.decodedPointAttributes && this.parent != null) {
+      this.loaded = false;
+      this.decodedPointAttributes = null;
     }
   }
 

@@ -3,6 +3,7 @@ import {
   type Camera,
   Frustum,
   Matrix4,
+  Object3D,
   type OrthographicCamera,
   type PerspectiveCamera,
   Points,
@@ -20,6 +21,7 @@ import type { PointCloudVisibilityView } from "../core/visibility/visibility-str
 import type { PCOGeometry } from "./types";
 import { Box3Helper } from "../utils/box3-helper";
 import { computeTransformedBoundingBox } from "../utils/bounds";
+import { materializeOctreeNodeGeometry } from "./octree-node-geometry";
 
 export interface ClipVisibilityContext {
   enabled: boolean;
@@ -206,11 +208,103 @@ export function updatePointCloudAfterVisibility(
   pointCloud.updateBoundingBoxes();
 }
 
+export function updatePointCloudVisibleBounds(
+  pointCloud: PointCloudOctree,
+  visibleBounds: Box3,
+): void {
+  visibleBounds.min.set(Infinity, Infinity, Infinity);
+  visibleBounds.max.set(-Infinity, -Infinity, -Infinity);
+
+  for (const node of pointCloud.visibleNodes) {
+    if (node.isLeafNode) {
+      visibleBounds.expandByPoint(node.boundingBox.min);
+      visibleBounds.expandByPoint(node.boundingBox.max);
+    }
+  }
+}
+
+export function updatePointCloudBoundingBoxes(
+  pointCloud: PointCloudOctree,
+): void {
+  if (!pointCloud.showBoundingBox || !pointCloud.parent) {
+    return;
+  }
+
+  let bbRoot = pointCloud.parent.getObjectByName("bbroot");
+  if (!bbRoot) {
+    bbRoot = new Object3D();
+    bbRoot.name = "bbroot";
+    pointCloud.parent.add(bbRoot);
+  }
+
+  const visibleBoxes: Array<Object3D | null> = [];
+  for (const node of pointCloud.visibleNodes) {
+    if (node.boundingBoxNode !== undefined && node.isLeafNode) {
+      visibleBoxes.push(node.boundingBoxNode);
+    }
+  }
+
+  bbRoot.children = visibleBoxes;
+}
+
+export function hidePointCloudDescendants(object: Object3D): void {
+  const toHide: Object3D[] = [];
+  addVisibleChildren(object);
+
+  while (toHide.length > 0) {
+    const objectToHide = toHide.shift();
+    if (objectToHide === undefined) {
+      continue;
+    }
+
+    objectToHide.visible = false;
+    addVisibleChildren(objectToHide);
+  }
+
+  function addVisibleChildren(node: Object3D) {
+    for (const child of node.children) {
+      if (child.visible) {
+        toHide.push(child);
+      }
+    }
+  }
+}
+
+export function getPointCloudBoundingBoxWorld(
+  pointCloud: PointCloudOctree,
+): Box3 {
+  pointCloud.updateMatrixWorld(true);
+  return computeTransformedBoundingBox(pointCloud.boundingBox, pointCloud.matrixWorld);
+}
+
+export function movePointCloudToOrigin(pointCloud: PointCloudOctree): void {
+  pointCloud.position.set(0, 0, 0);
+  pointCloud.position
+    .set(0, 0, 0)
+    .sub(getPointCloudBoundingBoxWorld(pointCloud).getCenter(new Vector3()));
+}
+
+export function movePointCloudToGroundPlane(
+  pointCloud: PointCloudOctree,
+): void {
+  pointCloud.position.y += -getPointCloudBoundingBoxWorld(pointCloud).min.y;
+}
+
+export function getPointCloudVisibleExtent(
+  pointCloud: PointCloudOctree,
+  visibleBounds: Box3,
+): Box3 {
+  return visibleBounds.applyMatrix4(pointCloud.matrixWorld);
+}
+
 export function createPointCloudOctreeNode(
   pointCloud: PointCloudOctree,
   geometryNode: PointCloudOctreeGeometryNode,
 ): PointCloudOctreeNode {
-  const points = new Points(geometryNode.geometry, pointCloud.material);
+  const points = new Points(
+    materializeOctreeNodeGeometry(geometryNode),
+    pointCloud.material,
+  );
   const node = new PointCloudOctreeNode(geometryNode, points);
   points.name = geometryNode.name;
   points.position.copy(geometryNode.boundingBox.min);

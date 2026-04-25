@@ -10,6 +10,7 @@ import {
   Sphere,
   Vector3,
 } from "three";
+import type { DecodedPointAttributes } from "./loading2/DecodedPointAttributes";
 import type { PointCloudOctreeGeometry } from "./point-cloud-octree-geometry";
 import type { IPointCloudTreeNode } from "./core/types";
 import { createChildAABB } from "./utils/bounds";
@@ -64,6 +65,8 @@ export class PointCloudOctreeGeometryNode
 
   public geometry: BufferGeometry | undefined;
 
+  public decodedPointAttributes: DecodedPointAttributes | null = null;
+
   public loaded: boolean = false;
 
   public loading: boolean = false;
@@ -106,6 +109,7 @@ export class PointCloudOctreeGeometryNode
     this.geometry.dispose();
     this.geometry = undefined;
     this.loaded = false;
+    this.decodedPointAttributes = null;
 
     this.oneTimeDisposeHandlers.forEach((handler) => {
       handler();

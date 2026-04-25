@@ -1,4 +1,5 @@
-import { Box3, BufferAttribute, BufferGeometry, Sphere, Vector3 } from "three";
+import { Box3, Sphere, Vector3 } from "three";
+import type { DecodedPointAttributes } from "./DecodedPointAttributes";
 import type {
   LoadOctreeOptions,
   PotreeLoadInstrumentation,
@@ -477,19 +478,8 @@ export class NodeLoader {
 
         returnWorker();
 
-        const geometryStartedAt = performance.now();
-        const geometry = createGeometry(buffers);
-
-        this.emitMeasurement({
-          stage: "geometry-creation",
-          nodeName: node.name,
-          durationMs: performance.now() - geometryStartedAt,
-          byteSize: nodeByteSize,
-          numPoints: node.numPoints,
-        });
-
         node.density = data.density;
-        node.geometry = geometry;
+        node.decodedPointAttributes = buffers as DecodedPointAttributes;
         node.loaded = true;
         node.loading = false;
         node.octreeGeometry.numNodesLoading--;
@@ -702,51 +692,6 @@ function compareBigInts(a: bigint, b: bigint) {
   }
 
   return 0;
-}
-
-function createGeometry(buffers: Record<string, any>) {
-  const geometry = new BufferGeometry();
-
-  for (const property in buffers) {
-    const buffer = buffers[property].buffer;
-
-    if (property === "position") {
-      geometry.setAttribute(
-        "position",
-        new BufferAttribute(new Float32Array(buffer), 3),
-      );
-    } else if (property === "rgba") {
-      geometry.setAttribute(
-        "rgba",
-        new BufferAttribute(new Uint8Array(buffer), 4, true),
-      );
-    } else if (property === "NORMAL") {
-      geometry.setAttribute(
-        "normal",
-        new BufferAttribute(new Float32Array(buffer), 3),
-      );
-    } else if (property === "INDICES") {
-      const bufferAttribute = new BufferAttribute(new Uint8Array(buffer), 4);
-      bufferAttribute.normalized = true;
-      geometry.setAttribute("indices", bufferAttribute);
-    } else {
-      const bufferAttribute: BufferAttribute & {
-        potree?: object;
-      } = new BufferAttribute(new Float32Array(buffer), 1);
-
-      const batchAttribute = buffers[property].attribute;
-      bufferAttribute.potree = {
-        offset: buffers[property].offset,
-        scale: buffers[property].scale,
-        preciseBuffer: buffers[property].preciseBuffer,
-        range: batchAttribute.range,
-      };
-
-      geometry.setAttribute(property, bufferAttribute);
-    }
-  }
-
-  return geometry;
 }
 
 const tmpVec3 = new Vector3();

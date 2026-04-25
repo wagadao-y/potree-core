@@ -29,6 +29,8 @@
 - visibility scheduling、point budget、LRU touch/free、batch load 候補選定は `src/core/point-cloud-visibility-scheduler.ts` へ抽出済み。
 - `Potree` は point cloud load、Three.js view / projection 変換、post-visibility material update を束ねる facade へ一段薄化済み。
 - `PointCloudTree` の tree state は `src/core/point-cloud-tree-model.ts` として抽出済みで、Three.js `Object3D` 継承は renderer 側 adapter の責務へ寄せ始めた。
+- `loading2/OctreeLoader.ts` の worker decode 後の `BufferGeometry` / `BufferAttribute` 生成は `renderer-three/octree-node-geometry.ts` へ移動済みで、loader 側は decoded attribute buffers の保持までに縮小済み。
+- `point-cloud-octree.ts` の visible bounds 更新、bounding box scene 更新、origin / ground plane 移動、world extent 算出は `renderer-three/point-cloud-octree-renderer.ts` の helper へ移動済み。
 - `core/types.ts` と `core/visibility/*` から Three.js math 型 import を外し、`Box3Like` / `SphereLike` / `Vec3Like` と structural visibility view を使う形へ変更済み。
 - `IPointCloudVisibilityTarget` を追加し、`PointCloudOctree` は既存 Object3D 継承を維持しつつ visibility target interface を実装する形へ変更済み。
 - `point-cloud-octree.ts` の material 初期化、material bound 更新、scene node 生成は `src/renderer-three/point-cloud-octree-renderer.ts` へ一部切り出し済み。

@@ -2,11 +2,10 @@ import {
   Box3,
   type Camera,
   type Intersection,
-  Object3D,
+  type Object3D,
   type Ray,
   type Raycaster,
   Sphere,
-  Vector3,
   type WebGLRenderer,
 } from "three";
 import { DEFAULT_MIN_NODE_PIXEL_SIZE } from "./constants";
@@ -20,7 +19,14 @@ import {
 import { PointCloudTree } from "./point-cloud-tree";
 import {
   createDefaultPointCloudMaterial,
+  getPointCloudBoundingBoxWorld,
+  getPointCloudVisibleExtent,
+  hidePointCloudDescendants,
   materializePointCloudOctreeNode,
+  movePointCloudToGroundPlane,
+  movePointCloudToOrigin,
+  updatePointCloudBoundingBoxes,
+  updatePointCloudVisibleBounds,
   updatePointCloudMaterialBounds,
 } from "./renderer-three/point-cloud-octree-renderer";
 import type { IPotree, PCOGeometry, PickPoint } from "./renderer-three/types";
@@ -28,7 +34,6 @@ import type {
   IPointCloudVisibilityTarget,
   IPointCloudTreeNode,
 } from "./core/types";
-import { computeTransformedBoundingBox } from "./utils/bounds";
 
 export class PointCloudOctree extends PointCloudTree
   implements
@@ -217,40 +222,11 @@ export class PointCloudOctree extends PointCloudTree
   }
 
   public updateVisibleBounds() {
-    const bounds = this.visibleBounds;
-    bounds.min.set(Infinity, Infinity, Infinity);
-    bounds.max.set(-Infinity, -Infinity, -Infinity);
-
-    for (const node of this.visibleNodes) {
-      if (node.isLeafNode) {
-        bounds.expandByPoint(node.boundingBox.min);
-        bounds.expandByPoint(node.boundingBox.max);
-      }
-    }
+    updatePointCloudVisibleBounds(this, this.visibleBounds);
   }
 
   public updateBoundingBoxes(): void {
-    if (!this.showBoundingBox || !this.parent) {
-      return;
-    }
-    // Above: If we're not showing the bounding box or we don't have a parent, we can't update it.
-
-    let bbRoot: any = this.parent.getObjectByName("bbroot");
-    if (!bbRoot) {
-      bbRoot = new Object3D();
-      bbRoot.name = "bbroot";
-      this.parent.add(bbRoot);
-    }
-    // Above: If we don't have a root object, we need to create one.
-
-    const visibleBoxes: (Object3D | null)[] = [];
-    for (const node of this.visibleNodes) {
-      if (node.boundingBoxNode !== undefined && node.isLeafNode) {
-        visibleBoxes.push(node.boundingBoxNode);
-      }
-    }
-
-    bbRoot.children = visibleBoxes;
+    updatePointCloudBoundingBoxes(this);
   }
 
   public updateMatrixWorld(force: boolean): void {
@@ -271,43 +247,24 @@ export class PointCloudOctree extends PointCloudTree
     }
   }
 
-  public hideDescendants(object: Object3D): void {
-    const toHide: Object3D[] = [];
-    addVisibleChildren(object);
-
-    while (toHide.length > 0) {
-      const objToHide = toHide.shift()!;
-      objToHide.visible = false;
-      addVisibleChildren(objToHide);
-    }
-
-    function addVisibleChildren(obj: Object3D) {
-      for (const child of obj.children) {
-        if (child.visible) {
-          toHide.push(child);
-        }
-      }
-    }
+  public hideDescendants(object: PointCloudOctreeNode["sceneNode"]): void {
+    hidePointCloudDescendants(object);
   }
 
   public moveToOrigin(): void {
-    this.position.set(0, 0, 0); // Reset, then the matrix will be updated in getBoundingBoxWorld()
-    this.position
-      .set(0, 0, 0)
-      .sub(this.getBoundingBoxWorld().getCenter(new Vector3()));
+    movePointCloudToOrigin(this);
   }
 
   public moveToGroundPlane(): void {
-    this.position.y += -this.getBoundingBoxWorld().min.y;
+    movePointCloudToGroundPlane(this);
   }
 
   public getBoundingBoxWorld(): Box3 {
-    this.updateMatrixWorld(true);
-    return computeTransformedBoundingBox(this.boundingBox, this.matrixWorld);
+    return getPointCloudBoundingBoxWorld(this);
   }
 
   public getVisibleExtent() {
-    return this.visibleBounds.applyMatrix4(this.matrixWorld);
+    return getPointCloudVisibleExtent(this, this.visibleBounds);
   }
 
   public pick(
