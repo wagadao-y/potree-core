@@ -2,6 +2,8 @@
 
 > 本文書は 2026-04-25 時点の `packages/core` を調査し、ディレクトリ構造、ファイル分割、公開 API、責務分離、コードの見通しの改善に向けた段階的なリファクタリング計画をまとめたものである。既存の層分離方針は `docs/packages-core-layer-separation-inventory-20260425.md` を前提としつつ、本書では pure core / renderer 分離に限定せず、コード品質改善全般を対象とする。
 
+> 2026-04-26 更新: Phase 1 は概ね完了、Phase 2 と Phase 3 は主要な分離が進行中である。特に `loading/OctreeLoader.ts` は hierarchy parse、range cache、worker decode の分離まで進み、次の主戦場は material / picking / renderer facade の見通し改善に移っている。
+
 ## 目的
 
 - `packages/core` の現状構造を整理し、見通しを悪化させている要因を明確にする。
@@ -125,6 +127,29 @@
 - pure helper は `core` もしくは `shared` 相当へ置く。
 - Three.js 前提 helper は `renderer-three` 配下へ寄せる。
 - util という名前だけでは責務が見えにくい場合は、用途ベースの配置に変える。
+
+## 2026-04-26 時点の進捗サマリ
+
+### 完了済み
+
+- `constants.ts` の責務整理を行い、renderer 依存定数を `renderer-three/constants.ts` へ分離した。
+- renderer 固有 helper を `utils` から `renderer-three` へ移し、配置だけでは責務が読めない状態を減らした。
+- `PointCloudTree`、`PointCloudOctreeNode`、picker 実装を root 直下から `renderer-three` へ移し、描画寄り責務の集約を進めた。
+- `PointCloudOctree` と `Potree` から renderer 固有 state の一部を外し、visible bounds と picker を renderer-three 側の helper / WeakMap 管理へ移した。
+- `OctreeGeometryNode` から `BufferGeometry` 保持を外し、geometry materialize / dispose を `renderer-three/octree-node-geometry.ts` に集約した。
+- `OctreeLoader.ts` から hierarchy parse を `parse-octree-hierarchy.ts` へ、range read/cache を `octree-range-cache.ts` へ、worker decode を `decode-octree-node.ts` へ分離した。
+
+### 進行中
+
+- `PointCloudOctree` と `Potree` は以前より薄くなったが、利用者向け facade としてはまだ renderer 寄り API と orchestration が同居している。
+- `renderer-three` 配下には責務が集まりつつあるが、`scene`、`geometry`、`picking`、`adapters` などのサブディレクトリ整理は未完了である。
+- `materials/point-cloud-material.ts` は依然として大型で、uniform、classification、clipping、texture generation の関心が同一ファイルに残っている。
+
+### 残作業の判断軸
+
+- ここまでで「loading と renderer の結合を下げる」ための基盤分離は一通り進んだ。
+- 今後は「実装の所在が読めること」と「主要 facade を短時間で理解できること」の改善効果が高い。
+- そのため、残タスクは loading の追加分割よりも、material / picking / renderer facade の見通し改善を優先するのが妥当である。
 
 ## 目標ディレクトリ構造
 
@@ -288,6 +313,10 @@ packages/core/src/
 
 ### Phase 1. 棚卸しを構造へ反映する
 
+状態:
+
+- 概ね完了
+
 目的:
 
 - 既存の層分離の成果をディレクトリ配置に反映し、次の分割がしやすい状態にする。
@@ -302,7 +331,16 @@ packages/core/src/
 
 - ディレクトリ名だけで pure core / loading / renderer の大まかな境界が説明できる。
 
+進捗メモ:
+
+- constants の責務整理、renderer helper の `renderer-three` 集約、tree/node/picker の移設は完了した。
+- ただし `renderer-three` 自体の内部サブディレクトリ整理は残っているため、この Phase は「配置の大枠は達成、内部命名は継続改善」の状態で閉じる。
+
 ### Phase 2. loading と renderer の結合点を下げる
+
+状態:
+
+- 大部分が完了、仕上げのみ残り
 
 目的:
 
@@ -318,7 +356,17 @@ packages/core/src/
 
 - loading 関連ファイルを読んでも Three.js 表現の生成詳細がほぼ出てこない。
 
+進捗メモ:
+
+- `OctreeGeometryNode` から `BufferGeometry` を外し、renderer 側の geometry cache へ移した。
+- `OctreeLoader.ts` は hierarchy parse、range read/cache、worker decode の 3 つを別モジュールへ分離済みで、主要な責務分割は完了した。
+- 残りは orchestration の最終整理であり、優先度は material / facade より一段下がる。
+
 ### Phase 3. facade と tree の責務を縮小する
+
+状態:
+
+- 進行中
 
 目的:
 
@@ -334,7 +382,17 @@ packages/core/src/
 
 - `potree.ts` と `point-cloud-octree.ts` を読んだとき、内部実装を知らなくても役割が短時間で把握できる。
 
+進捗メモ:
+
+- `PointCloudTree` と `PointCloudOctreeNode` の renderer-three への移設は完了した。
+- `PointCloudOctree` から visible bounds / picker の state は外れ、`Potree` の static picker も renderer-three helper に委譲済みである。
+- 一方で facade 自体の公開メソッドはまだ広く、renderer update と orchestration の境界をさらに詰める余地がある。
+
 ### Phase 4. materials と picking を保守しやすい単位へ分割する
+
+状態:
+
+- 未着手に近い
 
 目的:
 
@@ -350,7 +408,16 @@ packages/core/src/
 
 - material / picking の変更で unrelated な描画コードを触る範囲が減る。
 
+進捗メモ:
+
+- picker の実体は `renderer-three` に移設済みだが、`picking` サブディレクトリ化や API の整理までは未着手である。
+- `materials/point-cloud-material.ts` は未だ最も大きい改善余地であり、この Phase が次の主対象になる。
+
 ### Phase 5. 公開 API を整理する
+
+状態:
+
+- 一部着手、まだ後半フェーズ
 
 目的:
 
@@ -366,21 +433,27 @@ packages/core/src/
 
 - import surface を見るだけで、利用者がどの層を使っているか判別できる。
 
+進捗メモ:
+
+- `./core` と `./renderer-three` の subpath export はすでに使える状態にあり、土台はできている。
+- ただし root export の最終整理は内部構造の安定化後に実施すべきで、優先順位はまだ高くない。
+
 ## 優先順位
 
-短期で優先するもの:
+2026-04-26 時点の残作業優先順位:
 
-1. `constants.ts`、`types.ts`、`utils` の再配置
-2. `loading/OctreeLoader.ts` の責務分割
-3. `renderer-three` と `rendering` の役割整理
-4. `potree.ts` と `point-cloud-octree.ts` の薄化
+1. `materials/point-cloud-material.ts` のモジュール分割
+2. `renderer-three` と `rendering` の役割整理、および `picking` / `geometry` / `scene` の配置明確化
+3. `potree.ts` と `point-cloud-octree.ts` の facade 薄化の継続
+4. `OctreeLoader.ts` の orchestration 仕上げと loading 配下の命名整理
+5. root export と subpath export の最終整理
 
-中期で進めるもの:
+優先順位の理由:
 
-1. `OctreeGeometryNode` の renderer 依存削減
-2. `PointCloudTree` / `PointCloudOctreeNode` のモデル化見直し
-3. `materials/point-cloud-material.ts` のモジュール分割
-4. picker の再配置
+- 1 と 2 は、現時点で最も大きいファイルと最も見通しを損ねている描画責務の所在に直接効く。
+- 3 は API の読みやすさに効くが、2 の配置整理を先に進めた方が委譲先を安定させやすい。
+- 4 は価値があるが、すでに主要な責務分割は完了しているため緊急度は下がった。
+- 5 は内部構造の整理が一段落してから詰める方が手戻りが少ない。
 
 ## 実施時のルール
 
@@ -406,11 +479,11 @@ packages/core/src/
 
 ## 次のアクション候補
 
-最初の実作業としては、以下の順が妥当である。
+次の実作業としては、以下の順が妥当である。
 
-1. `constants.ts` と `utils` の依存境界整理
-2. `loading/OctreeLoader.ts` の内部責務の切り出し
-3. `renderer-three` / `rendering` のサブディレクトリ再編
-4. `potree.ts` / `point-cloud-octree.ts` の facade 薄化
+1. `materials/point-cloud-material.ts` から uniform 管理、classification、clipping、texture generation のうち独立しやすい関心を切り出す
+2. `renderer-three` と `rendering` に `picking`、`geometry`、`scene`、`adapters` の配置方針を反映する
+3. `potree.ts` と `point-cloud-octree.ts` のうち renderer update を担う部分をさらに helper / adapter へ委譲する
+4. その後に export surface を再点検し、必要なら migration note を docs に追加する
 
-この順で進めると、比較的小さい移動で構造上の改善効果を出しつつ、後続の大きな分割に入れる。
+この順で進めると、すでに分離した loading の成果を活かしつつ、残っている大型ファイルと facade の読みづらさに直接効かせやすい。
