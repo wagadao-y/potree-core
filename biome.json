@@ -42,50 +42,5 @@
         "organizeImports": "on"
       }
     }
-  },
-  "overrides": [
-    {
-      "includes": [
-        "packages/core/src/loading/*.worker.ts",
-        "packages/core/src/workers/*.js"
-      ],
-      "linter": {
-        "rules": {
-          "complexity": {
-            "useArrowFunction": "off"
-          },
-          "correctness": {
-            "noUnusedVariables": "off",
-            "noSwitchDeclarations": "off",
-            "useParseIntRadix": "off"
-          },
-          "style": {
-            "useConst": "off"
-          },
-          "suspicious": {
-            "noAssignInExpressions": "off",
-            "noDebugger": "off",
-            "noDoubleEquals": "off",
-            "noGlobalAssign": "off",
-            "noGlobalIsNan": "off",
-            "noImplicitAnyLet": "off",
-            "noSelfCompare": "off"
-          }
-        }
-      }
-    },
-    {
-      "includes": ["packages/core/src/utils/binary-heap.js"],
-      "linter": {
-        "rules": {
-          "complexity": {
-            "useArrowFunction": "off"
-          },
-          "correctness": {
-            "noInnerDeclarations": "off"
-          }
-        }
-      }
-    }
-  ]
+  }
 }
