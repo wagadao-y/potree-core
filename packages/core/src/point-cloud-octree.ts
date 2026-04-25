@@ -17,12 +17,12 @@ import type { OctreeGeometry } from "./loading/OctreeGeometry";
 import type { OctreeGeometryNode } from "./loading/OctreeGeometryNode";
 import type { PointCloudMaterial, PointSizeType } from "./materials";
 import type { PointCloudOctreeNode } from "./point-cloud-octree-node";
+import { PointCloudTree } from "./point-cloud-tree";
+import { toThreeBox3, toThreeVector3 } from "./renderer-three/box3-like";
 import {
   type PickParams,
   PointCloudOctreePicker,
-} from "./point-cloud-octree-picker";
-import { PointCloudTree } from "./point-cloud-tree";
-import { toThreeBox3, toThreeVector3 } from "./renderer-three/box3-like";
+} from "./renderer-three/point-cloud-octree-picker";
 import {
   createDefaultPointCloudMaterial,
   getPointCloudBoundingBoxWorld,

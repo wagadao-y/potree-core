@@ -15,32 +15,17 @@ import {
   type WebGLRenderer,
   WebGLRenderTarget,
 } from "three";
-import { ClipMode, PointCloudMaterial, PointColorType } from "./materials";
-import type { PointCloudOctree } from "./point-cloud-octree";
-import type { PointCloudOctreeNode } from "./point-cloud-octree-node";
-import {
-  COLOR_BLACK,
-  DEFAULT_PICK_WINDOW_SIZE,
-} from "./renderer-three/constants";
-import type { PickPoint, PointCloudHit } from "./types";
-import { clamp } from "./utils/math";
+import { ClipMode, PointCloudMaterial, PointColorType } from "../materials";
+import type { PointCloudOctree } from "../point-cloud-octree";
+import type { PointCloudOctreeNode } from "../point-cloud-octree-node";
+import type { PickPoint, PointCloudHit } from "../types";
+import { clamp } from "../utils/math";
+import { COLOR_BLACK, DEFAULT_PICK_WINDOW_SIZE } from "./constants";
 
 export interface PickParams {
   pickWindowSize: number;
   pickOutsideClipRegion: boolean;
-  /**
-   * If provided, the picking will use this pixel position instead of the `Ray` passed to the `pick` method.
-   */
   pixelPosition: Vector3;
-
-  /**
-   * Function which gets called after a picking material has been created and setup and before the point cloud is rendered into the picking render target.
-   *
-   * This gives applications a chance to  customize the renderTarget and the material.
-   *
-   * @param material - The pick material.
-   * @param renterTarget - The render target used for picking.
-   */
   onBeforePickRender: (
     material: PointCloudMaterial,
     renterTarget: WebGLRenderTarget,
@@ -58,9 +43,6 @@ interface RenderedNode {
   octree: PointCloudOctree;
 }
 
-/**
- * Handle picking for points in octree.
- */
 export class PointCloudOctreePicker {
   private static readonly helperVec3 = new Vector3();
 
@@ -93,7 +75,6 @@ export class PointCloudOctreePicker {
     }
 
     const pickState = this.pickState;
-
     const pickMaterial = pickState.material;
 
     const pixelRatio = renderer.getPixelRatio();
@@ -105,7 +86,7 @@ export class PointCloudOctreePicker {
       height,
     );
 
-    const pixelPosition = PointCloudOctreePicker.helperVec3; // Use helper vector to prevent extra allocations.
+    const pixelPosition = PointCloudOctreePicker.helperVec3;
 
     if (params.pixelPosition) {
       pixelPosition.copy(params.pixelPosition);
@@ -122,7 +103,6 @@ export class PointCloudOctreePicker {
     const x = Math.floor(clamp(pixelPosition.x - halfPickWndSize, 0, width));
     const y = Math.floor(clamp(pixelPosition.y - halfPickWndSize, 0, height));
 
-    // Save render target so it can be restored after picking (for EDL and other multi-pass renderers).
     const prevRenderTarget = renderer.getRenderTarget();
 
     PointCloudOctreePicker.prepareRender(
@@ -144,7 +124,6 @@ export class PointCloudOctreePicker {
       params,
     );
 
-    // Read back image and decode hit point
     const pixels = PointCloudOctreePicker.readPixels(
       renderer,
       x,
@@ -152,7 +131,6 @@ export class PointCloudOctreePicker {
       pickWndSize,
     );
 
-    // Restore the render target to whatever it was before pick() was called.
     renderer.setRenderTarget(prevRenderTarget);
 
     const hit = PointCloudOctreePicker.findHit(pixels, pickWndSize);
@@ -169,9 +147,6 @@ export class PointCloudOctreePicker {
   ) {
     renderer.setRenderTarget(pickState.renderTarget);
 
-    // Render the intersected nodes onto the pick render target, clipping to a small pick window.
-    // x, y and pickWndSize are in device pixels. setScissor() multiplies by pixelRatio internally,
-    // so we must divide first to avoid applying the pixel ratio twice on high-DPI displays.
     const pixelRatio = renderer.getPixelRatio();
     renderer.setScissor(
       x / pixelRatio,
@@ -184,7 +159,6 @@ export class PointCloudOctreePicker {
     renderer.state.buffers.depth.setMask(pickMaterial.depthWrite);
     renderer.state.setBlending(NoBlending);
 
-    // Save the current clear color and clear the renderer with black color and alpha 0.
     renderer.getClearColor(PointCloudOctreePicker.clearColor);
     const oldClearAlpha = renderer.getClearAlpha();
     renderer.setClearColor(COLOR_BLACK, 0);
@@ -203,7 +177,6 @@ export class PointCloudOctreePicker {
   ): RenderedNode[] {
     const renderedNodes: RenderedNode[] = [];
     for (const octree of octrees) {
-      // Get all the octree nodes which intersect the picking ray. We only need to render those.
       const nodes = PointCloudOctreePicker.nodesOnRay(octree, ray);
       if (!nodes.length) {
         continue;
@@ -220,7 +193,6 @@ export class PointCloudOctreePicker {
         params.onBeforePickRender(pickMaterial, pickState.renderTarget);
       }
 
-      // Create copies of the nodes so we can render them differently than in the normal point cloud.
       pickState.scene.children = PointCloudOctreePicker.createTempNodes(
         octree,
         nodes,
@@ -263,7 +235,6 @@ export class PointCloudOctreePicker {
     y: number,
     pickWndSize: number,
   ): Uint8Array {
-    // Read the pixel from the pick render target.
     const pixels = new Uint8Array(4 * pickWndSize * pickWndSize);
     renderer.readRenderTargetPixels(
       renderer.getRenderTarget()!,
@@ -293,8 +264,6 @@ export class PointCloudOctreePicker {
       tempNode.matrixWorld = sceneNode.matrixWorld;
       tempNode.matrixAutoUpdate = false;
       tempNode.frustumCulled = false;
-
-      // Enable all layers so the picking camera can see EDL pass that temporarily limits the camera to the point-cloud layer
       tempNode.layers.enableAll();
 
       const nodeIndex = nodeIndexOffset + i + 1;
@@ -369,7 +338,6 @@ export class PointCloudOctreePicker {
   ): PointCloudHit | null {
     const ibuffer = new Uint32Array(pixels.buffer);
 
-    // Find closest hit inside pixelWindow boundaries
     let min = Number.MAX_VALUE;
     let hit: PointCloudHit | null = null;
     for (let u = 0; u < pickWndSize; u++) {
@@ -420,7 +388,6 @@ export class PointCloudOctreePicker {
 
       const values = attributes[property];
 
-      // tslint:disable-next-line:prefer-switch
       if (property === "position") {
         PointCloudOctreePicker.addPositionToPickPoint(
           point,
@@ -431,17 +398,14 @@ export class PointCloudOctreePicker {
       } else if (property === "normal") {
         PointCloudOctreePicker.addNormalToPickPoint(point, hit, values, points);
       } else if (property === "indices") {
-        // TODO
+      } else if (values.itemSize === 1) {
+        point[property] = values.array[hit.pIndex];
       } else {
-        if (values.itemSize === 1) {
-          point[property] = values.array[hit.pIndex];
-        } else {
-          const value: number[] = [];
-          for (let j = 0; j < values.itemSize; j++) {
-            value.push(values.array[values.itemSize * hit.pIndex + j]);
-          }
-          point[property] = value;
+        const value: number[] = [];
+        for (let j = 0; j < values.itemSize; j++) {
+          value.push(values.array[values.itemSize * hit.pIndex + j]);
         }
+        point[property] = value;
       }
     }
 

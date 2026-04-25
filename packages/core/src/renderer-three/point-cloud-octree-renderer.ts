@@ -17,8 +17,8 @@ import type { OctreeGeometryNode } from "../loading/OctreeGeometryNode";
 import { ClipMode, PointCloudMaterial } from "../materials";
 import type { PointCloudOctree } from "../point-cloud-octree";
 import { PointCloudOctreeNode } from "../point-cloud-octree-node";
-import { computeTransformedBoundingBox } from "../utils/bounds";
-import { Box3Helper } from "../utils/box3-helper";
+import { computeTransformedBoundingBox } from "./bounds";
+import { Box3Helper } from "./box3-helper";
 import { toThreeBox3 } from "./box3-like";
 import { materializeOctreeNodeGeometry } from "./octree-node-geometry";
 

@@ -16,11 +16,11 @@ import type { OctreeGeometryNode } from "./loading/OctreeGeometryNode";
 import type { RequestManager } from "./loading/RequestManager";
 import { PointCloudOctree } from "./point-cloud-octree";
 import type { PointCloudOctreeNode } from "./point-cloud-octree-node";
+import { getFeatures } from "./renderer-three/features";
 import {
   type PickParams,
   PointCloudOctreePicker,
-} from "./point-cloud-octree-picker";
-import { getFeatures } from "./renderer-three/features";
+} from "./renderer-three/point-cloud-octree-picker";
 import {
   type ClipVisibilityContext,
   ThreePointCloudVisibilityAdapter,
