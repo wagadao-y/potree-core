@@ -9,7 +9,7 @@
     "tsBuildInfoFile": "dist/.tsbuildinfo",
     "module": "esnext",
     "moduleResolution": "bundler",
-    "strict": false,
+    "strict": true,
     "strictNullChecks": true,
     "noImplicitAny": true,
     "noImplicitReturns": true,
