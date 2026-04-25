@@ -2,7 +2,7 @@
 
 > 本文書は 2026-04-25 時点の `packages/core` を調査し、ディレクトリ構造、ファイル分割、公開 API、責務分離、コードの見通しの改善に向けた段階的なリファクタリング計画をまとめたものである。既存の層分離方針は `docs/packages-core-layer-separation-inventory-20260425.md` を前提としつつ、本書では pure core / renderer 分離に限定せず、コード品質改善全般を対象とする。
 
-> 2026-04-26 更新: Phase 1 は概ね完了し、Phase 2 から Phase 4 にまたがる主要な責務分離も一段落した。`loading/OctreeLoader.ts`、`PointCloudOctree`、`Potree`、`materials/point-cloud-material.ts`、`renderer-three/point-cloud-octree-renderer.ts` の中心責務は段階的に切り出され、次の関心は残る facade の厚み確認と `packages/core/tsconfig.json` まわりの設定整理へ移りつつある。
+> 2026-04-26 更新: Phase 1 は概ね完了し、Phase 2 から Phase 4 にまたがる主要な責務分離も一段落した。`loading/OctreeLoader.ts`、`PointCloudOctree`、`Potree`、`materials/point-cloud-material.ts`、`renderer-three/point-cloud-octree-renderer.ts` の中心責務は段階的に切り出され、`packages/core/tsconfig.json` の整理も完了した。次の関心は、残る facade の厚み確認、material の追加分離、`renderer-three` 配下の再配置に移りつつある。
 
 ## 目的
 
@@ -142,13 +142,16 @@
 - `PointCloudOctree` の renderer helper 依存を adapter 経由へ集約し、`Potree` の visibility input 構築と post-visibility 更新ループも renderer-three 側へ委譲した。
 - `materials/point-cloud-material.ts` から visible nodes texture 管理と shader define 構築を分離し、material 本体の責務を縮小した。
 - `renderer-three/point-cloud-octree-renderer.ts` から visibility adapter、rendered-node / scene helper、visibility view / projection 生成を別ファイルへ分離した。
+- `packages/core/tsconfig.json` を declaration 出力前提のライブラリ設定として整理し、`composite`、`declarationMap`、`tsBuildInfoFile`、`skipLibCheck` を反映した。
+- `packages/core/tsconfig.json` で `noImplicitReturns`、`noUnusedParameters`、`strictNullChecks`、`noImplicitAny`、`strict` を段階的に有効化し、`packages/core` は strict mode で通る状態になった。
+- `useDefineForClassFields` は decorator 実装との実行時互換のため `false` 維持が妥当と確認し、TypeScript 側の strict 系フラグだけを簡潔化した。
 
 ### 進行中
 
 - `PointCloudOctree` と `Potree` は facade としてかなり薄くなったが、src 直下の入口としてはまだ厚みが残っている。
 - `renderer-three` 配下の責務分割は進んだが、ファイル配置はまだ `scene`、`geometry`、`adapters` などのサブディレクトリに整理し切っていない。
 - `materials/point-cloud-material.ts` は改善したものの、classification / clipping / uniform 更新の一部はなお同一ファイルに残っている。
-- `packages/core/tsconfig.json` は構造改善後の実態に対して、設定の整理余地があるかを次段で確認する価値が高い。
+- `packages/core/tsconfig.json` の主要な見直しは完了したため、今後は tsconfig 自体よりも decorator 実装と field semantics の互換性をどう扱うかが論点になる。
 
 ### 残作業の判断軸
 
@@ -449,18 +452,18 @@ packages/core/src/
 
 2026-04-26 時点の残作業優先順位:
 
-1. `packages/core/tsconfig.json` の設定棚卸しと役割整理
-2. `materials/point-cloud-material.ts` に残る classification / clipping / uniform 更新ロジックの追加分離
-3. `renderer-three` 配下の `scene` / `geometry` / `adapters` / `picking` 方向の再配置
-4. `potree.ts` と `point-cloud-octree.ts` の追加薄化を行うかの再評価
-5. root export と subpath export の最終整理
+1. `materials/point-cloud-material.ts` に残る classification / clipping / uniform 更新ロジックの追加分離
+2. `renderer-three` 配下の `scene` / `geometry` / `adapters` / `picking` 方向の再配置
+3. `potree.ts` と `point-cloud-octree.ts` の追加薄化を行うかの再評価
+4. root export と subpath export の最終整理
+5. `useDefineForClassFields` を切り替えられる設計へ寄せる必要があるかの再評価
 
 優先順位の理由:
 
-- 1 は、構造変更後のコンパイル対象、宣言出力、module resolution の前提が実態とずれていないかを確認する意味があり、次段の整備テーマとして妥当である。
-- 2 と 3 は依然として構造改善の余地があるが、第一段の主要分離は済んでいるため、次は設定整理と局所改善の比重が高い。
-- 4 は現在でも実施可能だが、追加の薄化が本当に必要かは一度評価してからでよい。
-- 5 は内部構造と設定の整理が落ち着いた後に進める方が手戻りが少ない。
+- 1 と 2 は依然として構造改善の余地が大きく、利用者と保守者の双方に見える複雑さを直接下げやすい。
+- 3 は現在でも実施可能だが、追加の薄化が本当に必要かは一度評価してからでよい。
+- 4 は内部構造の安定化がもう一段進んだ後に進める方が手戻りが少ない。
+- 5 は型設定の問題ではなく decorator 実装の実行時互換の問題なので、専用の設計判断として後段に分離するのが妥当である。
 
 ## 実施時のルール
 
@@ -488,9 +491,9 @@ packages/core/src/
 
 次の実作業としては、以下の順が妥当である。
 
-1. `packages/core/tsconfig.json` を対象に、include / exclude、declaration 出力、moduleResolution、editor 用と build 用の責務を棚卸しする
-2. `materials/point-cloud-material.ts` に残る classification / clipping / uniform 更新ロジックの独立性を確認する
-3. `renderer-three` のファイル群を `scene`、`geometry`、`adapters`、`picking` へ再配置するか判断する
+1. `materials/point-cloud-material.ts` に残る classification / clipping / uniform 更新ロジックの独立性を確認する
+2. `renderer-three` のファイル群を `scene`、`geometry`、`adapters`、`picking` へ再配置するか判断する
+3. `potree.ts` と `point-cloud-octree.ts` の facade としての厚みを再評価し、必要なら追加で薄化する
 4. その後に export surface を再点検し、必要なら migration note を docs に追加する
 
-この順で進めると、第一段のリファクタリング成果を保ったまま、次段では設定整理と残る局所改善を安全に進めやすい。
+この順で進めると、第一段のリファクタリング成果と tsconfig 見直しの成果を保ったまま、次段では残る局所改善と facade / 配置の整理を安全に進めやすい。
