@@ -1,5 +1,7 @@
 # packages/core クリッピング処理調査メモ
 
+> 現在の全体優先順位は `packages-core-performance-strategy-20260425.md` を優先する。本文書は clipping 領域に絞った詳細検討メモとして扱う。
+
 ## 対象
 
 - `apps/playground/src/main.ts`

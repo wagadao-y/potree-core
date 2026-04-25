@@ -310,6 +310,45 @@ rgba Uint8Array:       4 B/pt
 - picking の座標精度
 - EDL / clipping / adaptive size との互換性
 
+#### 調査結果（2026-04-25）
+
+**Int32 直渡し方式を試作・計測し、リバートした。**
+
+試作内容:
+
+- worker で `Float32Array` の代わりに `Int32Array` を生成し、生の整数座標を GPU へ渡す。
+- Three.js に `vertexAttribIPointer` を使わせるため `BufferAttribute.gpuType = IntType` を指定。
+- shader 側で `#define position (vec3(positionI) * nodePositionScale + nodePositionOffset)` により既存コードへ透過的に挿入。
+- `geometry.attributes.position` が消えることで Three.js の描画スキップ（`drawCount === Infinity`）が発生するため、`geometry.setDrawRange(0, n)` で回避。
+
+計測結果:
+
+| 指標 | 変更前 | 変更後 | 差分 |
+| --- | ---: | ---: | --- |
+| Generated buffer bytes | 501.3 MB | 501.3 MB | **変化なし** |
+| Attribute decode avg | 2.27 ms | 2.54 ms | +0.27 ms 悪化 |
+| Decode avg | 3.04 ms | 3.38 ms | +0.34 ms 悪化 |
+| GPU time avg | 40.96 ms | 41.25 ms | +0.29 ms 悪化 |
+
+判断:
+
+- `Int32` と `Float32` はともに 4 bytes/component であり、buffer bytes は変化しない。
+- density grid 向けの float 変換コストは残存し、decode がわずかに悪化した。
+- shader 側で `vec3(positionI) * scale + offset` の追加演算が GPU time をわずかに悪化させた。
+- 効果なし・微悪化のためリバートした。
+
+**Int16 量子化（6 B/pt = 50% 削減）について:**
+
+次の候補として `Int16Array` (2 bytes/component × 3 = 6 B/pt) を検討したが、以下の理由で採用しない。
+
+- Potree v2 はグローバルな `scale`（例: `0.001m`）のみを持ち、per-node の精度スケールを持たない。
+- per-node の bbox 内で `[0, 65535]` に量子化すると、shallow node（例: level-0 で bbox 1000m）では精度が `1000 / 65535 ≈ 15mm` に劣化する。これは元の精度（1mm）より大幅に荒く、picking や計測用途で問題になる。
+- depth しきい値で切り替える案は実装が複雑なうえ、効果が出るのは深い node のみに限定される。
+
+**位置づけの見直し:**
+
+プロファイル数値（`Transfer avg: 0.28 ms`）を見ると、position buffer の削減が貢献するのは Transfer avg への影響に留まり、GPU time（約 41ms）が支配的な現状では全体 FPS の改善には繋がらない。`position 12B/pt` の見直しは優先度を下げ、以下を先に進める。
+
 ### 2. position+rgb 専用 fast path
 
 metadata が `position + rgb` のみの場合、汎用 attribute loop ではなく専用 decode path にする。
