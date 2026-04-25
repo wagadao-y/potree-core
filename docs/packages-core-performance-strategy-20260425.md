@@ -44,6 +44,9 @@
 
 - `screenSpaceDensityLODEnabled` と `maxPointsPerPixel` は既に実装されている。
 - そのため、今後は LOD 制御を「新規実装する」段階ではなく、「閾値設計と運用を詰める」段階として扱う。
+- 2026-04-25 の同一条件測定では、近接・高密度視点では `maxPointsPerPixel` を下げることで submitted points、draw call、GPU time が明確に低下した。
+- 一方、引き視点では OFF の時点で 60 FPS / GPU time 5 ms 台の余裕があり、固定閾値を強くかけると性能利益が小さいまま visible points だけを大きく削る。
+- したがって Screen-Space Density LOD は、標準で常時強く有効化する品質最適化ではなく、描画品質の自動制御、カメラ操作中の一時軽量化、低スペック端末向けプリセットで使う制御レバーとして扱う。
 
 ## 標準データ配信方針
 
@@ -87,8 +90,9 @@ attributes: position + rgb のみ
 ### 優先度 A: steady-state FPS へ直接効くもの
 
 1. Screen-Space Density LOD の実運用化
-   - `screenSpaceDensityLODEnabled` と `maxPointsPerPixel` の既定値、推奨値、UI 露出方針を詰める。
-   - まずは submitted points と GPU time の低下量が明確に出る設定帯を見つける。
+   - `screenSpaceDensityLODEnabled` と `maxPointsPerPixel` は、固定デフォルト値として強く適用するより、adaptive quality / performance preset 用の制御パラメータとして扱う。
+   - 近接・高密度視点では `maxPointsPerPixel = 1.0` から `0.75` 付近で GPU time 低下が明確だったが、引き視点では同じ値が過剰な間引きになりやすい。
+   - 自動制御機能を実装する段階で、GPU frame time、FPS、カメラ操作状態、DPR、EDL 有無を見ながら段階的に調整する方針を検討する。
 
 2. point budget の動的制御
    - dynamic point budget も含め、GPU frame time を見ながら submitted points を抑える。
@@ -118,6 +122,77 @@ attributes: position + rgb のみ
 8. clip 操作中の uniform 更新コスト削減
    - clip plane / sphere / box の uniform 配列を再利用し、操作中 allocation を減らす。
    - これは clip interaction の入力追従性改善として扱う。
+
+## Dynamic point budget 設計メモ
+
+### 位置づけ
+
+Dynamic point budget は、GPU frame time を見ながら `Potree.pointBudget` を自動調整し、画面全体の submitted points を制御する仕組みとして扱う。
+
+- Screen-Space Density LOD は、画面密度に応じて過密な child 展開を抑える局所的な LOD 制御である。
+- Dynamic point budget は、GPU 投入量の総量を抑えるグローバルな安全弁である。
+- 近接・高密度視点では budget を下げ、引き視点や軽い視点では budget を戻すことで、固定 LOD 閾値より視点依存の過剰間引きを避けやすい。
+
+### 既存 API との関係
+
+- 既存の `pointBudget` は、ユーザーまたはアプリが指定する上限値として維持する。
+- 自動制御では、ユーザー指定値を `maxPointBudget` として扱い、実際に traversal で使う `effectivePointBudget` を別に持つのが望ましい。
+- `effectivePointBudget` は `minPointBudget <= effectivePointBudget <= maxPointBudget` に clamp する。
+- 自動制御を無効化した場合は、従来どおり `effectivePointBudget = pointBudget` とみなす。
+
+### 初期制御案
+
+最初の実装は、複雑な PID 制御ではなく、移動平均と段階的な増減で十分とする。
+
+```text
+targetGpuFrameTime:
+  60 FPS 目標なら 16.6 ms より少し低い 14-15 ms を基準にする
+
+GPU time が target を超える:
+  effectivePointBudget を速めに下げる
+
+GPU time に余裕がある:
+  effectivePointBudget をゆっくり戻す
+```
+
+例:
+
+```text
+if gpuTimeAvg > 18 ms:
+  effectivePointBudget *= 0.85
+
+else if gpuTimeAvg < 12 ms:
+  effectivePointBudget *= 1.03
+```
+
+下げる速度を上げる速度より速くし、重い視点での応答性を優先する。一方で、上げる速度は遅くして、視点やロード状況の変化で budget が振動しにくいようにする。
+
+### 実装時に必要な状態
+
+- `autoPointBudgetEnabled`
+- `minPointBudget`
+- `maxPointBudget`
+- `effectivePointBudget`
+- GPU time の移動平均
+- 最後に budget を変更した時刻または frame index
+- GPU timer が使えない場合の fallback 用 FPS / frame time
+
+### 注意点
+
+- GPU timer query は毎フレーム安定して取れるとは限らないため、欠損値や timer unavailable を前提にする。
+- budget は毎フレーム変更せず、一定間隔または十分な差分がある場合だけ更新する。
+- ロード直後や node streaming 中は GPU time と見た目が不安定になりやすいため、初期フレームやロード中の扱いを分ける可能性がある。
+- camera interaction 中は一時的に下げ、停止後にゆっくり戻す制御と相性がよい。
+- Screen-Space Density LOD と併用する場合は、まず point budget で総量を抑え、必要に応じて density LOD を追加で強める段階制御が扱いやすい。
+
+### 検証観点
+
+- target GPU frame time に対する収束速度
+- budget の振動有無
+- 視点移動中と停止後の見た目の戻り方
+- 近接・高密度視点での GPU time / FPS 改善量
+- 引き視点での過剰な品質低下が起きないこと
+- Screen-Space Density LOD 併用時の submitted points、visible nodes、draw calls
 
 ## 優先度を下げる、または現時点で見送る項目
 
