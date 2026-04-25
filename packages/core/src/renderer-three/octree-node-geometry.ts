@@ -2,11 +2,17 @@ import { BufferAttribute, BufferGeometry } from "three";
 import type { OctreeGeometryNode } from "../loading/OctreeGeometryNode";
 import { toThreeBox3 } from "./box3-like";
 
+const materializedOctreeNodeGeometries = new WeakMap<
+  OctreeGeometryNode,
+  BufferGeometry
+>();
+
 export function materializeOctreeNodeGeometry(
   geometryNode: OctreeGeometryNode,
 ): BufferGeometry {
-  if (geometryNode.geometry != null) {
-    return geometryNode.geometry;
+  const existingGeometry = materializedOctreeNodeGeometries.get(geometryNode);
+  if (existingGeometry != null) {
+    return existingGeometry;
   }
 
   const decodedPointAttributes = geometryNode.decodedPointAttributes;
@@ -94,7 +100,28 @@ export function materializeOctreeNodeGeometry(
     }
   }
 
-  geometryNode.geometry = geometry;
+  materializedOctreeNodeGeometries.set(geometryNode, geometry);
   geometryNode.decodedPointAttributes = null;
   return geometry;
+}
+
+export function disposeMaterializedOctreeNodeGeometry(
+  geometryNode: OctreeGeometryNode,
+): void {
+  const geometry = materializedOctreeNodeGeometries.get(geometryNode);
+  if (geometry === undefined) {
+    return;
+  }
+
+  const attributes = geometry.attributes;
+  for (const key in attributes) {
+    if (key === "position") {
+      delete (attributes[key] as any).array;
+    }
+
+    delete attributes[key];
+  }
+
+  geometry.dispose();
+  materializedOctreeNodeGeometries.delete(geometryNode);
 }

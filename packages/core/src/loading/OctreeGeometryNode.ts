@@ -1,4 +1,3 @@
-import type { BufferGeometry } from "three";
 import { getBoundingSphereForBox3 } from "../core/box3-like-utils";
 import type { Box3Like, SphereLike } from "../core/types";
 import type { IPointCloudTreeNode } from "./../types";
@@ -17,9 +16,6 @@ export class OctreeGeometryNode implements IPointCloudTreeNode {
 
   /** Reference to the parent node, or null if this is the root. */
   public parent: OctreeGeometryNode | null = null;
-
-  /** The geometry data associated with this node, or null if not loaded. */
-  public geometry: BufferGeometry | null = null;
 
   /** Decoded point attribute buffers before renderer-side geometry materialization. */
   public decodedPointAttributes: DecodedPointAttributes | null = null;
@@ -138,9 +134,7 @@ export class OctreeGeometryNode implements IPointCloudTreeNode {
   }
 
   public dispose(): void {
-    if (this.geometry && this.parent != null) {
-      this.geometry.dispose();
-      this.geometry = null;
+    if (this.parent != null && this.oneTimeDisposeHandlers.length > 0) {
       this.loaded = false;
       this.decodedPointAttributes = null;
 

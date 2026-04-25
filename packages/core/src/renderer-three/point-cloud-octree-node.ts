@@ -1,6 +1,5 @@
 import {
   type Box3,
-  BufferGeometry,
   EventDispatcher,
   type Object3D,
   type Points,
@@ -12,6 +11,7 @@ import type {
 } from "../core/types";
 import type { OctreeGeometryNode } from "../loading/OctreeGeometryNode";
 import { toThreeBox3, toThreeSphere } from "./box3-like";
+import { disposeMaterializedOctreeNodeGeometry } from "./octree-node-geometry";
 
 export class PointCloudOctreeNode
   extends EventDispatcher
@@ -52,20 +52,8 @@ export class PointCloudOctreeNode
   public disposeSceneNode(): void {
     const node = this.sceneNode;
 
-    if (node.geometry instanceof BufferGeometry) {
-      const attributes = node.geometry.attributes;
-
-      for (const key in attributes) {
-        if (key === "position") {
-          delete (attributes[key] as any).array;
-        }
-
-        delete attributes[key];
-      }
-
-      node.geometry.dispose();
-      node.geometry = undefined as any;
-    }
+    disposeMaterializedOctreeNodeGeometry(this.geometryNode);
+    node.geometry = undefined as any;
   }
 
   public traverse(
