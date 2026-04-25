@@ -170,7 +170,7 @@ export class ThreePointCloudVisibilityAdapter {
 }
 
 export function createDefaultPointCloudMaterial(
-  pcoGeometry: PCOGeometry,
+  _pcoGeometry: PCOGeometry,
 ): PointCloudMaterial {
   return new PointCloudMaterial({ newFormat: true });
 }

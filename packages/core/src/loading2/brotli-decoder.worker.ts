@@ -69,7 +69,7 @@ const mask_b0 = new Uint8Array([
 
 void mask_b0;
 
-workerScope.onmessage = async function (event) {
+workerScope.onmessage = async (event) => {
   const request = event.data as DecoderWorkerRequest;
   const {
     encoding,
@@ -89,15 +89,15 @@ workerScope.onmessage = async function (event) {
     name,
   });
 
-  let buffer;
+  let buffer: { buffer: ArrayBuffer };
   let decompressMs = 0;
-  if (numPoints == 0 || request.buffer.byteLength === 0) {
+  if (numPoints === 0 || request.buffer.byteLength === 0) {
     buffer = { buffer: new ArrayBuffer(0) };
   } else {
     try {
       const decompressStartedAt = performance.now();
       const compressed = new Uint8Array(request.buffer);
-      let decoded;
+      let decoded: Uint8Array;
 
       if (encoding === "ZSTD") {
         await initZstdDecoder();
@@ -127,11 +127,6 @@ workerScope.onmessage = async function (event) {
   const view = new DataView(buffer.buffer);
 
   const attributeBuffers = {};
-
-  let bytesPerPoint = 0;
-  for (const pointAttribute of pointAttributes.attributes) {
-    bytesPerPoint += pointAttribute.byteSize;
-  }
 
   const gridSize = 32;
   const grid = new Uint32Array(gridSize ** 3);
@@ -174,7 +169,7 @@ workerScope.onmessage = async function (event) {
           dealign24b((mc_3 & 0x00ffffff) >>> 2) |
           (dealign24b(((mc_3 >>> 24) | (mc_2 << 8)) >>> 2) << 8);
 
-        if (mc_1 != 0 || mc_2 != 0) {
+        if (mc_1 !== 0 || mc_2 !== 0) {
           X =
             X |
             (dealign24b((mc_1 & 0x00ffffff) >>> 0) << 16) |

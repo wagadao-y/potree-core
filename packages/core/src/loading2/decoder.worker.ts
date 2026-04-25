@@ -25,7 +25,7 @@ const typedArrayMapping = {
   double: Float64Array,
 };
 
-workerScope.onmessage = function (event) {
+workerScope.onmessage = (event) => {
   const request = event.data as DecoderWorkerRequest;
   const {
     buffer,
@@ -50,11 +50,6 @@ workerScope.onmessage = function (event) {
 
   const attributeBuffers = {};
   let attributeOffset = 0;
-
-  let bytesPerPoint = 0;
-  for (const pointAttribute of pointAttributes.attributes) {
-    bytesPerPoint += pointAttribute.byteSize;
-  }
 
   const gridSize = 32;
   const grid = new Uint32Array(gridSize ** 3);
