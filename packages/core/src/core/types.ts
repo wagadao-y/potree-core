@@ -1,4 +1,18 @@
-import type { Box3, Sphere } from "three";
+export interface Vec3Like {
+  x: number;
+  y: number;
+  z: number;
+}
+
+export interface Box3Like {
+  min: Vec3Like;
+  max: Vec3Like;
+}
+
+export interface SphereLike {
+  center: Vec3Like;
+  radius: number;
+}
 
 export interface IPointCloudTreeNode {
   id: number;
@@ -6,8 +20,8 @@ export interface IPointCloudTreeNode {
   level: number;
   index: number;
   spacing: number;
-  boundingBox: Box3;
-  boundingSphere: Sphere;
+  boundingBox: Box3Like;
+  boundingSphere: SphereLike;
   loaded: boolean;
   numPoints: number;
   readonly isGeometryNode: boolean;

@@ -1,8 +1,9 @@
-import type { Frustum, Vector3 } from "three";
 import type {
+  Box3Like,
   IPointCloudGeometryNode,
   IPointCloudRenderedNode,
   IPointCloudTreeNode,
+  Vec3Like,
 } from "../types";
 import { BinaryHeap } from "../../utils/binary-heap";
 
@@ -16,8 +17,8 @@ export class QueueItem {
 }
 
 export interface PointCloudVisibilityView {
-  frustum: Frustum;
-  cameraPosition: Vector3;
+  intersectsBox: (box: Box3Like) => boolean;
+  cameraPosition: Vec3Like;
 }
 
 export interface VisibilityPointCloudTarget<

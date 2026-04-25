@@ -14,7 +14,7 @@ import { ClipMode, PointCloudMaterial } from "../materials";
 import type { PointCloudOctree } from "../point-cloud-octree";
 import type { PointCloudOctreeGeometryNode } from "../point-cloud-octree-geometry-node";
 import { PointCloudOctreeNode } from "../point-cloud-octree-node";
-import type { IPointCloudTreeNode } from "../core/types";
+import type { Box3Like, IPointCloudTreeNode } from "../core/types";
 import type { VisibilityProjection } from "../core/visibility/update-visibility";
 import type { PointCloudVisibilityView } from "../core/visibility/visibility-structures";
 import type { PCOGeometry } from "./types";
@@ -88,7 +88,7 @@ export class PointCloudClipVisibilityEvaluator {
 
   public shouldClip(
     pointCloud: PointCloudOctree,
-    boundingBox: Box3,
+    boundingBox: Box3Like,
     clipContext: ClipVisibilityContext | undefined,
   ): boolean {
     if (clipContext === undefined || !clipContext.enabled) {
@@ -96,7 +96,7 @@ export class PointCloudClipVisibilityEvaluator {
     }
 
     const nodeWorldBox = this.clipNodeWorldBox
-      .copy(boundingBox)
+      .copy(boundingBox as Box3)
       .applyMatrix4(pointCloud.matrixWorld);
     const clipBoxesWorld = clipContext.clipBoxesWorld;
 
@@ -136,7 +136,7 @@ export class ThreePointCloudVisibilityAdapter {
 
   public shouldClip(
     pointCloud: PointCloudOctree,
-    boundingBox: Box3,
+    boundingBox: Box3Like,
     clipContext: ClipVisibilityContext | undefined,
   ): boolean {
     return this.clipVisibility.shouldClip(pointCloud, boundingBox, clipContext);
@@ -282,8 +282,9 @@ export function createPointCloudVisibilityViews(
       .multiply(inverseWorldMatrix)
       .multiply(camera.matrixWorld);
 
+    const frustum = new Frustum().setFromProjectionMatrix(frustumMatrix);
     views[i] = {
-      frustum: new Frustum().setFromProjectionMatrix(frustumMatrix),
+      intersectsBox: (box: Box3Like) => frustum.intersectsBox(box as Box3),
       cameraPosition: new Vector3().setFromMatrixPosition(cameraMatrix),
     };
   }

@@ -1,12 +1,10 @@
-import {
-  type Box3,
-  type Vector3,
-} from "three";
 import type {
+  Box3Like,
   IPointCloudGeometryNode,
   IPointCloudRenderedNode,
   IPointCloudTreeNode,
   IVisibilityUpdateResult,
+  Vec3Like,
 } from "../types";
 import {
   type PointCloudVisibilityView,
@@ -38,7 +36,7 @@ export interface UpdateVisibilityCallbacks<
   ) => (TClipContext | undefined)[];
   shouldClip: (
     pointCloud: TPointCloud,
-    boundingBox: Box3,
+    boundingBox: Box3Like,
     clipContext: TClipContext | undefined,
   ) => boolean;
   updateTreeNodeVisibility: (
@@ -55,7 +53,7 @@ export interface UpdateVisibilityCallbacks<
     queueItem: QueueItem,
     pointCloud: TPointCloud,
     node: IPointCloudTreeNode,
-    cameraPosition: Vector3,
+    cameraPosition: Vec3Like,
     projection: VisibilityProjection,
     halfHeight: number,
     densityLODStats: { culledNodes: number; culledPoints: number },
@@ -154,7 +152,7 @@ export function updateVisibility<
 
     if (
       node.level > maxLevel ||
-      !view.frustum.intersectsBox(node.boundingBox) ||
+      !view.intersectsBox(node.boundingBox) ||
       options.callbacks.shouldClip(
         pointCloud,
         node.boundingBox,
@@ -257,7 +255,7 @@ export function enqueueChildVisibilityItems(
   queueItem: QueueItem,
   pointCloud: VisibilityPointCloudTarget,
   node: IPointCloudTreeNode,
-  cameraPosition: Vector3,
+  cameraPosition: Vec3Like,
   projection: VisibilityProjection,
   halfHeight: number,
   densityLODStats: { culledNodes: number; culledPoints: number },
@@ -271,7 +269,7 @@ export function enqueueChildVisibilityItems(
     }
 
     const sphere = child.boundingSphere;
-    const distance = sphere.center.distanceTo(cameraPosition);
+    const distance = distanceTo(sphere.center, cameraPosition);
     const radius = sphere.radius;
 
     let projectionFactor = 0.0;
@@ -311,4 +309,11 @@ export function enqueueChildVisibilityItems(
       new QueueItem(queueItem.pointCloudIndex, weight, child, node),
     );
   }
+}
+
+function distanceTo(a: Vec3Like, b: Vec3Like): number {
+  const dx = a.x - b.x;
+  const dy = a.y - b.y;
+  const dz = a.z - b.z;
+  return Math.sqrt(dx * dx + dy * dy + dz * dz);
 }
