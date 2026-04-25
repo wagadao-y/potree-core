@@ -158,7 +158,9 @@ export function updatePointCloudBoundingBoxes(
     }
   }
 
-  bbRoot.children = visibleBoxes;
+  bbRoot.children = visibleBoxes.filter(
+    (boundingBoxNode): boundingBoxNode is Object3D => boundingBoxNode !== null,
+  );
 }
 
 export function hidePointCloudDescendants(object: Object3D): void {

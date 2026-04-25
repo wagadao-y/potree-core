@@ -344,7 +344,7 @@ workerScope.onmessage = async (event) => {
     },
   };
 
-  const transferables = [];
+  const transferables: Transferable[] = [];
   for (const property in message.attributeBuffers) {
     transferables.push(message.attributeBuffers[property].buffer);
   }

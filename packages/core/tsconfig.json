@@ -10,6 +10,7 @@
     "module": "esnext",
     "moduleResolution": "bundler",
     "strict": false,
+    "strictNullChecks": true,
     "noImplicitAny": false,
     "noImplicitReturns": true,
     "noImplicitThis": true,

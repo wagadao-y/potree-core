@@ -256,13 +256,18 @@ export class PointCloudVisibilityScheduler<
     }
 
     for (const [loader, batch] of nodesByLoader) {
+      const loadBatchWithCandidates = loader.loadBatchWithCandidates;
+      if (loadBatchWithCandidates === undefined) {
+        continue;
+      }
+
       const runCandidates = this.collectVisibleRunCandidates(
         batch,
         candidatesByLoader.get(loader) ?? batch,
       );
 
       nodeLoadPromises.push(
-        loader.loadBatchWithCandidates(runCandidates, runCandidates),
+        loadBatchWithCandidates(runCandidates, runCandidates),
       );
     }
 

@@ -7,11 +7,11 @@ export interface DecoderWorkerRequest {
   encoding: string;
   buffer: ArrayBuffer;
   pointAttributes: PointAttributes;
-  scale?: [number, number, number];
+  scale: [number, number, number];
   min: Vec3Like;
   max: Vec3Like;
   size: Vec3Like;
-  offset?: [number, number, number];
+  offset: [number, number, number];
   numPoints: number;
 }
 

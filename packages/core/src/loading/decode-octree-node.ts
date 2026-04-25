@@ -134,6 +134,13 @@ export function decodeOctreeNode({
     };
 
     const pointAttributes = node.octreeGeometry.pointAttributes;
+    if (pointAttributes === null) {
+      fail(
+        new Error(`Point attributes are not initialized for node ${node.name}`),
+      );
+      return;
+    }
+
     const scale = node.octreeGeometry.scale;
 
     const box = node.boundingBox;
@@ -142,7 +149,7 @@ export function decodeOctreeNode({
     const max = addVec3(min, size);
     const numPoints = node.numPoints;
 
-    const offset = node.octreeGeometry.loader.offset;
+    const offset = node.octreeGeometry.loader.offset ?? [0, 0, 0];
 
     const message: DecoderWorkerRequest = {
       name: node.name,
