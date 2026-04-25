@@ -18,7 +18,6 @@ import { loadOctree } from "./loading2/load-octree";
 import type { OctreeGeometry } from "./loading2/OctreeGeometry";
 import type { OctreeGeometryNode } from "./loading2/OctreeGeometryNode";
 import type { RequestManager } from "./loading2/RequestManager";
-import type { PointCloudMaterial } from "./materials";
 import { PointCloudOctree } from "./point-cloud-octree";
 import type { PointCloudOctreeNode } from "./point-cloud-octree-node";
 import {
@@ -95,19 +94,8 @@ export class Potree implements IPotree {
   public async loadPointCloud(
     url: string,
     reqManager: string | RequestManager,
-    materialOrOptions?: PointCloudMaterial | LoadOctreeOptions,
+    options?: LoadOctreeOptions,
   ): Promise<PointCloudOctree> {
-    const material =
-      materialOrOptions instanceof Object &&
-      "instrumentation" in materialOrOptions
-        ? undefined
-        : (materialOrOptions as PointCloudMaterial | undefined);
-    const options =
-      materialOrOptions instanceof Object &&
-      "instrumentation" in materialOrOptions
-        ? materialOrOptions
-        : undefined;
-
     if (typeof reqManager === "string") {
       // Handle baseUrl case
       const baseUrl = reqManager;
@@ -124,7 +112,7 @@ export class Potree implements IPotree {
       if (url.endsWith("metadata.json")) {
         return await loadOctree(url, requestManager, options).then(
           (geometry: OctreeGeometry) => {
-            return new PointCloudOctree(this, geometry, material);
+            return new PointCloudOctree(this, geometry);
           },
         );
       }

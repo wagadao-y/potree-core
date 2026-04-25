@@ -3,4 +3,4 @@ export type {
   IVisibilityUpdateResult,
   PointCloudHit,
 } from "./core/types";
-export type { IPotree, PCOGeometry, PickPoint } from "./renderer-three/types";
+export type { IPotree, PickPoint } from "./renderer-three/types";
