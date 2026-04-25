@@ -100,11 +100,6 @@ export class PointCloudOctree extends PointCloudTree
   public maxPointsPerPixel: number = 1;
 
   /**
-   * The root node of the point cloud octree.
-   */
-  public root: IPointCloudTreeNode | null = null;
-
-  /**
    * Bounding box nodes for visualization.
    */
   public boundingBoxNodes: Object3D[] = [];

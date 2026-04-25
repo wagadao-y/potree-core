@@ -4,9 +4,16 @@ import { defineConfig } from "vite";
 export default defineConfig({
   build: {
     lib: {
-      entry: resolve(__dirname, "src/index.ts"),
+      entry: {
+        index: resolve(__dirname, "src/index.ts"),
+        "core/index": resolve(__dirname, "src/core/index.ts"),
+        "renderer-three/index": resolve(
+          __dirname,
+          "src/renderer-three/index.ts",
+        ),
+      },
       formats: ["es"],
-      fileName: () => "index.js",
+      fileName: (_, entryName) => `${entryName}.js`,
     },
     rollupOptions: {
       external: ["three"],

@@ -11,5 +11,7 @@ export * from "./potree";
 export * from "./loading2/LocalPotreeRequestManager";
 export * from "./rendering/edl-pass";
 export * from "./rendering/potree-renderer";
+export * from "./core";
+export * from "./renderer-three";
 export * from "./types";
 export * from "./version";

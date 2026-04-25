@@ -16,48 +16,25 @@ export const getFeatures = () => ({
   precision: getPrecision(),
 });
 
-/**
- * Creates a WebGL rendering context.
- *
- * @returns - The WebGL rendering context or null if not available.
- */
 function renderer() {
-  if (context) return context; // cache
-  if (typeof document === "undefined") return null; // server side
+  if (context) return context;
+  if (typeof document === "undefined") return null;
 
-  // create a new context
   const canvas = document.createElement("canvas");
   context = canvas.getContext("webgl");
   return context;
 }
 
-/**
- * Checks if a specific WebGL extension is available.
- *
- * @param ext - The name of the WebGL extension to check for.
- * @returns True if the extension is available, false otherwise.
- */
 function hasExtension(ext: string) {
   const gl = renderer();
   return gl !== null && Boolean(gl.getExtension(ext));
 }
 
-/**
- * Checks if the WebGL context supports a minimum number of varying vectors.
- *
- * @param value - The minimum number of varying vectors to check for.
- * @returns True if the context supports at least the specified number of varying vectors, false otherwise.
- */
 function hasMinVaryingVectors(value: number) {
   const gl = renderer();
   return gl !== null && gl.getParameter(gl.MAX_VARYING_VECTORS) >= value;
 }
 
-/**
- * Gets the precision of the WebGL context.
- *
- * @returns A string indicating the precision level ('highp', 'mediump', or 'lowp').
- */
 function getPrecision() {
   const gl = renderer();
   if (gl === null) {

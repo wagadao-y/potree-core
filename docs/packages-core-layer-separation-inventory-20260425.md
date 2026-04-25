@@ -26,10 +26,15 @@
 - Three.js scene node 生成、material update、clip visibility、camera view 変換は `renderer-three/point-cloud-octree-renderer.ts` 側へ集約済み。
 - `Potree` から renderer-three 個別 helper への依存を減らし、`ThreePointCloudVisibilityAdapter` 経由で visibility callback を接続する形へ変更済み。
 - `Potree.updatePointCloudVisibility()` を追加し、renderer / camera を受け取らず precomputed visibility input だけで LOD / load scheduling を実行できる入口を追加済み。
+- visibility scheduling、point budget、LRU touch/free、batch load 候補選定は `src/core/point-cloud-visibility-scheduler.ts` へ抽出済み。
+- `Potree` は point cloud load、Three.js view / projection 変換、post-visibility material update を束ねる facade へ一段薄化済み。
+- `PointCloudTree` の tree state は `src/core/point-cloud-tree-model.ts` として抽出済みで、Three.js `Object3D` 継承は renderer 側 adapter の責務へ寄せ始めた。
 - `core/types.ts` と `core/visibility/*` から Three.js math 型 import を外し、`Box3Like` / `SphereLike` / `Vec3Like` と structural visibility view を使う形へ変更済み。
 - `IPointCloudVisibilityTarget` を追加し、`PointCloudOctree` は既存 Object3D 継承を維持しつつ visibility target interface を実装する形へ変更済み。
 - `point-cloud-octree.ts` の material 初期化、material bound 更新、scene node 生成は `src/renderer-three/point-cloud-octree-renderer.ts` へ一部切り出し済み。
 - `types.ts` は `src/core/types.ts` と `src/renderer-three/types.ts` へ最小分割し、既存の `src/types.ts` は再 export の入口に変更済み。
+- package export は root に加えて `./core` と `./renderer-three` を追加し、pure core 相当と renderer-three 相当の import surface を分け始めた。
+- WebGL feature 判定は `src/renderer-three/features.ts` へ移動済みで、renderer capability 判定の依存方向を renderer 側へ揃えた。
 - 現時点の変更は `packages/core` の `pnpm run typecheck` を通過している。
 
 ## 分類基準
@@ -219,6 +224,11 @@
 - `src/index.ts` が materials、rendering、point cloud object、picker をすべてまとめて export している。
 - この状態では pure core 相当だけを import する入口が存在しない。
 - まずは内部整理より先に export を切るのではなく、内部の論理分離後に export surface を段階的に切るほうが安全。
+
+補足:
+
+- root export は後方互換のため維持している。
+- 一方で `./core` と `./renderer-three` を追加したため、新規利用側は混在 export を避けて段階的に移行できる状態になった。
 
 ## 最初の分離対象
 
