@@ -24,7 +24,7 @@ import {
 import {
   type ClipVisibilityContext,
   ThreePointCloudVisibilityAdapter,
-} from "./renderer-three/point-cloud-octree-renderer";
+} from "./renderer-three/point-cloud-visibility-adapter";
 import type { IPotree, PickPoint } from "./renderer-three/types";
 import { LRU } from "./utils/lru";
 

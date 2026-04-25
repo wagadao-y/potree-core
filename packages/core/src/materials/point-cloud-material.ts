@@ -6,7 +6,6 @@ import {
   GLSL3,
   LessEqualDepth,
   type Material,
-  NearestFilter,
   NoBlending,
   type OrthographicCamera,
   type PerspectiveCamera,
@@ -32,7 +31,6 @@ import {
   PERSPECTIVE_CAMERA,
 } from "../renderer-three/constants";
 import type { PointCloudOctreeNode } from "../renderer-three/point-cloud-octree-node";
-import { byLevelAndIndex } from "../utils/utils";
 import { DEFAULT_CLASSIFICATION } from "./classification";
 import { ClipMode, type IClipBox, type IClipSphere } from "./clipping";
 import { ColorEncoding } from "./color-encoding";
@@ -44,11 +42,11 @@ import {
   TreeType,
 } from "./enums";
 import { SPECTRAL } from "./gradients";
+import { PointCloudVisibleNodesTexture } from "./point-cloud-visible-nodes-texture";
 import FragShader from "./shaders/pointcloud.fs?raw";
 import VertShader from "./shaders/pointcloud.vs?raw";
 import {
   generateClassificationTexture,
-  generateDataTexture,
   generateGradientTexture,
 } from "./texture-generation";
 import type { IClassification, IGradient, IUniform } from "./types";
@@ -283,10 +281,7 @@ export class PointCloudMaterial extends RawShaderMaterial {
 
   visibleNodesTexture: Texture | undefined;
 
-  private visibleNodesTextureSize =
-    PointCloudMaterial.INITIAL_VISIBLE_NODES_TEXTURE_SIZE;
-
-  private visibleNodeTextureChildOffsets = new Uint32Array(
+  private readonly visibleNodesTextureData = new PointCloudVisibleNodesTexture(
     PointCloudMaterial.INITIAL_VISIBLE_NODES_TEXTURE_SIZE,
   );
 
@@ -348,7 +343,10 @@ export class PointCloudMaterial extends RawShaderMaterial {
     uColor: makeUniform("c", new Color(0xffffff)),
     // @ts-ignore
     visibleNodes: makeUniform("t", this.visibleNodesTexture || new Texture()),
-    visibleNodesTextureSize: makeUniform("f", this.visibleNodesTextureSize),
+    visibleNodesTextureSize: makeUniform(
+      "f",
+      this.visibleNodesTextureData.textureSize,
+    ),
     vnStart: makeUniform("f", 0.0),
     wClassification: makeUniform("f", 0),
     wElevation: makeUniform("f", 0),
@@ -496,7 +494,7 @@ export class PointCloudMaterial extends RawShaderMaterial {
   constructor(parameters: Partial<IPointCloudMaterialParameters> = {}) {
     super();
 
-    const tex = this.createVisibleNodesTexture(this.visibleNodesTextureSize);
+    const tex = this.visibleNodesTextureData.texture;
     this.visibleNodesTexture = tex;
     this.setUniform("visibleNodes", tex);
 
@@ -531,10 +529,8 @@ export class PointCloudMaterial extends RawShaderMaterial {
       this.gradientTexture = undefined;
     }
 
-    if (this.visibleNodesTexture) {
-      this.visibleNodesTexture.dispose();
-      this.visibleNodesTexture = undefined;
-    }
+    this.visibleNodesTextureData.dispose();
+    this.visibleNodesTexture = undefined;
 
     if (this.classificationTexture) {
       this.classificationTexture.dispose();
@@ -901,78 +897,18 @@ export class PointCloudMaterial extends RawShaderMaterial {
   }
 
   private updateVisibilityTextureData(nodes: PointCloudOctreeNode[]) {
-    nodes.sort(byLevelAndIndex);
-
-    this.ensureVisibleNodesTextureCapacity(nodes.length);
-
-    const texture = this.visibleNodesTexture;
-    if (!texture) {
-      return;
-    }
-
-    const textureImage = texture.image as { data: Uint8Array };
-    const data = textureImage.data;
-    const offsetsToChild = this.visibleNodeTextureChildOffsets;
-    data.fill(0, 0, nodes.length * 4);
-    offsetsToChild.fill(0, 0, nodes.length);
-
-    for (let i = 0; i < nodes.length; i++) {
-      const node = nodes[i];
-
-      node.visibleNodeTextureOffset = i;
-
-      if (i > 0) {
-        const parentOffset = node.parent?.visibleNodeTextureOffset;
-        if (parentOffset === undefined) {
-          data[i * 4 + 3] = node.name.length;
-          continue;
-        }
-
-        const parentOffsetToChild = i - parentOffset;
-
-        const previousOffsetToChild = offsetsToChild[parentOffset];
-        offsetsToChild[parentOffset] =
-          previousOffsetToChild === 0
-            ? parentOffsetToChild
-            : Math.min(previousOffsetToChild, parentOffsetToChild);
-
-        // tslint:disable:no-bitwise
-        const offset = parentOffset * 4;
-        data[offset] = data[offset] | (1 << node.index);
-        data[offset + 1] = offsetsToChild[parentOffset] >> 8;
-        data[offset + 2] = offsetsToChild[parentOffset] & 255;
-        // tslint:enable:no-bitwise
-      }
-
-      data[i * 4 + 3] = node.name.length;
-    }
-
-    texture.needsUpdate = true;
-  }
-
-  private ensureVisibleNodesTextureCapacity(numNodes: number) {
-    if (numNodes <= this.visibleNodesTextureSize) {
-      return;
-    }
-
-    const textureSize = ceilPowerOfTwo(numNodes);
     const previousTexture = this.visibleNodesTexture;
-    const texture = this.createVisibleNodesTexture(textureSize);
 
-    this.visibleNodesTexture = texture;
-    this.visibleNodesTextureSize = textureSize;
-    this.visibleNodeTextureChildOffsets = new Uint32Array(textureSize);
-    this.setUniform("visibleNodes", texture);
-    this.setUniform("visibleNodesTextureSize", textureSize);
-    previousTexture?.dispose();
-  }
+    this.visibleNodesTextureData.update(nodes);
+    this.visibleNodesTexture = this.visibleNodesTextureData.texture;
 
-  private createVisibleNodesTexture(size: number) {
-    const texture = generateDataTexture(size, 1, new Color(0xffffff));
-    texture.minFilter = NearestFilter;
-    texture.magFilter = NearestFilter;
-
-    return texture;
+    if (previousTexture !== this.visibleNodesTexture) {
+      this.setUniform("visibleNodes", this.visibleNodesTexture);
+      this.setUniform(
+        "visibleNodesTextureSize",
+        this.visibleNodesTextureData.textureSize,
+      );
+    }
   }
 
   static makeOnBeforeRender(
@@ -1014,10 +950,6 @@ function makeUniform<T>(type: string, value: T): IUniform<T> {
 
 function getValid<T>(a: T | undefined, b: T): T {
   return a === undefined ? b : a;
-}
-
-function ceilPowerOfTwo(value: number) {
-  return 2 ** Math.ceil(Math.log2(value));
 }
 
 // tslint:disable:no-invalid-this
