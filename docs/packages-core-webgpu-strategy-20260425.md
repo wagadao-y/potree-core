@@ -114,9 +114,11 @@
 
 進捗メモ:
 
-- 1 は棚卸し文書の追加まで完了している。
-- 4 は `apps/playground` の src 直参照化と build / typecheck 通過まで完了している。
-- 現在は 1 の続きとして、`packages/core` の WebGL 実装を保ったまま `potree.ts`、`point-cloud-octree.ts`、`types.ts` の責務分離を進めている。
+- 1 は棚卸し文書の追加に留まらず、visibility scheduler 抽出、renderer-three 境界導入、`types.ts` の最小分離、loading2 geometry materialization の renderer 側移動まで進んでいる。
+- 現行ロード経路は `metadata.json` を入口とする `loading2` のみに整理され、legacy `loading/*`、旧 geometry node、binary decoder worker 群、未使用 legacy worker 群は削除済みである。
+- root / `./renderer-three` の export surface も縮小済みで、公開面は metadata.json 専用の最小構成へ寄せ始めている。
+- 4 は `apps/playground` の src 直参照化に加えて、`packages/core` / `apps/playground` の build・typecheck と workspace lint 通過まで確認済みである。
+- 現在の主対象は `types.ts` そのものではなく、`potree.ts` と `point-cloud-octree.ts` に残る renderer 依存 API をさらに薄くすることである。
 
 ## 関連文書
 

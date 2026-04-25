@@ -11,7 +11,7 @@
 ## 現状の要約
 
 - 現在の `packages/core` は pure core ではなく、Three.js 依存の scene object、material、render pass、picker を含んでいる。
-- ただし、loader、request manager、worker、属性定義、一部ユーティリティは pure core 相当に寄せやすい。
+- ただし、`loading2` の loader/request manager/worker protocol/属性定義、一部ユーティリティは pure core 相当に寄せやすい。
 - 問題は renderer 依存が一箇所にまとまっていないことであり、公開 API でも `PointCloudOctree`、`Potree.updatePointClouds`、`PointCloudMaterial` などが混在している。
 
 ## 着手済み
@@ -35,12 +35,15 @@
 - renderer-three は `renderer-three/box3-like.ts` で Three.js `Box3` / `Sphere` / `Vector3` へ変換する境界を持つ形へ変更済み。
 - `cloud.js` 系の旧フォーマット対応を廃止した前提で、未到達になった legacy `loading/*`、`point-cloud-octree-geometry*.ts`、`workers/binary-decoder*.ts` は削除済み。
 - 現行 public API は `metadata.json` を入口に `loading2` だけを通すため、未到達だった legacy worker 群は削除済み。
+- 未使用になった `dem-node.ts`、`type-predicates.ts`、`point-attributes.ts`、`version.ts` も削除済み。
 - legacy `point-cloud-octree-geometry.ts` の `offset` は `Vec3Like` へ移行済みで、Three.js `Vector3` 変換は `point-cloud-octree.ts` 側へ後退済み。
 - `core/types.ts` と `core/visibility/*` から Three.js math 型 import を外し、`Box3Like` / `SphereLike` / `Vec3Like` と structural visibility view を使う形へ変更済み。
 - `IPointCloudVisibilityTarget` を追加し、`PointCloudOctree` は既存 Object3D 継承を維持しつつ visibility target interface を実装する形へ変更済み。
 - `point-cloud-octree.ts` の material 初期化、material bound 更新、scene node 生成は `src/renderer-three/point-cloud-octree-renderer.ts` へ一部切り出し済み。
 - `types.ts` は `src/core/types.ts` と `src/renderer-three/types.ts` へ最小分割し、既存の `src/types.ts` は再 export の入口に変更済み。
 - package export は root に加えて `./core` と `./renderer-three` を追加し、pure core 相当と renderer-three 相当の import surface を分け始めた。
+- root export から `point-cloud-octree-node.ts`、`rendering/edl-pass.ts`、legacy picker/tree/version/attribute 系の公開は整理済みで、現状の root は `materials`、`LoadInstrumentation`、`PointCloudOctree`、`Potree`、`LocalPotreeRequestManager`、`PotreeRenderer`、`./core`、`./renderer-three`、`./types` に縮小済み。
+- `renderer-three` subpath export も `box3-like`、`features`、`types` に絞り、internal helper の再 export は外してある。
 - WebGL feature 判定は `src/renderer-three/features.ts` へ移動済みで、renderer capability 判定の依存方向を renderer 側へ揃えた。
 - 現時点の変更は `packages/core` の `pnpm run typecheck` を通過している。
 
@@ -85,19 +88,22 @@
 
 #### worker とデコード周辺
 
-- `workers/*`
-  - Three.js 非依存で、pure core 相当へ寄せるべき。
+- `loading2/decoder.worker.ts` と `loading2/brotli-decoder.worker.ts`
+  - 現行の decode worker 実装であり、Three.js 非依存の pure core 相当。
 
 - `loading2/WorkerPool.ts`
   - worker orchestration であり pure core 相当。
 
+- `loading2/WorkerProtocol.ts`
+  - worker message schema であり pure core 相当。
+
 #### データ定義とユーティリティの一部
 
-- `point-attributes.ts`
-  - 点属性定義であり pure core 相当。
+- `loading2/PointAttributes.ts`
+  - 現行の属性定義であり pure core 相当。
 
-- `type-predicates.ts`
-  - Three.js 非依存へ保てるなら pure core 相当。
+- `loading2/DecodedPointAttributes.ts`
+  - decode 済み属性バッファの shape であり pure core 相当。
 
 - `utils/lru.ts`
   - pure core 相当。
@@ -175,8 +181,8 @@
 
 #### `types.ts`
 
-- 現状の公開型は `Camera`、`WebGLRenderer`、`Vector3`、`Box3`、`Sphere` を含んでおり renderer 依存している。
-- 型の境界を切り直し、pure core 用 public types と renderer 用 public types に分離する必要がある。
+- `src/types.ts` は薄い再 export へ整理済みで、現状は `src/core/types.ts` と `src/renderer-three/types.ts` の入口である。
+- pure core 用型と renderer 用型の一次分離は完了しており、残課題は型定義そのものより `Potree` / `PointCloudOctree` が renderer 依存 API を持つ点に移っている。
 
 #### `loading2/OctreeGeometry.ts`
 
@@ -193,20 +199,6 @@
 - `BufferGeometry` と `BufferAttribute` を作っているため renderer 依存。
 - metadata / binary decode と geometry object 生成を分割すべき。
 
-#### `loading/binary-loader.ts`
-
-- legacy loader だが Three.js geometry 生成をしており renderer 相当寄り。
-- ただしバイナリ解釈部分は pure core へ寄せられる。
-
-#### `point-cloud-octree-geometry.ts`
-
-- Box3、Vector3 に依存している。
-- geometry metadata holder として pure core 化の余地はあるが、現状は混在。
-
-#### `point-cloud-octree-geometry-node.ts`
-
-- node metadata と Three.js 側 geometry 状態が混在している。
-
 #### `point-cloud-octree-node.ts`
 
 - tree node と scene node の両方を担っており混在。
@@ -216,11 +208,6 @@
 - `Color` と `Vector4` に依存しており pure constant file ではない。
 - renderer constants と core constants を分けるべき。
 
-#### `dem-node.ts`
-
-- math 型として `Vector3` などを使っているため、Three.js math 依存をどう扱うかの判断が必要。
-- すぐ renderer へ出すより、数値配列または独自 math 型へ寄せられるかを見て判断する。
-
 #### `utils/bounds.ts`
 
 - Box3 と Matrix4 に依存するため renderer math 依存がある。
@@ -228,14 +215,14 @@
 
 ## 公開 API の問題点
 
-- `src/index.ts` が materials、rendering、point cloud object、picker をすべてまとめて export している。
-- この状態では pure core 相当だけを import する入口が存在しない。
-- まずは内部整理より先に export を切るのではなく、内部の論理分離後に export surface を段階的に切るほうが安全。
+- `src/index.ts` は以前よりかなり縮小されたが、依然として `materials`、`PotreeRenderer`、`PointCloudOctree`、`Potree` が同居しており、root import だけを見ると pure core 相当と renderer 相当が混在している。
+- 一方で `src/types.ts` は renderer-heavy な具象型を抱えない薄い入口に整理済みで、型境界の問題はかなり小さくなった。
+- 新規利用側は `./core` と `./renderer-three` を使えば混在 export を避けられるが、root export の縮小余地はなお残る。
 
 補足:
 
-- root export は後方互換のため維持している。
-- 一方で `./core` と `./renderer-three` を追加したため、新規利用側は混在 export を避けて段階的に移行できる状態になった。
+- root export は metadata.json 専用化に合わせて破壊的整理を進めているが、`PointCloudOctree` / `Potree` / `PotreeRenderer` / `materials` はまだ同居している。
+- `./core` と `./renderer-three` の subpath export は現時点で安定しており、新規利用側はこれらを優先する前提でよい。
 
 ## 最初の分離対象
 
@@ -247,7 +234,9 @@
 
 現状:
 
-- 3 項目とも最小単位の切り出しには着手済み。
+- visibility scheduler 抽出と `types.ts` の最小分離は完了済み。
+- `point-cloud-octree.ts` も renderer-three への委譲を進めたが、scene object / pick / material 保持はまだ残っている。
+- 残る主対象は `potree.ts` と `point-cloud-octree.ts` の renderer API をさらに痩せさせることになった。
 - ただし `point-cloud-octree.ts` と `potree.ts` にはまだ renderer 依存が残っており、分離途中の段階である。
 
 ### 第2段階
