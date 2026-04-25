@@ -4,16 +4,18 @@
  */
 
 import {
-  type Box3,
   type BufferGeometry,
   EventDispatcher,
-  Sphere,
   Vector3,
 } from "three";
+import {
+  cloneBox3,
+  createChildBox3,
+  getBoundingSphereForBox3,
+} from "./core/box3-like-utils";
 import type { DecodedPointAttributes } from "./loading2/DecodedPointAttributes";
 import type { PointCloudOctreeGeometry } from "./point-cloud-octree-geometry";
-import type { IPointCloudTreeNode } from "./core/types";
-import { createChildAABB } from "./utils/bounds";
+import type { Box3Like, IPointCloudTreeNode, SphereLike } from "./core/types";
 import { getIndexFromName } from "./utils/utils";
 
 export interface NodeData {
@@ -53,11 +55,11 @@ export class PointCloudOctreeGeometryNode
     null,
   ];
 
-  public boundingBox: Box3;
+  public boundingBox: Box3Like;
 
-  public tightBoundingBox: Box3;
+  public tightBoundingBox: Box3Like;
 
-  public boundingSphere: Sphere;
+  public boundingSphere: SphereLike;
 
   public mean: Vector3 = new Vector3();
 
@@ -88,7 +90,7 @@ export class PointCloudOctreeGeometryNode
   constructor(
     name: string,
     pcoGeometry: PointCloudOctreeGeometry,
-    boundingBox: Box3,
+    boundingBox: Box3Like,
   ) {
     super();
 
@@ -97,8 +99,8 @@ export class PointCloudOctreeGeometryNode
     this.index = getIndexFromName(name);
     this.pcoGeometry = pcoGeometry;
     this.boundingBox = boundingBox;
-    this.tightBoundingBox = boundingBox.clone();
-    this.boundingSphere = boundingBox.getBoundingSphere(new Sphere());
+    this.tightBoundingBox = cloneBox3(boundingBox);
+    this.boundingSphere = getBoundingSphereForBox3(boundingBox);
   }
 
   dispose(): void {
@@ -329,7 +331,7 @@ export class PointCloudOctreeGeometryNode
     const parentName = name.substring(0, name.length - 1);
     const parentNode = nodes.get(parentName)!;
     const level = name.length - 1;
-    const boundingBox = createChildAABB(parentNode.boundingBox, index);
+    const boundingBox = createChildBox3(parentNode.boundingBox, index);
 
     const node = new PointCloudOctreeGeometryNode(name, pco, boundingBox);
     node.level = level;

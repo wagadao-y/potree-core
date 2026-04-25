@@ -1,5 +1,6 @@
 import { BufferAttribute, BufferGeometry } from "three";
 import type { PointCloudOctreeGeometryNode } from "../point-cloud-octree-geometry-node";
+import { toThreeBox3 } from "./box3-like";
 
 export function materializeOctreeNodeGeometry(
   geometryNode: PointCloudOctreeGeometryNode,
@@ -16,7 +17,7 @@ export function materializeOctreeNodeGeometry(
   }
 
   const geometry = new BufferGeometry();
-  geometry.boundingBox = geometryNode.boundingBox;
+  geometry.boundingBox = toThreeBox3(geometryNode.boundingBox);
 
   for (const property in decodedPointAttributes) {
     const decodedAttribute = decodedPointAttributes[property];

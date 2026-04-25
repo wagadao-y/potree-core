@@ -1,3 +1,5 @@
+// @ts-nocheck
+
 // let pointFormatReaders = {
 //	0: function(dv) {
 //		return {

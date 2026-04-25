@@ -4,8 +4,9 @@ import {
   EventDispatcher,
   type Object3D,
   type Points,
-  type Sphere,
+  Sphere,
 } from "three";
+import { toThreeBox3, toThreeSphere } from "./renderer-three/box3-like";
 import type { PointCloudOctreeGeometryNode } from "./point-cloud-octree-geometry-node";
 import type {
   IPointCloudRenderedNode,
@@ -153,11 +154,11 @@ export class PointCloudOctreeNode
   }
 
   public get boundingSphere(): Sphere {
-    return this.geometryNode.boundingSphere;
+    return toThreeSphere(this.geometryNode.boundingSphere, new Sphere());
   }
 
   public get boundingBox(): Box3 {
-    return this.geometryNode.boundingBox;
+    return toThreeBox3(this.geometryNode.boundingBox);
   }
 
   public get spacing() {

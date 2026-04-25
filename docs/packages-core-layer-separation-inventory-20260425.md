@@ -35,6 +35,8 @@
 - renderer-three は `renderer-three/box3-like.ts` で Three.js `Box3` / `Sphere` / `Vector3` へ変換する境界を持つ形へ変更済み。
 - legacy `loading/binary-loader.ts` は decode 結果を `decodedPointAttributes` へ正規化し、`BufferGeometry` materialize は renderer-three 側へ委譲する形へ縮小済み。
 - legacy `workers/binary-decoder.worker.ts` は TS 化され、loader-worker 間の message shape は `loading/WorkerProtocol.ts` へ抽出済み。
+- `point-cloud-octree-geometry-node.ts` の bounding box / tight bounding box / bounding sphere は structural math へ移行済みで、Three.js 変換は renderer / rendered node 側へ後退済み。
+- legacy `workers/LASDecoderWorker.ts` と `workers/GreyhoundBinaryDecoderWorker.ts` は TS ファイルへ移行済み。
 - `core/types.ts` と `core/visibility/*` から Three.js math 型 import を外し、`Box3Like` / `SphereLike` / `Vec3Like` と structural visibility view を使う形へ変更済み。
 - `IPointCloudVisibilityTarget` を追加し、`PointCloudOctree` は既存 Object3D 継承を維持しつつ visibility target interface を実装する形へ変更済み。
 - `point-cloud-octree.ts` の material 初期化、material bound 更新、scene node 生成は `src/renderer-three/point-cloud-octree-renderer.ts` へ一部切り出し済み。

@@ -1,3 +1,5 @@
+// @ts-nocheck
+
 function CustomView(buffer) {
   this.buffer = buffer;
   this.u8 = new Uint8Array(buffer);
