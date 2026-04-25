@@ -1,4 +1,3 @@
-export * from "./blur-material";
 export * from "./clipping";
 export * from "./enums";
 export * from "./eye-dome-lighting-material";
