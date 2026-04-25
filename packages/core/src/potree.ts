@@ -12,8 +12,8 @@ import {
 } from "three";
 import {
   DEFAULT_POINT_BUDGET,
-  MAX_LOADS_TO_GPU,
-  MAX_NUM_NODES_LOADING,
+  DEFAULT_MAX_LOADS_TO_GPU,
+  DEFAULT_MAX_NUM_NODES_LOADING,
   PERSPECTIVE_CAMERA,
 } from "./constants";
 import { getFeatures } from "./features";
@@ -90,7 +90,9 @@ export class Potree implements IPotree {
 
   private readonly _clipContexts: (ClipVisibilityContext | undefined)[] = [];
 
-  public maxNumNodesLoading: number = MAX_NUM_NODES_LOADING;
+  public maxNumNodesLoading: number = DEFAULT_MAX_NUM_NODES_LOADING;
+
+  public maxLoadsToGPU: number = DEFAULT_MAX_LOADS_TO_GPU;
 
   public get features() {
     return getFeatures();
@@ -268,12 +270,12 @@ export class Potree implements IPotree {
         node.numPoints > 0 &&
         (!parentNode || isTreeNode(parentNode))
       ) {
-        if (node.loaded && loadedToGPUThisFrame < MAX_LOADS_TO_GPU) {
+        if (node.loaded && loadedToGPUThisFrame < this.maxLoadsToGPU) {
           // @ts-ignore
           node = pointCloud.toTreeNode(node, parentNode);
           loadedToGPUThisFrame++;
         } else if (!node.failed) {
-          if (node.loaded && loadedToGPUThisFrame >= MAX_LOADS_TO_GPU) {
+          if (node.loaded && loadedToGPUThisFrame >= this.maxLoadsToGPU) {
             exceededMaxLoadsToGPU = true;
           }
           unloadedGeometry.push(node);

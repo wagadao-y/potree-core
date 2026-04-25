@@ -1,5 +1,5 @@
 import { type Box3, Sphere, type Vector3 } from "three";
-import { MAX_NUM_NODES_LOADING } from "../constants";
+import { DEFAULT_MAX_NUM_NODES_LOADING } from "../constants";
 import type { PotreeLoadInstrumentation } from "./LoadInstrumentation";
 import type { OctreeGeometryNode } from "./OctreeGeometryNode";
 import type { Metadata, NodeLoader } from "./OctreeLoader";
@@ -18,7 +18,7 @@ export class OctreeGeometry {
 
   public numNodesLoading: number = 0;
 
-  public maxNumNodesLoading: number = MAX_NUM_NODES_LOADING;
+  public maxNumNodesLoading: number = DEFAULT_MAX_NUM_NODES_LOADING;
 
   public boundingSphere: Sphere;
 
