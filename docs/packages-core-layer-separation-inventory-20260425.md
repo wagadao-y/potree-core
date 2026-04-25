@@ -37,6 +37,8 @@
 - legacy `workers/binary-decoder.worker.ts` は TS 化され、loader-worker 間の message shape は `loading/WorkerProtocol.ts` へ抽出済み。
 - `point-cloud-octree-geometry-node.ts` の bounding box / tight bounding box / bounding sphere は structural math へ移行済みで、Three.js 変換は renderer / rendered node 側へ後退済み。
 - legacy `workers/LASDecoderWorker.ts` と `workers/GreyhoundBinaryDecoderWorker.ts` は TS ファイルへ移行済み。
+- legacy `workers/LazLoaderWorker.ts` も TS ファイルへ移行済みで、`packages/core/src` 配下の JS 実装は解消済み。
+- legacy `point-cloud-octree-geometry.ts` の `offset` は `Vec3Like` へ移行済みで、Three.js `Vector3` 変換は `point-cloud-octree.ts` 側へ後退済み。
 - `core/types.ts` と `core/visibility/*` から Three.js math 型 import を外し、`Box3Like` / `SphereLike` / `Vec3Like` と structural visibility view を使う形へ変更済み。
 - `IPointCloudVisibilityTarget` を追加し、`PointCloudOctree` は既存 Object3D 継承を維持しつつ visibility target interface を実装する形へ変更済み。
 - `point-cloud-octree.ts` の material 初期化、material bound 更新、scene node 生成は `src/renderer-three/point-cloud-octree-renderer.ts` へ一部切り出し済み。

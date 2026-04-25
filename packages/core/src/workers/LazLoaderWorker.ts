@@ -1,3 +1,5 @@
+// @ts-nocheck
+
 let instance = null; // laz-perf instance
 
 function readAs(buf, Type, offset, count) {
@@ -27,12 +29,12 @@ function parseLASHeader(arraybuffer) {
 
   let start = 32 * 3 + 35;
   o.scale = readAs(arraybuffer, Float64Array, start, 3);
-  start += 24; // 8*3
+  start += 24;
   o.offset = readAs(arraybuffer, Float64Array, start, 3);
   start += 24;
 
   const bounds = readAs(arraybuffer, Float64Array, start, 6);
-  start += 48; // 8*6;
+  start += 48;
   o.maxs = [bounds[0], bounds[2], bounds[4]];
   o.mins = [bounds[1], bounds[3], bounds[5]];
 
@@ -88,7 +90,6 @@ function handleEvent(msg) {
         }
       }
 
-      // msg.start
       const count = msg.count;
       const skip = msg.skip;
       const o = instance;

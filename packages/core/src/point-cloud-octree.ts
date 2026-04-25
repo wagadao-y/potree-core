@@ -29,7 +29,7 @@ import {
   updatePointCloudVisibleBounds,
   updatePointCloudMaterialBounds,
 } from "./renderer-three/point-cloud-octree-renderer";
-import { toThreeBox3 } from "./renderer-three/box3-like";
+import { toThreeBox3, toThreeVector3 } from "./renderer-three/box3-like";
 import type { IPotree, PCOGeometry, PickPoint } from "./renderer-three/types";
 import type {
   IPointCloudVisibilityTarget,
@@ -169,7 +169,7 @@ export class PointCloudOctree extends PointCloudTree
     this.boundingBox = toThreeBox3(pcoGeometry.boundingBox);
     this.boundingSphere = this.boundingBox.getBoundingSphere(new Sphere());
 
-    this.position.copy(pcoGeometry.offset);
+    this.position.copy(toThreeVector3(pcoGeometry.offset));
     this.updateMatrix();
 
     this.material =

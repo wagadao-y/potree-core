@@ -1,5 +1,4 @@
-import type { Vector3 } from "three";
-import type { Box3Like } from "./core/types";
+import type { Box3Like, Vec3Like } from "./core/types";
 import type { BinaryLoader, XhrRequest } from "./loading";
 import { PointAttributes } from "./point-attributes";
 import type { PointCloudOctreeGeometryNode } from "./point-cloud-octree-geometry-node";
@@ -33,7 +32,7 @@ export class PointCloudOctreeGeometry {
     public loader: BinaryLoader,
     public boundingBox: Box3Like,
     public tightBoundingBox: Box3Like,
-    public offset: Vector3,
+    public offset: Vec3Like,
     public xhrRequest: XhrRequest,
   ) {}
 
