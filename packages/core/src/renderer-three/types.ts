@@ -1,7 +1,7 @@
 import type { Camera, Vector3, WebGLRenderer } from "three";
 import type { IVisibilityUpdateResult } from "../core/types";
-import type { LoadOctreeOptions } from "../loading2/LoadInstrumentation";
-import type { RequestManager } from "../loading2/RequestManager";
+import type { LoadOctreeOptions } from "../loading/LoadInstrumentation";
+import type { RequestManager } from "../loading/RequestManager";
 import type { PointCloudOctree } from "../point-cloud-octree";
 import type { LRU } from "../utils/lru";
 

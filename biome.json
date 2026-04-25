@@ -46,7 +46,7 @@
   "overrides": [
     {
       "includes": [
-        "packages/core/src/loading2/*.worker.js",
+        "packages/core/src/loading/*.worker.ts",
         "packages/core/src/workers/*.js"
       ],
       "linter": {

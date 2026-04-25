@@ -31,7 +31,7 @@
 ### picking 用 indices attribute の通常生成廃止
 
 - picking は `PointColorType.POINT_INDEX` を維持しつつ、shader 側で `gl_VertexID` から point index color を生成する方式に変更済み。
-- 通常描画時も picking 時も、loading2 パスでは `indices` attribute を常時生成しない前提でよい。
+- 通常描画時も picking 時も、loading パスでは `indices` attribute を常時生成しない前提でよい。
 - この方針は WebGL2 前提である。
 
 ### worker payload と metrics の整理

@@ -16,8 +16,8 @@
 - 主な確認対象:
   - `packages/core/src/potree.ts`
   - `packages/core/src/materials/point-cloud-material.ts`
-  - `packages/core/src/loading2/OctreeLoader.ts`
-  - `packages/core/src/loading2/decoder.worker.js`
+  - `packages/core/src/loading/OctreeLoader.ts`
+  - `packages/core/src/loading/decoder.worker.js`
   - `packages/core/src/rendering/edl-pass.ts`
   - `apps/playground/src/main.ts`
 
@@ -185,7 +185,7 @@
     - FPS
 
 - 問題: octree.bin の Range 取得は結合済みだが、結合後の node 切り出しで `ArrayBuffer.slice()` コピーが発生し、結合条件も厳しすぎる
-  - 対象ファイル / 関数: `packages/core/src/loading2/OctreeLoader.ts` / `loadBatchWithCandidates`, `loadMergedOctreeRange`, `sliceCachedOctreeBuffer`
+  - 対象ファイル / 関数: `packages/core/src/loading/OctreeLoader.ts` / `loadBatchWithCandidates`, `loadMergedOctreeRange`, `sliceCachedOctreeBuffer`
   - 該当コード:
 
     ```ts
@@ -236,7 +236,7 @@
     - `octree-slice-read` 後の JS heap 増分
 
 - 問題: worker から main thread への返送データが大きく、不要なバッファ返却も含んでいる
-  - 対象ファイル / 関数: `packages/core/src/loading2/OctreeLoader.ts` / `NodeLoader.load`, `packages/core/src/loading2/decoder.worker.js`, `packages/core/src/loading2/brotli-decoder.worker.js`
+  - 対象ファイル / 関数: `packages/core/src/loading/OctreeLoader.ts` / `NodeLoader.load`, `packages/core/src/loading/decoder.worker.js`, `packages/core/src/loading/brotli-decoder.worker.js`
   - 該当コード:
 
     ```ts
@@ -320,7 +320,7 @@
 
 ## 今回のレビューで確認した補足
 
-- `packages/core/src/loading2/OctreeLoader.ts` の IO は、以前のメモにあった「node 単位で細かい HTTP Range request に分断」は現状そのままではない。
+- `packages/core/src/loading/OctreeLoader.ts` の IO は、以前のメモにあった「node 単位で細かい HTTP Range request に分断」は現状そのままではない。
   - `loadBatchWithCandidates()` と `createMergedOctreeRanges()` により、連続した octree.bin 範囲は結合取得される。
   - 今の主課題は request 数そのものより、結合後のコピー回数、gap 許容量、bytes in flight 制御不足に移っている。
 - `packages/core/src/materials/point-cloud-material.ts` の `visibleNodes.indexOf(node)` は現行コードでも残っており、draw call 数に比例して CPU コストが増える。

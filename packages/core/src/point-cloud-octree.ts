@@ -9,8 +9,8 @@ import {
   type WebGLRenderer,
 } from "three";
 import { DEFAULT_MIN_NODE_PIXEL_SIZE } from "./constants";
-import type { OctreeGeometry } from "./loading2/OctreeGeometry";
-import type { OctreeGeometryNode } from "./loading2/OctreeGeometryNode";
+import type { OctreeGeometry } from "./loading/OctreeGeometry";
+import type { OctreeGeometryNode } from "./loading/OctreeGeometryNode";
 import type { PointCloudMaterial, PointSizeType } from "./materials";
 import type { PointCloudOctreeNode } from "./point-cloud-octree-node";
 import {

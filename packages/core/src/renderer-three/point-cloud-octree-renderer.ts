@@ -10,7 +10,7 @@ import {
   Vector3,
   type WebGLRenderer,
 } from "three";
-import type { OctreeGeometryNode } from "../loading2/OctreeGeometryNode";
+import type { OctreeGeometryNode } from "../loading/OctreeGeometryNode";
 import { ClipMode, PointCloudMaterial } from "../materials";
 import type { PointCloudOctree } from "../point-cloud-octree";
 import { PointCloudOctreeNode } from "../point-cloud-octree-node";

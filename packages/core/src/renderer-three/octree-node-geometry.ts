@@ -1,5 +1,5 @@
 import { BufferAttribute, BufferGeometry } from "three";
-import type { OctreeGeometryNode } from "../loading2/OctreeGeometryNode";
+import type { OctreeGeometryNode } from "../loading/OctreeGeometryNode";
 import { toThreeBox3 } from "./box3-like";
 
 export function materializeOctreeNodeGeometry(

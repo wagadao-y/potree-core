@@ -13,11 +13,11 @@ import {
   PointCloudVisibilityScheduler,
   type PointCloudVisibilityUpdateInput,
 } from "./core";
-import type { LoadOctreeOptions } from "./loading2/LoadInstrumentation";
-import { loadOctree } from "./loading2/load-octree";
-import type { OctreeGeometry } from "./loading2/OctreeGeometry";
-import type { OctreeGeometryNode } from "./loading2/OctreeGeometryNode";
-import type { RequestManager } from "./loading2/RequestManager";
+import type { LoadOctreeOptions } from "./loading/LoadInstrumentation";
+import { loadOctree } from "./loading/load-octree";
+import type { OctreeGeometry } from "./loading/OctreeGeometry";
+import type { OctreeGeometryNode } from "./loading/OctreeGeometryNode";
+import type { RequestManager } from "./loading/RequestManager";
 import { PointCloudOctree } from "./point-cloud-octree";
 import type { PointCloudOctreeNode } from "./point-cloud-octree-node";
 import {

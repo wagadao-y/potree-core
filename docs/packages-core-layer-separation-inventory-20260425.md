@@ -11,7 +11,7 @@
 ## 現状の要約
 
 - 現在の `packages/core` は pure core ではなく、Three.js 依存の scene object、material、render pass、picker を含んでいる。
-- ただし、`loading2` の loader/request manager/worker protocol/属性定義、一部ユーティリティは pure core 相当に寄せやすい。
+- ただし、`loading` の loader/request manager/worker protocol/属性定義、一部ユーティリティは pure core 相当に寄せやすい。
 - 問題は renderer 依存が一箇所にまとまっていないことであり、公開 API でも `PointCloudOctree`、`Potree.updatePointClouds`、`PointCloudMaterial` などが混在している。
 
 ## 着手済み
@@ -29,12 +29,12 @@
 - visibility scheduling、point budget、LRU touch/free、batch load 候補選定は `src/core/point-cloud-visibility-scheduler.ts` へ抽出済み。
 - `Potree` は point cloud load、Three.js view / projection 変換、post-visibility material update を束ねる facade へ一段薄化済み。
 - `PointCloudTree` の tree state は `src/core/point-cloud-tree-model.ts` として抽出済みで、Three.js `Object3D` 継承は renderer 側 adapter の責務へ寄せ始めた。
-- `loading2/OctreeLoader.ts` の worker decode 後の `BufferGeometry` / `BufferAttribute` 生成は `renderer-three/octree-node-geometry.ts` へ移動済みで、loader 側は decoded attribute buffers の保持までに縮小済み。
+- `loading/OctreeLoader.ts` の worker decode 後の `BufferGeometry` / `BufferAttribute` 生成は `renderer-three/octree-node-geometry.ts` へ移動済みで、loader 側は decoded attribute buffers の保持までに縮小済み。
 - `point-cloud-octree.ts` の visible bounds 更新、bounding box scene 更新、origin / ground plane 移動、world extent 算出は `renderer-three/point-cloud-octree-renderer.ts` の helper へ移動済み。
-- `loading2/OctreeGeometry.ts` / `loading2/OctreeGeometryNode.ts` の bounding box / sphere / offset は structural math と `core/box3-like-utils.ts` へ移行済み。
+- `loading/OctreeGeometry.ts` / `loading/OctreeGeometryNode.ts` の bounding box / sphere / offset は structural math と `core/box3-like-utils.ts` へ移行済み。
 - renderer-three は `renderer-three/box3-like.ts` で Three.js `Box3` / `Sphere` / `Vector3` へ変換する境界を持つ形へ変更済み。
 - `cloud.js` 系の旧フォーマット対応を廃止した前提で、未到達になった legacy `loading/*`、`point-cloud-octree-geometry*.ts`、`workers/binary-decoder*.ts` は削除済み。
-- 現行 public API は `metadata.json` を入口に `loading2` だけを通すため、未到達だった legacy worker 群は削除済み。
+- 現行 public API は `metadata.json` を入口に `loading` だけを通すため、未到達だった legacy worker 群は削除済み。
 - 未使用になった `dem-node.ts`、`type-predicates.ts`、`point-attributes.ts`、`version.ts` も削除済み。
 - legacy `point-cloud-octree-geometry.ts` の `offset` は `Vec3Like` へ移行済みで、Three.js `Vector3` 変換は `point-cloud-octree.ts` 側へ後退済み。
 - `core/types.ts` と `core/visibility/*` から Three.js math 型 import を外し、`Box3Like` / `SphereLike` / `Vec3Like` と structural visibility view を使う形へ変更済み。
@@ -72,37 +72,37 @@
 
 #### 読込と要求管理
 
-- `loading2/LocalPotreeRequestManager.ts`
+- `loading/LocalPotreeRequestManager.ts`
   - `File` と `fetch` 互換レスポンスを扱うが Three.js には依存しない。
   - local dataset 読込のための request adapter であり pure core 相当。
 
-- `loading2/RequestManager.ts`
+- `loading/RequestManager.ts`
   - request abstraction であり pure core 相当。
 
-- `loading2/load-octree.ts`
+- `loading/load-octree.ts`
   - 現状は `OctreeLoader` に委譲する薄い入口。
   - `OctreeLoader` 本体が Three.js 非依存になれば pure core 側へ置ける。
 
-- `loading2/LoadInstrumentation.ts`
+- `loading/LoadInstrumentation.ts`
   - 計測用型であり pure core 相当。
 
 #### worker とデコード周辺
 
-- `loading2/decoder.worker.ts` と `loading2/brotli-decoder.worker.ts`
+- `loading/decoder.worker.ts` と `loading/brotli-decoder.worker.ts`
   - 現行の decode worker 実装であり、Three.js 非依存の pure core 相当。
 
-- `loading2/WorkerPool.ts`
+- `loading/WorkerPool.ts`
   - worker orchestration であり pure core 相当。
 
-- `loading2/WorkerProtocol.ts`
+- `loading/WorkerProtocol.ts`
   - worker message schema であり pure core 相当。
 
 #### データ定義とユーティリティの一部
 
-- `loading2/PointAttributes.ts`
+- `loading/PointAttributes.ts`
   - 現行の属性定義であり pure core 相当。
 
-- `loading2/DecodedPointAttributes.ts`
+- `loading/DecodedPointAttributes.ts`
   - decode 済み属性バッファの shape であり pure core 相当。
 
 - `utils/lru.ts`
@@ -184,17 +184,17 @@
 - `src/types.ts` は薄い再 export へ整理済みで、現状は `src/core/types.ts` と `src/renderer-three/types.ts` の入口である。
 - pure core 用型と renderer 用型の一次分離は完了しており、残課題は型定義そのものより `Potree` / `PointCloudOctree` が renderer 依存 API を持つ点に移っている。
 
-#### `loading2/OctreeGeometry.ts`
+#### `loading/OctreeGeometry.ts`
 
 - Three.js の `Box3`、`Sphere`、`Vector3` を持っており純粋ではない。
 - ただし本質は geometry metadata と hierarchy 側であり、Three.js math type を独自型へ落とせば pure core 相当に近い。
 
-#### `loading2/OctreeGeometryNode.ts`
+#### `loading/OctreeGeometryNode.ts`
 
 - `BufferGeometry` と `Sphere` を持っており renderer 寄りの設計。
 - ただし hierarchy node metadata と geometry upload 状態のような責務は pure core に切り出し得る。
 
-#### `loading2/OctreeLoader.ts`
+#### `loading/OctreeLoader.ts`
 
 - `BufferGeometry` と `BufferAttribute` を作っているため renderer 依存。
 - metadata / binary decode と geometry object 生成を分割すべき。
@@ -241,7 +241,7 @@
 
 ### 第2段階
 
-- `loading2/OctreeLoader.ts` を metadata / decode / Three geometry 生成に分割する。
+- `loading/OctreeLoader.ts` を metadata / decode / Three geometry 生成に分割する。
 - `point-cloud-octree-node.ts` と `point-cloud-tree.ts` から Object3D 継承前提を外せる構造を考える。
 - `constants.ts` を core constants と renderer constants に分割する。
 

@@ -72,7 +72,7 @@ loader は `BufferGeometry` / `BufferAttribute` を生成し、`PointCloudOctree
 
 - `packages/core/src/point-cloud-octree.ts`
 - `packages/core/src/point-cloud-octree-node.ts`
-- `packages/core/src/loading2/OctreeLoader.ts`
+- `packages/core/src/loading/OctreeLoader.ts`
 - `packages/core/src/loading/binary-loader.ts`
 
 この層は Three.js の geometry 表現に依存しているが、デコード済み属性は typed array なので、WebGPU 用 `GPUBuffer` 生成へ流用しやすい。

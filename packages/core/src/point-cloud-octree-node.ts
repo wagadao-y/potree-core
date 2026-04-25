@@ -7,7 +7,7 @@ import {
   Sphere,
 } from "three";
 import { toThreeBox3, toThreeSphere } from "./renderer-three/box3-like";
-import type { OctreeGeometryNode } from "./loading2/OctreeGeometryNode";
+import type { OctreeGeometryNode } from "./loading/OctreeGeometryNode";
 import type {
   IPointCloudRenderedNode,
   IPointCloudTreeNode,
