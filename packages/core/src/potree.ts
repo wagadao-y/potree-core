@@ -19,7 +19,7 @@ import { getFeatures } from "./renderer-three/features";
 import type { PointCloudOctreeNode } from "./renderer-three/point-cloud-octree-node";
 import {
   type PickParams,
-  PointCloudOctreePicker,
+  pickPointClouds,
 } from "./renderer-three/point-cloud-octree-picker";
 import {
   type ClipVisibilityContext,
@@ -29,8 +29,6 @@ import type { IPotree, PickPoint } from "./renderer-three/types";
 import { LRU } from "./utils/lru";
 
 export class Potree implements IPotree {
-  public static picker: PointCloudOctreePicker | undefined;
-
   public _rendererSize: Vector2 = new Vector2();
 
   public get features() {
@@ -163,8 +161,7 @@ export class Potree implements IPotree {
     ray: Ray,
     params: Partial<PickParams> = {},
   ): PickPoint | null {
-    Potree.picker = Potree.picker || new PointCloudOctreePicker();
-    return Potree.picker.pick(renderer, camera, ray, pointClouds, params);
+    return pickPointClouds(pointClouds, renderer, camera, ray, params);
   }
 
   public get pointBudget(): number {

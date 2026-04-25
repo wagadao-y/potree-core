@@ -1,5 +1,5 @@
 import {
-  Box3,
+  type Box3,
   type Camera,
   type Intersection,
   type Object3D,
@@ -19,11 +19,13 @@ import type { PointCloudMaterial, PointSizeType } from "./materials";
 import { toThreeBox3, toThreeVector3 } from "./renderer-three/box3-like";
 import type { PointCloudOctreeNode } from "./renderer-three/point-cloud-octree-node";
 import {
+  disposePointCloudOctreePicker,
   type PickParams,
-  PointCloudOctreePicker,
+  pickPointCloud,
 } from "./renderer-three/point-cloud-octree-picker";
 import {
   createDefaultPointCloudMaterial,
+  disposePointCloudVisibleBounds,
   getPointCloudBoundingBoxWorld,
   getPointCloudVisibleExtent,
   hidePointCloudDescendants,
@@ -140,20 +142,6 @@ export class PointCloudOctree
   // @ts-ignore
   private _material: PointCloudMaterial = null;
 
-  /**
-   * The bounds of the visible area in the point cloud octree.
-   *
-   * This is used to determine which nodes are currently visible based on the camera's frustum.
-   */
-  private visibleBounds: Box3 = new Box3();
-
-  /**
-   * The picker used for picking points in the point cloud octree.
-   *
-   * This is used to interact with the point cloud, such as selecting points or querying information.
-   */
-  private picker: PointCloudOctreePicker | undefined;
-
   public constructor(
     potree: IPotree,
     pcoGeometry: OctreeGeometry,
@@ -188,10 +176,8 @@ export class PointCloudOctree
     this.visibleNodes = [];
     this.visibleGeometry = [];
 
-    if (this.picker) {
-      this.picker.dispose();
-      this.picker = undefined;
-    }
+    disposePointCloudOctreePicker(this);
+    disposePointCloudVisibleBounds(this);
 
     this.disposed = true;
   }
@@ -221,7 +207,7 @@ export class PointCloudOctree
   }
 
   public updateVisibleBounds() {
-    updatePointCloudVisibleBounds(this, this.visibleBounds);
+    updatePointCloudVisibleBounds(this);
   }
 
   public updateBoundingBoxes(): void {
@@ -263,7 +249,7 @@ export class PointCloudOctree
   }
 
   public getVisibleExtent() {
-    return getPointCloudVisibleExtent(this, this.visibleBounds);
+    return getPointCloudVisibleExtent(this);
   }
 
   public pick(
@@ -272,8 +258,7 @@ export class PointCloudOctree
     ray: Ray,
     params: Partial<PickParams> = {},
   ): PickPoint | null {
-    this.picker = this.picker || new PointCloudOctreePicker();
-    return this.picker.pick(renderer, camera, ray, [this], params);
+    return pickPointCloud(this, renderer, camera, ray, params);
   }
 
   /**

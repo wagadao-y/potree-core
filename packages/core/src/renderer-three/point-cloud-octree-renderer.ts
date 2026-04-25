@@ -22,6 +22,18 @@ import { toThreeBox3 } from "./box3-like";
 import { materializeOctreeNodeGeometry } from "./octree-node-geometry";
 import { PointCloudOctreeNode } from "./point-cloud-octree-node";
 
+const pointCloudVisibleBounds = new WeakMap<PointCloudOctree, Box3>();
+
+function getPointCloudVisibleBoundsState(pointCloud: PointCloudOctree): Box3 {
+  let visibleBounds = pointCloudVisibleBounds.get(pointCloud);
+  if (visibleBounds === undefined) {
+    visibleBounds = new Box3();
+    pointCloudVisibleBounds.set(pointCloud, visibleBounds);
+  }
+
+  return visibleBounds;
+}
+
 export interface ClipVisibilityContext {
   enabled: boolean;
   clipBoxCount: number;
@@ -209,8 +221,8 @@ export function updatePointCloudAfterVisibility(
 
 export function updatePointCloudVisibleBounds(
   pointCloud: PointCloudOctree,
-  visibleBounds: Box3,
 ): void {
+  const visibleBounds = getPointCloudVisibleBoundsState(pointCloud);
   visibleBounds.min.set(Infinity, Infinity, Infinity);
   visibleBounds.max.set(-Infinity, -Infinity, -Infinity);
 
@@ -292,11 +304,16 @@ export function movePointCloudToGroundPlane(
   pointCloud.position.y += -getPointCloudBoundingBoxWorld(pointCloud).min.y;
 }
 
-export function getPointCloudVisibleExtent(
+export function getPointCloudVisibleExtent(pointCloud: PointCloudOctree): Box3 {
+  return getPointCloudVisibleBoundsState(pointCloud)
+    .clone()
+    .applyMatrix4(pointCloud.matrixWorld);
+}
+
+export function disposePointCloudVisibleBounds(
   pointCloud: PointCloudOctree,
-  visibleBounds: Box3,
-): Box3 {
-  return visibleBounds.applyMatrix4(pointCloud.matrixWorld);
+): void {
+  pointCloudVisibleBounds.delete(pointCloud);
 }
 
 export function createPointCloudOctreeNode(

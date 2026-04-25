@@ -22,6 +22,13 @@ import { clamp } from "../utils/math";
 import { COLOR_BLACK, DEFAULT_PICK_WINDOW_SIZE } from "./constants";
 import type { PointCloudOctreeNode } from "./point-cloud-octree-node";
 
+const pointCloudOctreePickers = new WeakMap<
+  PointCloudOctree,
+  PointCloudOctreePicker
+>();
+
+let sharedPointCloudOctreePicker: PointCloudOctreePicker | undefined;
+
 export interface PickParams {
   pickWindowSize: number;
   pickOutsideClipRegion: boolean;
@@ -453,4 +460,48 @@ export class PointCloudOctreePicker {
       scene: scene,
     };
   }
+}
+
+export function pickPointCloud(
+  pointCloud: PointCloudOctree,
+  renderer: WebGLRenderer,
+  camera: Camera,
+  ray: Ray,
+  params: Partial<PickParams> = {},
+): PickPoint | null {
+  let picker = pointCloudOctreePickers.get(pointCloud);
+  if (picker === undefined) {
+    picker = new PointCloudOctreePicker();
+    pointCloudOctreePickers.set(pointCloud, picker);
+  }
+
+  return picker.pick(renderer, camera, ray, [pointCloud], params);
+}
+
+export function disposePointCloudOctreePicker(
+  pointCloud: PointCloudOctree,
+): void {
+  const picker = pointCloudOctreePickers.get(pointCloud);
+  if (picker !== undefined) {
+    picker.dispose();
+    pointCloudOctreePickers.delete(pointCloud);
+  }
+}
+
+export function pickPointClouds(
+  pointClouds: PointCloudOctree[],
+  renderer: WebGLRenderer,
+  camera: Camera,
+  ray: Ray,
+  params: Partial<PickParams> = {},
+): PickPoint | null {
+  sharedPointCloudOctreePicker =
+    sharedPointCloudOctreePicker ?? new PointCloudOctreePicker();
+  return sharedPointCloudOctreePicker.pick(
+    renderer,
+    camera,
+    ray,
+    pointClouds,
+    params,
+  );
 }
