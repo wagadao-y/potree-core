@@ -12,6 +12,7 @@ import {
   type PotreeLoadMeasurement,
   type PotreeLoadStage,
   PotreeRenderer,
+  toThreeBox3,
 } from "potree-core";
 import Stats from "stats.js";
 import {
@@ -522,7 +523,7 @@ document.body.onload = () => {
       console.log(`${hooks.label} loaded`, pco);
       pco.showBoundingBox = false;
 
-      const box = pco.pcoGeometry.boundingBox;
+      const box = toThreeBox3(pco.pcoGeometry.boundingBox);
       const size = box.getSize(new Vector3());
 
       pointCloudFrame = new Mesh(
@@ -542,9 +543,9 @@ document.body.onload = () => {
       }
 
       pco.updateMatrixWorld(true);
-      const worldBBox = pco.pcoGeometry.boundingBox
-        .clone()
-        .applyMatrix4(pco.matrixWorld);
+      const worldBBox = toThreeBox3(pco.pcoGeometry.boundingBox).applyMatrix4(
+        pco.matrixWorld,
+      );
       const center = worldBBox.getCenter(new Vector3());
       const worldSize = worldBBox.getSize(new Vector3());
 
