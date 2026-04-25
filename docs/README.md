@@ -2,6 +2,10 @@
 
 ## 現在参照する文書
 
+- `packages-core-webgpu-strategy-20260425.md`
+  - 2026-04-25 時点の WebGPU 化の設計方針。
+  - `packages/core` の責務分離、`ref/potree-renderer` の位置づけ、playground の参照方針をここで管理する。
+
 - `packages-core-performance-strategy-20260425.md`
   - 2026-04-25 時点の最新のパフォーマンス改善方針。
   - 実装済み事項、標準データ配信方針、今後の優先順位をここで管理する。
@@ -12,7 +16,7 @@
 
 - `packages-core-webgpu-migration-analysis.md`
   - WebGPU 移行方針の調査メモ。
-  - WebGL 側の現在方針とは切り分けて読む。
+  - WebGL 側の現在方針とは切り分けて読み、最終方針は `packages-core-webgpu-strategy-20260425.md` を優先する。
 
 ## 履歴メモ
 
