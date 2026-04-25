@@ -17,7 +17,6 @@ import { PointCloudOctreeNode } from "../point-cloud-octree-node";
 import type { Box3Like, IPointCloudTreeNode } from "../core/types";
 import type { VisibilityProjection } from "../core/visibility/update-visibility";
 import type { PointCloudVisibilityView } from "../core/visibility/visibility-structures";
-import type { PCOGeometry } from "./types";
 import { toThreeBox3 } from "./box3-like";
 import { Box3Helper } from "../utils/box3-helper";
 import { computeTransformedBoundingBox } from "../utils/bounds";
@@ -170,7 +169,7 @@ export class ThreePointCloudVisibilityAdapter {
 }
 
 export function createDefaultPointCloudMaterial(
-  _pcoGeometry: PCOGeometry,
+  _pcoGeometry: PointCloudOctree["pcoGeometry"],
 ): PointCloudMaterial {
   return new PointCloudMaterial({ newFormat: true });
 }

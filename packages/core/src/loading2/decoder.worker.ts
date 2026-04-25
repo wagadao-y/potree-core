@@ -51,6 +51,11 @@ workerScope.onmessage = (event) => {
   const attributeBuffers = {};
   let attributeOffset = 0;
 
+  let bytesPerPoint = 0;
+  for (const pointAttribute of pointAttributes.attributes) {
+    bytesPerPoint += pointAttribute.byteSize;
+  }
+
   const gridSize = 32;
   const grid = new Uint32Array(gridSize ** 3);
   const toIndex = (x, y, z) => {

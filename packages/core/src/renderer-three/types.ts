@@ -1,7 +1,6 @@
 import type { Camera, Vector3, WebGLRenderer } from "three";
 import type { IVisibilityUpdateResult } from "../core/types";
 import type { LoadOctreeOptions } from "../loading2/LoadInstrumentation";
-import type { OctreeGeometry } from "../loading2/OctreeGeometry";
 import type { RequestManager } from "../loading2/RequestManager";
 import type { PointCloudOctree } from "../point-cloud-octree";
 import type { LRU } from "../utils/lru";
@@ -36,5 +35,3 @@ export interface PickPoint {
   pointCloud?: PointCloudOctree;
   [property: string]: any;
 }
-
-export type PCOGeometry = OctreeGeometry;

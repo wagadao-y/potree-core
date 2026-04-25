@@ -89,7 +89,7 @@ workerScope.onmessage = async (event) => {
     name,
   });
 
-  let buffer: { buffer: ArrayBuffer };
+  let buffer: { buffer: ArrayBufferLike };
   let decompressMs = 0;
   if (numPoints === 0 || request.buffer.byteLength === 0) {
     buffer = { buffer: new ArrayBuffer(0) };
