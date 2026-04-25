@@ -44,7 +44,6 @@ document.body.onload = () => {
   const loadMetrics = createLoadMetrics();
   const pointClouds: PointCloudOctree[] = [];
   let clipPlanesTarget: PointCloudOctree | null = null;
-  let pointCloudFrame: Mesh | null = null;
   let clipBoxHelperMesh: Mesh | null = null;
   let clipSphereHelperMesh: Mesh | null = null;
 
@@ -469,11 +468,6 @@ document.body.onload = () => {
       scene.remove(pointCloud);
     });
 
-    if (pointCloudFrame !== null) {
-      scene.remove(pointCloudFrame);
-      pointCloudFrame = null;
-    }
-
     if (clipBoxHelperMesh !== null) {
       scene.remove(clipBoxHelperMesh);
       clipBoxHelperMesh = null;
@@ -522,21 +516,6 @@ document.body.onload = () => {
 
       console.log(`${hooks.label} loaded`, pco);
       pco.showBoundingBox = false;
-
-      const box = toThreeBox3(pco.pcoGeometry.boundingBox);
-      const size = box.getSize(new Vector3());
-
-      pointCloudFrame = new Mesh(
-        new BoxGeometry(size.x, size.y, size.z),
-        new MeshBasicMaterial({ color: 0xff0000, wireframe: true }),
-      );
-      pointCloudFrame.position.copy(pco.position);
-      pointCloudFrame.scale.copy(pco.scale);
-      pointCloudFrame.rotation.copy(pco.rotation);
-      pointCloudFrame.raycast = () => false;
-      size.multiplyScalar(0.5);
-      pointCloudFrame.position.add(new Vector3(size.x, size.y, -size.z));
-      scene.add(pointCloudFrame);
 
       if (options.applyClipPlanes) {
         clipPlanesTarget = pco;
