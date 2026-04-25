@@ -42,6 +42,7 @@ import {
   TreeType,
 } from "./enums";
 import { SPECTRAL } from "./gradients";
+import { applyPointCloudMaterialDefines } from "./point-cloud-material-defines";
 import { PointCloudVisibleNodesTexture } from "./point-cloud-visible-nodes-texture";
 import FragShader from "./shaders/pointcloud.fs?raw";
 import VertShader from "./shaders/pointcloud.vs?raw";
@@ -204,63 +205,6 @@ export interface IPointCloudMaterialUniforms {
   /** Scale factor for view-dependent sizing */
   viewScale: IUniform<number>;
 }
-
-const TREE_TYPE_DEFS = {
-  [TreeType.OCTREE]: "tree_type_octree",
-  [TreeType.KDTREE]: "tree_type_kdtree",
-};
-
-const SIZE_TYPE_DEFS = {
-  [PointSizeType.FIXED]: "fixed_point_size",
-  [PointSizeType.ATTENUATED]: "attenuated_point_size",
-  [PointSizeType.ADAPTIVE]: "adaptive_point_size",
-};
-
-const OPACITY_DEFS = {
-  [PointOpacityType.ATTENUATED]: "attenuated_opacity",
-  [PointOpacityType.FIXED]: "fixed_opacity",
-};
-
-const SHAPE_DEFS = {
-  [PointShape.SQUARE]: "square_point_shape",
-  [PointShape.CIRCLE]: "circle_point_shape",
-  [PointShape.PARABOLOID]: "paraboloid_point_shape",
-};
-
-const COLOR_DEFS = {
-  [PointColorType.RGB]: "color_type_rgb",
-  [PointColorType.COLOR]: "color_type_color",
-  [PointColorType.DEPTH]: "color_type_depth",
-  [PointColorType.HEIGHT]: "color_type_height",
-  [PointColorType.INTENSITY]: "color_type_intensity",
-  [PointColorType.INTENSITY_GRADIENT]: "color_type_intensity_gradient",
-  [PointColorType.LOD]: "color_type_lod",
-  [PointColorType.POINT_INDEX]: "color_type_point_index",
-  [PointColorType.CLASSIFICATION]: "color_type_classification",
-  [PointColorType.RETURN_NUMBER]: "color_type_return_number",
-  [PointColorType.SOURCE]: "color_type_source",
-  [PointColorType.NORMAL]: "color_type_normal",
-  [PointColorType.PHONG]: "color_type_phong",
-  [PointColorType.RGB_HEIGHT]: "color_type_rgb_height",
-  [PointColorType.COMPOSITE]: "color_type_composite",
-};
-
-const CLIP_MODE_DEFS = {
-  [ClipMode.DISABLED]: "clip_disabled",
-  [ClipMode.CLIP_OUTSIDE]: "clip_outside",
-  [ClipMode.CLIP_INSIDE]: "clip_inside",
-  [ClipMode.HIGHLIGHT_INSIDE]: "clip_highlight_inside",
-};
-
-const INPUT_COLOR_ENCODING = {
-  [ColorEncoding.LINEAR]: "input_color_encoding_linear",
-  [ColorEncoding.SRGB]: "input_color_encoding_sRGB",
-};
-
-const OUTPUT_COLOR_ENCODING = {
-  [ColorEncoding.LINEAR]: "output_color_encoding_linear",
-  [ColorEncoding.SRGB]: "output_color_encoding_sRGB",
-};
 
 export class PointCloudMaterial extends RawShaderMaterial {
   private static readonly INITIAL_VISIBLE_NODES_TEXTURE_SIZE = 2048;
@@ -574,83 +518,29 @@ export class PointCloudMaterial extends RawShaderMaterial {
   }
 
   applyDefines(shaderSrc: string): string {
-    const parts: string[] = [];
-
-    function define(value: string | undefined) {
-      if (value) {
-        parts.push(`#define ${value}`);
-      }
-    }
-
-    define(TREE_TYPE_DEFS[this.treeType]);
-    define(SIZE_TYPE_DEFS[this.pointSizeType]);
-    define(SHAPE_DEFS[this.shape]);
-    define(COLOR_DEFS[this.pointColorType]);
-    define(CLIP_MODE_DEFS[this.clipMode]);
-    define(OPACITY_DEFS[this.pointOpacityType]);
-    define(OUTPUT_COLOR_ENCODING[this.outputColorEncoding]);
-    define(INPUT_COLOR_ENCODING[this.inputColorEncoding]);
-
-    // We only perform gamma and brightness/contrast calculations per point if values are specified.
-    if (
-      this.rgbGamma !== DEFAULT_RGB_GAMMA ||
-      this.rgbBrightness !== DEFAULT_RGB_BRIGHTNESS ||
-      this.rgbContrast !== DEFAULT_RGB_CONTRAST
-    ) {
-      define("use_rgb_gamma_contrast_brightness");
-    }
-
-    if (this.useFilterByNormal) {
-      define("use_filter_by_normal");
-    }
-
-    if (this.useEDL) {
-      define("use_edl");
-    }
-
-    if (this.useLogDepth) {
-      define("use_log_depth");
-    }
-
-    if (this.useReversedDepth) {
-      define("use_reversed_depth");
-    }
-
-    if (this.weighted) {
-      define("weighted_splats");
-    }
-
-    if (this.numClipBoxes > 0) {
-      define("use_clip_box");
-    }
-
-    if (this.numClipSpheres > 0) {
-      define("use_clip_sphere");
-    }
-
-    if (this.numClipPlanes > 0) {
-      define("use_clip_plane");
-    }
-
-    if (this.highlightPoint) {
-      define("highlight_point");
-    }
-
-    define("MAX_POINT_LIGHTS 0");
-    define("MAX_DIR_LIGHTS 0");
-
-    if (this.newFormat) {
-      define("new_format");
-    }
-
-    // If '#version 300 es' exists as a line in shaderSrc, remove it and add it as the first element in the parts array
-    const versionLine = shaderSrc.match(/^\s*#version\s+300\s+es\s*\n/);
-    if (versionLine) {
-      parts.unshift(versionLine[0]);
-      shaderSrc = shaderSrc.replace(versionLine[0], "");
-    }
-    parts.push(shaderSrc);
-    return parts.join("\n");
+    return applyPointCloudMaterialDefines(shaderSrc, {
+      treeType: this.treeType,
+      pointSizeType: this.pointSizeType,
+      shape: this.shape,
+      pointColorType: this.pointColorType,
+      clipMode: this.clipMode,
+      pointOpacityType: this.pointOpacityType,
+      outputColorEncoding: this.outputColorEncoding,
+      inputColorEncoding: this.inputColorEncoding,
+      rgbGamma: this.rgbGamma,
+      rgbBrightness: this.rgbBrightness,
+      rgbContrast: this.rgbContrast,
+      useFilterByNormal: this.useFilterByNormal,
+      useEDL: this.useEDL,
+      useLogDepth: this.useLogDepth,
+      useReversedDepth: this.useReversedDepth,
+      weighted: this.weighted,
+      numClipBoxes: this.numClipBoxes,
+      numClipSpheres: this.numClipSpheres,
+      numClipPlanes: this.numClipPlanes,
+      highlightPoint: this.highlightPoint,
+      newFormat: this.newFormat,
+    });
   }
 
   setClipBoxes(clipBoxes: IClipBox[]): void {

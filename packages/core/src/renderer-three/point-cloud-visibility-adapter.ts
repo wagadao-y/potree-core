@@ -6,14 +6,16 @@ import { ClipMode } from "../materials";
 import type { PointCloudOctree } from "../point-cloud-octree";
 import { toThreeBox3 } from "./box3-like";
 import type { PointCloudOctreeNode } from "./point-cloud-octree-node";
+import { updatePointCloudAfterVisibility } from "./point-cloud-octree-renderer";
 import {
-  createPointCloudVisibilityViews,
-  createVisibilityProjection,
   materializePointCloudOctreeNode,
   resetPointCloudOctreeRenderedVisibility,
-  updatePointCloudAfterVisibility,
   updatePointCloudOctreeNodeVisibility,
-} from "./point-cloud-octree-renderer";
+} from "./point-cloud-octree-scene";
+import {
+  createVisibilityProjection as createProjection,
+  createPointCloudVisibilityViews as createVisibilityViews,
+} from "./point-cloud-visibility-view";
 
 export interface ClipVisibilityContext {
   enabled: boolean;
@@ -110,11 +112,11 @@ export class ThreePointCloudVisibilityAdapter {
   private readonly rendererSize = new Vector2();
 
   public createViews(pointClouds: PointCloudOctree[], camera: Camera) {
-    return createPointCloudVisibilityViews(pointClouds, camera);
+    return createVisibilityViews(pointClouds, camera);
   }
 
   public createProjection(camera: Camera) {
-    return createVisibilityProjection(camera);
+    return createProjection(camera);
   }
 
   public createVisibilityInput(

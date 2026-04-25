@@ -1,26 +1,17 @@
 import {
   Box3,
   type Camera,
-  Frustum,
-  Matrix4,
   Object3D,
-  type OrthographicCamera,
-  type PerspectiveCamera,
-  Points,
   Vector3,
   type WebGLRenderer,
 } from "three";
-import type { Box3Like, IPointCloudTreeNode } from "../core/types";
-import type { VisibilityProjection } from "../core/visibility/update-visibility";
-import type { PointCloudVisibilityView } from "../core/visibility/visibility-structures";
 import type { OctreeGeometryNode } from "../loading/OctreeGeometryNode";
 import { PointCloudMaterial } from "../materials";
 import type { PointCloudOctree } from "../point-cloud-octree";
 import { computeTransformedBoundingBox } from "./bounds";
-import { Box3Helper } from "./box3-helper";
 import { toThreeBox3 } from "./box3-like";
-import { materializeOctreeNodeGeometry } from "./octree-node-geometry";
-import { PointCloudOctreeNode } from "./point-cloud-octree-node";
+import type { PointCloudOctreeNode } from "./point-cloud-octree-node";
+import { materializePointCloudOctreeNode } from "./point-cloud-octree-scene";
 
 const pointCloudVisibleBounds = new WeakMap<PointCloudOctree, Box3>();
 
@@ -226,174 +217,4 @@ export function disposePointCloudVisibleBounds(
   pointCloud: PointCloudOctree,
 ): void {
   pointCloudVisibleBounds.delete(pointCloud);
-}
-
-export function createPointCloudOctreeNode(
-  pointCloud: PointCloudOctree,
-  geometryNode: OctreeGeometryNode,
-): PointCloudOctreeNode {
-  const points = new Points(
-    materializeOctreeNodeGeometry(geometryNode),
-    pointCloud.material,
-  );
-  const node = new PointCloudOctreeNode(geometryNode, points);
-  points.name = geometryNode.name;
-  points.position.set(
-    geometryNode.boundingBox.min.x,
-    geometryNode.boundingBox.min.y,
-    geometryNode.boundingBox.min.z,
-  );
-  points.frustumCulled = false;
-  points.onBeforeRender = PointCloudMaterial.makeOnBeforeRender(
-    pointCloud,
-    node,
-  );
-  return node;
-}
-
-export function materializePointCloudOctreeNode(
-  pointCloud: PointCloudOctree,
-  geometryNode: OctreeGeometryNode,
-  parent?: PointCloudOctreeNode | null,
-): PointCloudOctreeNode {
-  const node = createPointCloudOctreeNode(pointCloud, geometryNode);
-  const points = node.sceneNode;
-  points.name = geometryNode.name;
-
-  if (parent) {
-    node.parent = parent;
-    parent.sceneNode.add(points);
-    parent.children[geometryNode.index] = node;
-
-    geometryNode.oneTimeDisposeHandlers.push(() => {
-      node.disposeSceneNode();
-      parent.sceneNode.remove(node.sceneNode);
-      // Replace the rendered node with the geometry node when GPU resources are evicted.
-      parent.children[geometryNode.index] = geometryNode;
-    });
-  } else {
-    pointCloud.root = node;
-    pointCloud.add(points);
-  }
-
-  return node;
-}
-
-export function createPointCloudVisibilityViews(
-  pointClouds: PointCloudOctree[],
-  camera: Camera,
-): (PointCloudVisibilityView | undefined)[] {
-  const frustumMatrix = new Matrix4();
-  const inverseWorldMatrix = new Matrix4();
-  const cameraMatrix = new Matrix4();
-
-  const views: (PointCloudVisibilityView | undefined)[] = new Array(
-    pointClouds.length,
-  );
-
-  camera.updateMatrixWorld(false);
-
-  for (let i = 0; i < pointClouds.length; i++) {
-    const pointCloud = pointClouds[i];
-
-    if (!pointCloud.initialized()) {
-      continue;
-    }
-
-    const inverseViewMatrix = camera.matrixWorldInverse;
-    const worldMatrix = pointCloud.matrixWorld;
-    frustumMatrix
-      .identity()
-      .multiply(camera.projectionMatrix)
-      .multiply(inverseViewMatrix)
-      .multiply(worldMatrix);
-
-    inverseWorldMatrix.copy(worldMatrix).invert();
-    cameraMatrix
-      .identity()
-      .multiply(inverseWorldMatrix)
-      .multiply(camera.matrixWorld);
-
-    const frustum = new Frustum().setFromProjectionMatrix(frustumMatrix);
-    const tempBox = new Box3();
-    views[i] = {
-      intersectsBox: (box: Box3Like) =>
-        frustum.intersectsBox(toThreeBox3(box, tempBox)),
-      cameraPosition: new Vector3().setFromMatrixPosition(cameraMatrix),
-    };
-  }
-
-  return views;
-}
-
-export function createVisibilityProjection(
-  camera: Camera,
-): VisibilityProjection {
-  const perspective = camera as PerspectiveCamera;
-  if (perspective.isPerspectiveCamera === true) {
-    return {
-      type: "perspective",
-      fovRadians: perspective.fov * (Math.PI / 180),
-    };
-  }
-
-  const orthographic = camera as OrthographicCamera;
-  return {
-    type: "orthographic",
-    verticalSpan: orthographic.top - orthographic.bottom,
-    zoom: orthographic.zoom,
-  };
-}
-
-export function updatePointCloudOctreeNodeVisibility(
-  pointCloud: PointCloudOctree,
-  node: PointCloudOctreeNode,
-  visibleNodes: IPointCloudTreeNode[],
-): void {
-  const sceneNode = node.sceneNode;
-  sceneNode.visible = true;
-  sceneNode.material = pointCloud.material;
-  sceneNode.updateMatrix();
-  sceneNode.matrixWorld.multiplyMatrices(
-    pointCloud.matrixWorld,
-    sceneNode.matrix,
-  );
-
-  node.pcIndex = pointCloud.visibleNodes.length;
-  visibleNodes.push(node);
-  pointCloud.visibleNodes.push(node);
-
-  updatePointCloudOctreeNodeBoundingBoxVisibility(pointCloud, node);
-}
-
-export function resetPointCloudOctreeRenderedVisibility(
-  pointCloud: PointCloudOctree,
-): void {
-  const visibleNodes = pointCloud.visibleNodes;
-
-  for (let i = 0; i < visibleNodes.length; i++) {
-    visibleNodes[i].sceneNode.visible = false;
-  }
-
-  for (const boundingBoxNode of pointCloud.boundingBoxNodes) {
-    boundingBoxNode.visible = false;
-  }
-}
-
-function updatePointCloudOctreeNodeBoundingBoxVisibility(
-  pointCloud: PointCloudOctree,
-  node: PointCloudOctreeNode,
-): void {
-  if (pointCloud.showBoundingBox && !node.boundingBoxNode) {
-    const boxHelper = new Box3Helper(toThreeBox3(node.boundingBox));
-    boxHelper.matrixAutoUpdate = false;
-    pointCloud.boundingBoxNodes.push(boxHelper);
-    node.boundingBoxNode = boxHelper;
-    node.boundingBoxNode.matrix.copy(pointCloud.matrixWorld);
-  } else if (pointCloud.showBoundingBox && node.boundingBoxNode) {
-    node.boundingBoxNode.visible = true;
-    node.boundingBoxNode.matrix.copy(pointCloud.matrixWorld);
-  } else if (!pointCloud.showBoundingBox && node.boundingBoxNode) {
-    node.boundingBoxNode.visible = false;
-  }
 }
