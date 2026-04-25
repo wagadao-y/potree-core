@@ -1,24 +1,27 @@
 {
-  "compileOnSave": false,
   "compilerOptions": {
     "rootDir": "./src",
     "declaration": true,
+    "declarationMap": true,
     "declarationDir": "dist",
     "emitDeclarationOnly": true,
+    "composite": true,
+    "tsBuildInfoFile": "dist/.tsbuildinfo",
     "module": "esnext",
     "moduleResolution": "bundler",
     "strict": false,
     "noImplicitAny": false,
-    "noImplicitReturns": false,
+    "noImplicitReturns": true,
     "noImplicitThis": true,
     "noUnusedLocals": true,
-    "noUnusedParameters": false,
+    "noUnusedParameters": true,
+    "skipLibCheck": true,
     "target": "es2022",
     "useDefineForClassFields": false,
     "experimentalDecorators": true,
     "types": ["vite/client"],
     "lib": ["es2022", "dom", "esnext.disposable"]
   },
-  "include": ["src/**/*.ts"],
-  "exclude": ["node_modules"]
+  "include": ["src"],
+  "exclude": ["node_modules", "src/**/*.test.ts"]
 }
