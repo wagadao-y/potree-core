@@ -2,16 +2,14 @@ import type { OctreeGeometryNode } from "./OctreeGeometryNode";
 import type { PendingOctreeNode } from "./octree-range-cache";
 
 export interface OctreeLoadBatchPlan {
-  loadableNodes: OctreeGeometryNode[];
   zeroByteNodes: OctreeGeometryNode[];
   pendingNodes: PendingOctreeNode<OctreeGeometryNode>[];
   decodeNodes: Set<OctreeGeometryNode>;
 }
 
-export function planOctreeLoadBatch(
+export function markLoadableOctreeNodes(
   nodes: OctreeGeometryNode[],
-  candidates: OctreeGeometryNode[],
-): OctreeLoadBatchPlan {
+): OctreeGeometryNode[] {
   const loadableNodes: OctreeGeometryNode[] = [];
 
   for (const node of nodes) {
@@ -28,6 +26,13 @@ export function planOctreeLoadBatch(
     }
   }
 
+  return loadableNodes;
+}
+
+export function planOctreeLoadBatch(
+  loadableNodes: OctreeGeometryNode[],
+  candidates: OctreeGeometryNode[],
+): OctreeLoadBatchPlan {
   const zeroByteNodes: OctreeGeometryNode[] = [];
   const pendingNodes: PendingOctreeNode<OctreeGeometryNode>[] = [];
   const decodeNodes = new Set(loadableNodes);
@@ -59,7 +64,6 @@ export function planOctreeLoadBatch(
   }
 
   return {
-    loadableNodes,
     zeroByteNodes,
     pendingNodes,
     decodeNodes,

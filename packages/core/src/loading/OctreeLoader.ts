@@ -26,7 +26,10 @@ import {
   PointAttributeTypes,
 } from "./PointAttributes";
 import { parseOctreeHierarchy } from "./parse-octree-hierarchy";
-import { planOctreeLoadBatch } from "./plan-octree-load-batch";
+import {
+  markLoadableOctreeNodes,
+  planOctreeLoadBatch,
+} from "./plan-octree-load-batch";
 import type { RequestManager } from "./RequestManager";
 import { WorkerPool } from "./WorkerPool";
 
@@ -79,8 +82,7 @@ export class NodeLoader {
     nodes: OctreeGeometryNode[],
     candidates: OctreeGeometryNode[],
   ) {
-    const { loadableNodes, zeroByteNodes, pendingNodes, decodeNodes } =
-      planOctreeLoadBatch(nodes, candidates);
+    const loadableNodes = markLoadableOctreeNodes(nodes);
 
     if (loadableNodes.length === 0) {
       return;
@@ -91,6 +93,11 @@ export class NodeLoader {
         loadableNodes.map((node) =>
           node.nodeType === 2 ? this.loadHierarchy(node) : Promise.resolve(),
         ),
+      );
+
+      const { zeroByteNodes, pendingNodes, decodeNodes } = planOctreeLoadBatch(
+        loadableNodes,
+        candidates,
       );
 
       const zeroByteLoads = zeroByteNodes.map((node) => {
