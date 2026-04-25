@@ -7,7 +7,7 @@ import {
   Sphere,
 } from "three";
 import { toThreeBox3, toThreeSphere } from "./renderer-three/box3-like";
-import type { PointCloudOctreeGeometryNode } from "./point-cloud-octree-geometry-node";
+import type { OctreeGeometryNode } from "./loading2/OctreeGeometryNode";
 import type {
   IPointCloudRenderedNode,
   IPointCloudTreeNode,
@@ -15,12 +15,12 @@ import type {
 
 export class PointCloudOctreeNode
   extends EventDispatcher
-  implements IPointCloudRenderedNode<PointCloudOctreeGeometryNode>
+  implements IPointCloudRenderedNode<OctreeGeometryNode>
 {
   /**
    * Unique identifier for the node, automatically incremented.
    */
-  public geometryNode: PointCloudOctreeGeometryNode;
+  public geometryNode: OctreeGeometryNode;
 
   /**
    * The scene node that represents this octree node in the 3D scene.
@@ -72,7 +72,7 @@ export class PointCloudOctreeNode
   public readonly isGeometryNode = false;
 
   public constructor(
-    geometryNode: PointCloudOctreeGeometryNode,
+    geometryNode: OctreeGeometryNode,
     sceneNode: Points,
   ) {
     super();

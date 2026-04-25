@@ -1,4 +1,4 @@
-import type { PointCloudOctreeGeometryNode } from "./point-cloud-octree-geometry-node";
+import type { IPointCloudGeometryNode } from "./core/types";
 import type { PointCloudOctreeNode } from "./point-cloud-octree-node";
 
 /**
@@ -9,7 +9,7 @@ import type { PointCloudOctreeNode } from "./point-cloud-octree-node";
  */
 export function isGeometryNode(
   node?: any,
-): node is PointCloudOctreeGeometryNode {
+): node is IPointCloudGeometryNode {
   return node?.isGeometryNode;
 }
 

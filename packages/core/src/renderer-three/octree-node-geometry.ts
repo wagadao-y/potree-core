@@ -1,9 +1,9 @@
 import { BufferAttribute, BufferGeometry } from "three";
-import type { PointCloudOctreeGeometryNode } from "../point-cloud-octree-geometry-node";
+import type { OctreeGeometryNode } from "../loading2/OctreeGeometryNode";
 import { toThreeBox3 } from "./box3-like";
 
 export function materializeOctreeNodeGeometry(
-  geometryNode: PointCloudOctreeGeometryNode,
+  geometryNode: OctreeGeometryNode,
 ): BufferGeometry {
   if (geometryNode.geometry != null) {
     return geometryNode.geometry;

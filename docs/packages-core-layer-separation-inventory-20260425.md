@@ -33,11 +33,8 @@
 - `point-cloud-octree.ts` の visible bounds 更新、bounding box scene 更新、origin / ground plane 移動、world extent 算出は `renderer-three/point-cloud-octree-renderer.ts` の helper へ移動済み。
 - `loading2/OctreeGeometry.ts` / `loading2/OctreeGeometryNode.ts` の bounding box / sphere / offset は structural math と `core/box3-like-utils.ts` へ移行済み。
 - renderer-three は `renderer-three/box3-like.ts` で Three.js `Box3` / `Sphere` / `Vector3` へ変換する境界を持つ形へ変更済み。
-- legacy `loading/binary-loader.ts` は decode 結果を `decodedPointAttributes` へ正規化し、`BufferGeometry` materialize は renderer-three 側へ委譲する形へ縮小済み。
-- legacy `workers/binary-decoder.worker.ts` は TS 化され、loader-worker 間の message shape は `loading/WorkerProtocol.ts` へ抽出済み。
-- `point-cloud-octree-geometry-node.ts` の bounding box / tight bounding box / bounding sphere は structural math へ移行済みで、Three.js 変換は renderer / rendered node 側へ後退済み。
-- legacy `workers/LASDecoderWorker.ts` と `workers/GreyhoundBinaryDecoderWorker.ts` は TS ファイルへ移行済み。
-- legacy `workers/LazLoaderWorker.ts` も TS ファイルへ移行済みで、`packages/core/src` 配下の JS 実装は解消済み。
+- `cloud.js` 系の旧フォーマット対応を廃止した前提で、未到達になった legacy `loading/*`、`point-cloud-octree-geometry*.ts`、`workers/binary-decoder*.ts` は削除済み。
+- 現行 public API は `metadata.json` を入口に `loading2` だけを通すため、未到達だった legacy worker 群は削除済み。
 - legacy `point-cloud-octree-geometry.ts` の `offset` は `Vec3Like` へ移行済みで、Three.js `Vector3` 変換は `point-cloud-octree.ts` 側へ後退済み。
 - `core/types.ts` と `core/visibility/*` から Three.js math 型 import を外し、`Box3Like` / `SphereLike` / `Vec3Like` と structural visibility view を使う形へ変更済み。
 - `IPointCloudVisibilityTarget` を追加し、`PointCloudOctree` は既存 Object3D 継承を維持しつつ visibility target interface を実装する形へ変更済み。

@@ -9,8 +9,9 @@ import {
   type WebGLRenderer,
 } from "three";
 import { DEFAULT_MIN_NODE_PIXEL_SIZE } from "./constants";
+import type { OctreeGeometry } from "./loading2/OctreeGeometry";
+import type { OctreeGeometryNode } from "./loading2/OctreeGeometryNode";
 import { PointCloudMaterial, type PointSizeType } from "./materials";
-import type { PointCloudOctreeGeometryNode } from "./point-cloud-octree-geometry-node";
 import { PointCloudOctreeNode } from "./point-cloud-octree-node";
 import {
   type PickParams,
@@ -30,7 +31,7 @@ import {
   updatePointCloudMaterialBounds,
 } from "./renderer-three/point-cloud-octree-renderer";
 import { toThreeBox3, toThreeVector3 } from "./renderer-three/box3-like";
-import type { IPotree, PCOGeometry, PickPoint } from "./renderer-three/types";
+import type { IPotree, PickPoint } from "./renderer-three/types";
 import type {
   IPointCloudVisibilityTarget,
   IPointCloudTreeNode,
@@ -39,7 +40,7 @@ import type {
 export class PointCloudOctree extends PointCloudTree
   implements
     IPointCloudVisibilityTarget<
-      PointCloudOctreeGeometryNode,
+      OctreeGeometryNode,
       PointCloudOctreeNode
     >
 {
@@ -60,7 +61,7 @@ export class PointCloudOctree extends PointCloudTree
    *
    * This contains the root node and other properties related to the point cloud geometry.
    */
-  public pcoGeometry: PCOGeometry;
+  public pcoGeometry: OctreeGeometry;
 
   /**
    * The bounding box of the point cloud octree.
@@ -122,7 +123,7 @@ export class PointCloudOctree extends PointCloudTree
    *
    * These nodes contain the geometry data for rendering and are currently visible.
    */
-  public visibleGeometry: PointCloudOctreeGeometryNode[] = [];
+  public visibleGeometry: OctreeGeometryNode[] = [];
 
   /**
    * The number of visible points in the point cloud octree.
@@ -157,7 +158,7 @@ export class PointCloudOctree extends PointCloudTree
 
   public constructor(
     potree: IPotree,
-    pcoGeometry: PCOGeometry,
+    pcoGeometry: OctreeGeometry,
     material?: PointCloudMaterial,
   ) {
     super();
@@ -216,7 +217,7 @@ export class PointCloudOctree extends PointCloudTree
   }
 
   public toTreeNode(
-    geometryNode: PointCloudOctreeGeometryNode,
+    geometryNode: OctreeGeometryNode,
     parent?: PointCloudOctreeNode | null,
   ): PointCloudOctreeNode {
     return materializePointCloudOctreeNode(this, geometryNode, parent);

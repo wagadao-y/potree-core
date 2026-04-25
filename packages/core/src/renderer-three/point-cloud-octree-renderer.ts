@@ -10,10 +10,9 @@ import {
   Vector3,
   type WebGLRenderer,
 } from "three";
-import { OctreeGeometry } from "../loading2/OctreeGeometry";
+import type { OctreeGeometryNode } from "../loading2/OctreeGeometryNode";
 import { ClipMode, PointCloudMaterial } from "../materials";
 import type { PointCloudOctree } from "../point-cloud-octree";
-import type { PointCloudOctreeGeometryNode } from "../point-cloud-octree-geometry-node";
 import { PointCloudOctreeNode } from "../point-cloud-octree-node";
 import type { Box3Like, IPointCloudTreeNode } from "../core/types";
 import type { VisibilityProjection } from "../core/visibility/update-visibility";
@@ -147,7 +146,7 @@ export class ThreePointCloudVisibilityAdapter {
 
   public materializeLoadedGeometryNode(
     pointCloud: PointCloudOctree,
-    geometryNode: PointCloudOctreeGeometryNode,
+    geometryNode: OctreeGeometryNode,
     parent: PointCloudOctreeNode | null,
   ): PointCloudOctreeNode {
     return materializePointCloudOctreeNode(pointCloud, geometryNode, parent);
@@ -173,9 +172,7 @@ export class ThreePointCloudVisibilityAdapter {
 export function createDefaultPointCloudMaterial(
   pcoGeometry: PCOGeometry,
 ): PointCloudMaterial {
-  return pcoGeometry instanceof OctreeGeometry
-    ? new PointCloudMaterial({ newFormat: true })
-    : new PointCloudMaterial();
+  return new PointCloudMaterial({ newFormat: true });
 }
 
 export function updatePointCloudMaterialBounds(
@@ -302,7 +299,7 @@ export function getPointCloudVisibleExtent(
 
 export function createPointCloudOctreeNode(
   pointCloud: PointCloudOctree,
-  geometryNode: PointCloudOctreeGeometryNode,
+  geometryNode: OctreeGeometryNode,
 ): PointCloudOctreeNode {
   const points = new Points(
     materializeOctreeNodeGeometry(geometryNode),
@@ -322,7 +319,7 @@ export function createPointCloudOctreeNode(
 
 export function materializePointCloudOctreeNode(
   pointCloud: PointCloudOctree,
-  geometryNode: PointCloudOctreeGeometryNode,
+  geometryNode: OctreeGeometryNode,
   parent?: PointCloudOctreeNode | null,
 ): PointCloudOctreeNode {
   const node = createPointCloudOctreeNode(pointCloud, geometryNode);

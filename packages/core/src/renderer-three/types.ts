@@ -4,7 +4,6 @@ import type { LoadOctreeOptions } from "../loading2/LoadInstrumentation";
 import type { OctreeGeometry } from "../loading2/OctreeGeometry";
 import type { RequestManager } from "../loading2/RequestManager";
 import type { PointCloudOctree } from "../point-cloud-octree";
-import type { PointCloudOctreeGeometry } from "../point-cloud-octree-geometry";
 import type { LRU } from "../utils/lru";
 
 export interface IPotree {
@@ -38,4 +37,4 @@ export interface PickPoint {
   [property: string]: any;
 }
 
-export type PCOGeometry = PointCloudOctreeGeometry | OctreeGeometry;
+export type PCOGeometry = OctreeGeometry;

@@ -16,10 +16,10 @@ import {
 import type { LoadOctreeOptions } from "./loading2/LoadInstrumentation";
 import { loadOctree } from "./loading2/load-octree";
 import type { OctreeGeometry } from "./loading2/OctreeGeometry";
+import type { OctreeGeometryNode } from "./loading2/OctreeGeometryNode";
 import type { RequestManager } from "./loading2/RequestManager";
 import type { PointCloudMaterial } from "./materials";
 import { PointCloudOctree } from "./point-cloud-octree";
-import type { PointCloudOctreeGeometryNode } from "./point-cloud-octree-geometry-node";
 import type { PointCloudOctreeNode } from "./point-cloud-octree-node";
 import {
   type PickParams,
@@ -49,7 +49,7 @@ export class Potree implements IPotree {
 
   private readonly visibilityScheduler =
     new PointCloudVisibilityScheduler<
-      PointCloudOctreeGeometryNode,
+      OctreeGeometryNode,
       PointCloudOctreeNode,
       PointCloudOctree,
       ClipVisibilityContext
