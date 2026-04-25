@@ -10,6 +10,8 @@ export interface IPointCloudTreeNode {
   boundingSphere: Sphere;
   loaded: boolean;
   numPoints: number;
+  readonly isGeometryNode: boolean;
+  readonly isTreeNode: boolean;
   readonly children: ReadonlyArray<IPointCloudTreeNode | null>;
   readonly isLeafNode: boolean;
 
@@ -19,6 +21,21 @@ export interface IPointCloudTreeNode {
     cb: (node: IPointCloudTreeNode) => void,
     includeSelf?: boolean,
   ): void;
+}
+
+export interface IPointCloudGeometryNode extends IPointCloudTreeNode {
+  readonly isGeometryNode: true;
+  readonly isTreeNode: false;
+  failed?: boolean;
+}
+
+export interface IPointCloudRenderedNode<
+  TGeometryNode extends IPointCloudGeometryNode = IPointCloudGeometryNode,
+> extends IPointCloudTreeNode {
+  readonly isGeometryNode: false;
+  readonly isTreeNode: true;
+  geometryNode: TGeometryNode;
+  parent: IPointCloudRenderedNode<TGeometryNode> | null;
 }
 
 export interface IVisibilityUpdateResult {

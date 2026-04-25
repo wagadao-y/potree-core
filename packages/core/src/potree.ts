@@ -1,9 +1,7 @@
 import {
-  Box3,
   type Camera,
   type Ray,
   Vector2,
-  Vector3,
   type WebGLRenderer,
 } from "three";
 import {
@@ -16,6 +14,7 @@ import {
 } from "./core/visibility/visibility-structures";
 import {
   enqueueChildVisibilityItems,
+  type VisibilityProjection,
   updateVisibility,
 } from "./core/visibility/update-visibility";
 import { getFeatures } from "./features";
@@ -24,7 +23,7 @@ import { loadOctree } from "./loading2/load-octree";
 import type { OctreeGeometry } from "./loading2/OctreeGeometry";
 import { OctreeGeometryNode } from "./loading2/OctreeGeometryNode";
 import type { RequestManager } from "./loading2/RequestManager";
-import { ClipMode, type PointCloudMaterial } from "./materials";
+import type { PointCloudMaterial } from "./materials";
 import { PointCloudOctree } from "./point-cloud-octree";
 import type { PointCloudOctreeGeometryNode } from "./point-cloud-octree-geometry-node";
 import type { PointCloudOctreeNode } from "./point-cloud-octree-node";
@@ -34,19 +33,22 @@ import {
 } from "./point-cloud-octree-picker";
 import type { IPointCloudTreeNode, IVisibilityUpdateResult } from "./core/types";
 import type { IPotree, PickPoint } from "./renderer-three/types";
-import { Box3Helper } from "./utils/box3-helper";
+import {
+  PointCloudClipVisibilityEvaluator,
+  createPointCloudVisibilityViews,
+  createVisibilityProjection,
+  materializePointCloudOctreeNode,
+  resetPointCloudOctreeRenderedVisibility,
+  updatePointCloudAfterVisibility,
+  updatePointCloudOctreeNodeVisibility,
+  type ClipVisibilityContext,
+} from "./renderer-three/point-cloud-octree-renderer";
 import { LRU } from "./utils/lru";
 
 const MAX_VISIBLE_RUN_BYTES_WITHOUT_TRIMMING = BigInt(2 * 1024 * 1024);
 const MAX_VISIBLE_RUN_SELECTED_SPAN_BYTES = BigInt(2 * 1024 * 1024);
 const MAX_VISIBLE_RUN_PREFETCH_BYTES = BigInt(512 * 1024);
 const MAX_VISIBLE_RUN_PREFETCH_NODES = 8;
-
-interface ClipVisibilityContext {
-  enabled: boolean;
-  clipBoxCount: number;
-  clipBoxesWorld: Box3[];
-}
 
 export class Potree implements IPotree {
   public static picker: PointCloudOctreePicker | undefined;
@@ -55,14 +57,7 @@ export class Potree implements IPotree {
 
   public _rendererSize: Vector2 = new Vector2();
 
-  private readonly _clipUnitBox = new Box3(
-    new Vector3(-0.5, -0.5, -0.5),
-    new Vector3(0.5, 0.5, 0.5),
-  );
-
-  private readonly _clipNodeWorldBox = new Box3();
-
-  private readonly _clipContexts: (ClipVisibilityContext | undefined)[] = [];
+  private readonly clipVisibility = new PointCloudClipVisibilityEvaluator();
 
   public maxNumNodesLoading: number = DEFAULT_MAX_NUM_NODES_LOADING;
 
@@ -138,14 +133,7 @@ export class Potree implements IPotree {
         continue;
       }
 
-      pointCloud.material.updateMaterial(
-        pointCloud,
-        pointCloud.visibleNodes,
-        camera,
-        renderer,
-      );
-      pointCloud.updateVisibleBounds();
-      pointCloud.updateBoundingBoxes();
+      updatePointCloudAfterVisibility(pointCloud, camera, renderer);
     }
 
     this.lru.freeMemory();
@@ -181,27 +169,51 @@ export class Potree implements IPotree {
     camera: Camera,
     renderer: WebGLRenderer,
   ): IVisibilityUpdateResult {
-    return updateVisibility({
+    const rendererSize = renderer.getSize(this._rendererSize);
+    const visibilityViews = createPointCloudVisibilityViews(pointClouds, camera);
+    const projection = createVisibilityProjection(camera);
+
+    return updateVisibility<
+      PointCloudOctreeGeometryNode,
+      PointCloudOctreeNode,
+      PointCloudOctree,
+      ClipVisibilityContext
+    >({
       pointClouds,
-      camera,
-      renderer,
-      rendererSize: this._rendererSize,
+      views: visibilityViews,
+      projection,
+      viewport: {
+        height: rendererSize.height,
+        pixelRatio: renderer.getPixelRatio(),
+      },
       pointBudget: this.pointBudget,
       maxNumNodesLoading: this.maxNumNodesLoading,
       maxLoadsToGPU: this.maxLoadsToGPU,
       callbacks: {
+        resetRenderedVisibility: (pointCloud) =>
+          resetPointCloudOctreeRenderedVisibility(pointCloud),
         prepareClipVisibilityContexts: (targetPointClouds) =>
-          this.prepareClipVisibilityContexts(targetPointClouds),
+          this.clipVisibility.prepare(targetPointClouds),
         shouldClip: (pointCloud, boundingBox, clipContext) =>
-          this.shouldClip(pointCloud, boundingBox, clipContext),
+          this.clipVisibility.shouldClip(
+            pointCloud,
+            boundingBox,
+            clipContext,
+          ),
         updateTreeNodeVisibility: (pointCloud, node, visibleNodes) =>
           this.updateTreeNodeVisibility(pointCloud, node, visibleNodes),
+        materializeLoadedGeometryNode: (pointCloud, geometryNode, parent) =>
+          this.materializeLoadedGeometryNode(
+            pointCloud,
+            geometryNode,
+            parent,
+          ),
         updateChildVisibility: (
           queueItem,
           pointCloud,
           node,
           cameraPosition,
-          targetCamera,
+          targetProjection,
           halfHeight,
           densityLODStats,
           pushQueueItem,
@@ -211,7 +223,7 @@ export class Potree implements IPotree {
             pointCloud,
             node,
             cameraPosition,
-            targetCamera,
+            targetProjection,
             halfHeight,
             densityLODStats,
             pushQueueItem,
@@ -220,6 +232,14 @@ export class Potree implements IPotree {
           this.loadGeometryNodes(nodes, candidates),
       },
     });
+  }
+
+  private materializeLoadedGeometryNode(
+    pointCloud: PointCloudOctree,
+    geometryNode: PointCloudOctreeGeometryNode,
+    parent: PointCloudOctreeNode | null,
+  ): PointCloudOctreeNode {
+    return materializePointCloudOctreeNode(pointCloud, geometryNode, parent);
   }
 
   private loadGeometryNodes(
@@ -422,21 +442,7 @@ export class Potree implements IPotree {
     visibleNodes: IPointCloudTreeNode[],
   ): void {
     this.lru.touch(node.geometryNode);
-
-    const sceneNode = node.sceneNode;
-    sceneNode.visible = true;
-    sceneNode.material = pointCloud.material;
-    sceneNode.updateMatrix();
-    sceneNode.matrixWorld.multiplyMatrices(
-      pointCloud.matrixWorld,
-      sceneNode.matrix,
-    );
-
-    node.pcIndex = pointCloud.visibleNodes.length;
-    visibleNodes.push(node);
-    pointCloud.visibleNodes.push(node);
-
-    this.updateBoundingBoxVisibility(pointCloud, node);
+    updatePointCloudOctreeNodeVisibility(pointCloud, node, visibleNodes);
   }
 
   private updateChildVisibility(
@@ -444,7 +450,7 @@ export class Potree implements IPotree {
     pointCloud: PointCloudOctree,
     node: IPointCloudTreeNode,
     cameraPosition: import("three").Vector3,
-    camera: Camera,
+    projection: VisibilityProjection,
     halfHeight: number,
     densityLODStats: { culledNodes: number; culledPoints: number },
     pushQueueItem: (queueItem: QueueItem) => void,
@@ -454,101 +460,11 @@ export class Potree implements IPotree {
       pointCloud,
       node,
       cameraPosition,
-      camera,
+      projection,
       halfHeight,
       densityLODStats,
       pushQueueItem,
     );
-  }
-
-  private updateBoundingBoxVisibility(
-    pointCloud: PointCloudOctree,
-    node: PointCloudOctreeNode,
-  ): void {
-    if (pointCloud.showBoundingBox && !node.boundingBoxNode) {
-      const boxHelper = new Box3Helper(node.boundingBox);
-      boxHelper.matrixAutoUpdate = false;
-      pointCloud.boundingBoxNodes.push(boxHelper);
-      node.boundingBoxNode = boxHelper;
-      node.boundingBoxNode.matrix.copy(pointCloud.matrixWorld);
-    } else if (pointCloud.showBoundingBox && node.boundingBoxNode) {
-      node.boundingBoxNode.visible = true;
-      node.boundingBoxNode.matrix.copy(pointCloud.matrixWorld);
-    } else if (!pointCloud.showBoundingBox && node.boundingBoxNode) {
-      node.boundingBoxNode.visible = false;
-    }
-  }
-
-  private prepareClipVisibilityContexts(
-    pointClouds: PointCloudOctree[],
-  ): (ClipVisibilityContext | undefined)[] {
-    const contexts = this._clipContexts;
-    contexts.length = pointClouds.length;
-
-    for (let i = 0; i < pointClouds.length; i++) {
-      const pointCloud = pointClouds[i];
-      const material = pointCloud.material;
-      const existingContext = contexts[i];
-
-      if (
-        material.numClipBoxes === 0 ||
-        material.clipMode !== ClipMode.CLIP_OUTSIDE
-      ) {
-        if (existingContext !== undefined) {
-          existingContext.enabled = false;
-          existingContext.clipBoxCount = 0;
-        }
-        continue;
-      }
-
-      pointCloud.updateMatrixWorld(true);
-
-      let context = existingContext;
-      if (context === undefined) {
-        context = {
-          enabled: true,
-          clipBoxCount: 0,
-          clipBoxesWorld: [],
-        };
-        contexts[i] = context;
-      }
-
-      const clipBoxesWorld = context.clipBoxesWorld;
-      const clipBoxes = material.clipBoxes;
-      context.enabled = true;
-      context.clipBoxCount = clipBoxes.length;
-
-      for (let j = 0; j < context.clipBoxCount; j++) {
-        const clipBoxWorld = clipBoxesWorld[j] ?? new Box3();
-        clipBoxWorld.copy(this._clipUnitBox).applyMatrix4(clipBoxes[j].matrix);
-        clipBoxesWorld[j] = clipBoxWorld;
-      }
-    }
-
-    return contexts;
-  }
-
-  private shouldClip(
-    pointCloud: PointCloudOctree,
-    boundingBox: Box3,
-    clipContext: ClipVisibilityContext | undefined,
-  ): boolean {
-    if (clipContext === undefined || !clipContext.enabled) {
-      return false;
-    }
-
-    const nodeWorldBox = this._clipNodeWorldBox
-      .copy(boundingBox)
-      .applyMatrix4(pointCloud.matrixWorld);
-    const clipBoxesWorld = clipContext.clipBoxesWorld;
-
-    for (let i = 0; i < clipContext.clipBoxCount; i++) {
-      if (nodeWorldBox.intersectsBox(clipBoxesWorld[i])) {
-        return false;
-      }
-    }
-
-    return true;
   }
 
 }

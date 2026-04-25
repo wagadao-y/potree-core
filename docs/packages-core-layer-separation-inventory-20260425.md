@@ -17,6 +17,13 @@
 ## 着手済み
 
 - `potree.ts` の visibility scheduling 入口と `updateVisibility` 本体は `src/core/visibility/*` へ切り出し済み。
+- `updateVisibility` は `WebGLRenderer` を直接受け取らず、renderer 側で作る viewport 情報を受け取る形へ変更済み。
+- `updateVisibility` から `PointCloudOctree.toTreeNode()` の直接呼び出しを外し、loaded geometry node の materialize は callback 経由へ変更済み。
+- visible tree node の scene 更新と前フレームの rendered visibility reset は `renderer-three/point-cloud-octree-renderer.ts` へ移動済み。
+- `core/visibility` は Three.js `Camera` を直接受け取らず、renderer 側で作る visibility view / projection 情報を受け取る形へ変更済み。
+- `core/visibility` から `PointCloudOctree` クラスの直接参照を外し、必要な最小 shape を `VisibilityPointCloudTarget` として受け取る形へ変更済み。
+- `core/visibility` から `PointCloudOctreeNode` / `PointCloudOctreeGeometryNode` クラスの直接参照を外し、`IPointCloudRenderedNode` / `IPointCloudGeometryNode` の structural interface へ変更済み。
+- Three.js scene node 生成、material update、clip visibility、camera view 変換は `renderer-three/point-cloud-octree-renderer.ts` 側へ集約済み。
 - `point-cloud-octree.ts` の material 初期化、material bound 更新、scene node 生成は `src/renderer-three/point-cloud-octree-renderer.ts` へ一部切り出し済み。
 - `types.ts` は `src/core/types.ts` と `src/renderer-three/types.ts` へ最小分割し、既存の `src/types.ts` は再 export の入口に変更済み。
 - 現時点の変更は `packages/core` の `pnpm run typecheck` を通過している。

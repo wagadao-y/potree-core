@@ -20,7 +20,7 @@ import {
 import { PointCloudTree } from "./point-cloud-tree";
 import {
   createDefaultPointCloudMaterial,
-  createPointCloudOctreeNode,
+  materializePointCloudOctreeNode,
   updatePointCloudMaterialBounds,
 } from "./renderer-three/point-cloud-octree-renderer";
 import type { IPotree, PCOGeometry, PickPoint } from "./renderer-three/types";
@@ -211,27 +211,7 @@ export class PointCloudOctree extends PointCloudTree {
     geometryNode: PointCloudOctreeGeometryNode,
     parent?: PointCloudOctreeNode | null,
   ): PointCloudOctreeNode {
-    const node = createPointCloudOctreeNode(this, geometryNode);
-    const points = node.sceneNode;
-    points.name = geometryNode.name;
-
-    if (parent) {
-      node.parent = parent;
-      parent.sceneNode.add(points);
-      parent.children[geometryNode.index] = node;
-
-      geometryNode.oneTimeDisposeHandlers.push(() => {
-        node.disposeSceneNode();
-        parent.sceneNode.remove(node.sceneNode);
-        // Replace the tree node (rendered and in the GPU) with the geometry node.
-        parent.children[geometryNode.index] = geometryNode;
-      });
-    } else {
-      this.root = node;
-      this.add(points);
-    }
-
-    return node;
+    return materializePointCloudOctreeNode(this, geometryNode, parent);
   }
 
   public updateVisibleBounds() {

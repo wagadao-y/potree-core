@@ -1,11 +1,9 @@
-import {
-  type Camera,
-  Frustum,
-  Matrix4,
-  Vector3,
-} from "three";
-import { PointCloudOctree } from "../../point-cloud-octree";
-import type { IPointCloudTreeNode } from "../types";
+import type { Frustum, Vector3 } from "three";
+import type {
+  IPointCloudGeometryNode,
+  IPointCloudRenderedNode,
+  IPointCloudTreeNode,
+} from "../types";
 import { BinaryHeap } from "../../utils/binary-heap";
 
 export class QueueItem {
@@ -17,22 +15,43 @@ export class QueueItem {
   ) {}
 }
 
+export interface PointCloudVisibilityView {
+  frustum: Frustum;
+  cameraPosition: Vector3;
+}
+
+export interface VisibilityPointCloudTarget<
+  TGeometryNode extends IPointCloudGeometryNode = IPointCloudGeometryNode,
+  TRenderedNode extends IPointCloudRenderedNode<TGeometryNode> = IPointCloudRenderedNode<TGeometryNode>,
+> {
+  root: IPointCloudTreeNode | null;
+  visible: boolean;
+  maxLevel?: number;
+  minNodePixelSize: number;
+  screenSpaceDensityLODEnabled: boolean;
+  maxPointsPerPixel: number;
+  numVisiblePoints: number;
+  visibleNodes: TRenderedNode[];
+  visibleGeometry: TGeometryNode[];
+  initialized(): boolean;
+}
+
+export interface VisibilityStructureCallbacks<TPointCloud> {
+  resetRenderedVisibility: (pointCloud: TPointCloud) => void;
+}
+
 export interface VisibilityStructures {
-  frustums: Frustum[];
-  cameraPositions: Vector3[];
+  views: (PointCloudVisibilityView | undefined)[];
   priorityQueue: BinaryHeap<QueueItem>;
 }
 
-export function updateVisibilityStructures(
-  pointClouds: PointCloudOctree[],
-  camera: Camera,
+export function updateVisibilityStructures<
+  TPointCloud extends VisibilityPointCloudTarget,
+>(
+  pointClouds: TPointCloud[],
+  views: (PointCloudVisibilityView | undefined)[],
+  callbacks: VisibilityStructureCallbacks<TPointCloud>,
 ): VisibilityStructures {
-  const frustumMatrix = new Matrix4();
-  const inverseWorldMatrix = new Matrix4();
-  const cameraMatrix = new Matrix4();
-
-  const frustums: Frustum[] = [];
-  const cameraPositions: Vector3[] = [];
   const priorityQueue = new BinaryHeap<QueueItem>((x) => {
     return 1 / x.weight;
   });
@@ -45,49 +64,18 @@ export function updateVisibilityStructures(
     }
 
     pointCloud.numVisiblePoints = 0;
-    hideVisibleNodes(pointCloud);
+    callbacks.resetRenderedVisibility(pointCloud);
 
     pointCloud.visibleNodes.length = 0;
     pointCloud.visibleGeometry.length = 0;
 
-    camera.updateMatrixWorld(false);
-
-    const inverseViewMatrix = camera.matrixWorldInverse;
-    const worldMatrix = pointCloud.matrixWorld;
-    frustumMatrix
-      .identity()
-      .multiply(camera.projectionMatrix)
-      .multiply(inverseViewMatrix)
-      .multiply(worldMatrix);
-    frustums.push(new Frustum().setFromProjectionMatrix(frustumMatrix));
-
-    inverseWorldMatrix.copy(worldMatrix).invert();
-    cameraMatrix
-      .identity()
-      .multiply(inverseWorldMatrix)
-      .multiply(camera.matrixWorld);
-    cameraPositions.push(new Vector3().setFromMatrixPosition(cameraMatrix));
-
-    if (pointCloud.visible && pointCloud.root !== null) {
+    if (pointCloud.visible && pointCloud.root !== null && views[i]) {
       priorityQueue.push(new QueueItem(i, Number.MAX_VALUE, pointCloud.root));
-    }
-
-    for (const boundingBoxNode of pointCloud.boundingBoxNodes) {
-      boundingBoxNode.visible = false;
     }
   }
 
   return {
-    frustums,
-    cameraPositions,
+    views,
     priorityQueue,
   };
-}
-
-function hideVisibleNodes(pointCloud: PointCloudOctree): void {
-  const visibleNodes = pointCloud.visibleNodes;
-
-  for (let i = 0; i < visibleNodes.length; i++) {
-    visibleNodes[i].sceneNode.visible = false;
-  }
 }

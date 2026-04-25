@@ -76,9 +76,9 @@ export class PointCloudOctreeGeometryNode
 
   public isLeafNode: boolean = true;
 
-  readonly isTreeNode: boolean = false;
+  readonly isTreeNode = false;
 
-  readonly isGeometryNode: boolean = true;
+  readonly isGeometryNode = true;
 
   private static idCount = 0;
 

@@ -46,10 +46,10 @@ export class OctreeGeometryNode implements IPointCloudTreeNode {
   public isLeafNode: boolean = true;
 
   /** Indicates if this node is a tree node (always false for geometry nodes). */
-  public readonly isTreeNode: boolean = false;
+  public readonly isTreeNode = false;
 
   /** Indicates if this node is a geometry node (always true). */
-  public readonly isGeometryNode: boolean = true;
+  public readonly isGeometryNode = true;
 
   /** Array of child nodes (up to 8 for an octree), or null if no child at that position. */
   public readonly children: ReadonlyArray<OctreeGeometryNode | null> = [

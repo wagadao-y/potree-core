@@ -1,72 +1,127 @@
-import { type Box3, type Camera, type OrthographicCamera, type PerspectiveCamera, type Vector2, type Vector3, type WebGLRenderer } from "three";
-import { PERSPECTIVE_CAMERA } from "../../constants";
-import type { PointCloudOctreeGeometryNode } from "../../point-cloud-octree-geometry-node";
-import type { PointCloudOctreeNode } from "../../point-cloud-octree-node";
-import { PointCloudOctree } from "../../point-cloud-octree";
-import { isGeometryNode, isTreeNode } from "../../type-predicates";
-import type { IPointCloudTreeNode, IVisibilityUpdateResult } from "../types";
-import { QueueItem, updateVisibilityStructures } from "./visibility-structures";
+import {
+  type Box3,
+  type Vector3,
+} from "three";
+import type {
+  IPointCloudGeometryNode,
+  IPointCloudRenderedNode,
+  IPointCloudTreeNode,
+  IVisibilityUpdateResult,
+} from "../types";
+import {
+  type PointCloudVisibilityView,
+  QueueItem,
+  updateVisibilityStructures,
+  type VisibilityPointCloudTarget,
+} from "./visibility-structures";
 
-export interface UpdateVisibilityCallbacks<TClipContext> {
+export type VisibilityProjection =
+  | {
+      type: "perspective";
+      fovRadians: number;
+    }
+  | {
+      type: "orthographic";
+      verticalSpan: number;
+      zoom: number;
+    };
+
+export interface UpdateVisibilityCallbacks<
+  TGeometryNode extends IPointCloudGeometryNode,
+  TRenderedNode extends IPointCloudRenderedNode<TGeometryNode>,
+  TPointCloud extends VisibilityPointCloudTarget<TGeometryNode, TRenderedNode>,
+  TClipContext,
+> {
+  resetRenderedVisibility: (pointCloud: TPointCloud) => void;
   prepareClipVisibilityContexts: (
-    pointClouds: PointCloudOctree[],
+    pointClouds: TPointCloud[],
   ) => (TClipContext | undefined)[];
   shouldClip: (
-    pointCloud: PointCloudOctree,
+    pointCloud: TPointCloud,
     boundingBox: Box3,
     clipContext: TClipContext | undefined,
   ) => boolean;
   updateTreeNodeVisibility: (
-    pointCloud: PointCloudOctree,
-    node: PointCloudOctreeNode,
+    pointCloud: TPointCloud,
+    node: TRenderedNode,
     visibleNodes: IPointCloudTreeNode[],
   ) => void;
+  materializeLoadedGeometryNode: (
+    pointCloud: TPointCloud,
+    geometryNode: TGeometryNode,
+    parent: TRenderedNode | null,
+  ) => TRenderedNode;
   updateChildVisibility: (
     queueItem: QueueItem,
-    pointCloud: PointCloudOctree,
+    pointCloud: TPointCloud,
     node: IPointCloudTreeNode,
     cameraPosition: Vector3,
-    camera: Camera,
+    projection: VisibilityProjection,
     halfHeight: number,
     densityLODStats: { culledNodes: number; culledPoints: number },
     pushQueueItem: (queueItem: QueueItem) => void,
   ) => void;
   loadGeometryNodes: (
-    nodes: PointCloudOctreeGeometryNode[],
-    candidates: PointCloudOctreeGeometryNode[],
+    nodes: TGeometryNode[],
+    candidates: TGeometryNode[],
   ) => Promise<void>[];
 }
 
-export interface UpdateVisibilityOptions<TClipContext> {
-  pointClouds: PointCloudOctree[];
-  camera: Camera;
-  renderer: WebGLRenderer;
-  rendererSize: Vector2;
+export interface VisibilityViewport {
+  height: number;
+  pixelRatio: number;
+}
+
+export interface UpdateVisibilityOptions<
+  TGeometryNode extends IPointCloudGeometryNode,
+  TRenderedNode extends IPointCloudRenderedNode<TGeometryNode>,
+  TPointCloud extends VisibilityPointCloudTarget<TGeometryNode, TRenderedNode>,
+  TClipContext,
+> {
+  pointClouds: TPointCloud[];
+  views: (PointCloudVisibilityView | undefined)[];
+  projection: VisibilityProjection;
+  viewport: VisibilityViewport;
   pointBudget: number;
   maxNumNodesLoading: number;
   maxLoadsToGPU: number;
-  callbacks: UpdateVisibilityCallbacks<TClipContext>;
+  callbacks: UpdateVisibilityCallbacks<
+    TGeometryNode,
+    TRenderedNode,
+    TPointCloud,
+    TClipContext
+  >;
 }
 
-export function updateVisibility<TClipContext>(
-  options: UpdateVisibilityOptions<TClipContext>,
+export function updateVisibility<
+  TGeometryNode extends IPointCloudGeometryNode,
+  TRenderedNode extends IPointCloudRenderedNode<TGeometryNode>,
+  TPointCloud extends VisibilityPointCloudTarget<TGeometryNode, TRenderedNode>,
+  TClipContext,
+>(
+  options: UpdateVisibilityOptions<
+    TGeometryNode,
+    TRenderedNode,
+    TPointCloud,
+    TClipContext
+  >,
 ): IVisibilityUpdateResult {
   let numVisiblePoints = 0;
 
-  const visibleNodes: PointCloudOctreeNode[] = [];
-  const unloadedGeometry: PointCloudOctreeGeometryNode[] = [];
+  const visibleNodes: TRenderedNode[] = [];
+  const unloadedGeometry: TGeometryNode[] = [];
   const densityLODStats = {
     culledNodes: 0,
     culledPoints: 0,
   };
 
-  const { frustums, cameraPositions, priorityQueue } =
-    updateVisibilityStructures(options.pointClouds, options.camera);
+  const { views, priorityQueue } =
+    updateVisibilityStructures(options.pointClouds, options.views, {
+      resetRenderedVisibility: options.callbacks.resetRenderedVisibility,
+    });
 
   const halfHeight =
-    0.5 *
-    options.renderer.getSize(options.rendererSize).height *
-    options.renderer.getPixelRatio();
+    0.5 * options.viewport.height * options.viewport.pixelRatio;
   const clipContexts = options.callbacks.prepareClipVisibilityContexts(
     options.pointClouds,
   );
@@ -88,13 +143,18 @@ export function updateVisibility<TClipContext>(
 
     const pointCloudIndex = queueItem.pointCloudIndex;
     const pointCloud = options.pointClouds[pointCloudIndex];
+    const view = views[pointCloudIndex];
+
+    if (view === undefined) {
+      continue;
+    }
 
     const maxLevel =
       pointCloud.maxLevel !== undefined ? pointCloud.maxLevel : Infinity;
 
     if (
       node.level > maxLevel ||
-      !frustums[pointCloudIndex].intersectsBox(node.boundingBox) ||
+      !view.frustum.intersectsBox(node.boundingBox) ||
       options.callbacks.shouldClip(
         pointCloud,
         node.boundingBox,
@@ -108,15 +168,22 @@ export function updateVisibility<TClipContext>(
     pointCloud.numVisiblePoints += node.numPoints;
 
     const parentNode = queueItem.parent;
-    const treeParent = parentNode && isTreeNode(parentNode) ? parentNode : null;
+    const treeParent =
+      parentNode && isRenderedNode<TGeometryNode, TRenderedNode>(parentNode)
+        ? parentNode
+        : null;
 
     if (
-      isGeometryNode(node) &&
+      isGeometryNode<TGeometryNode>(node) &&
       node.numPoints > 0 &&
       (!parentNode || treeParent)
     ) {
       if (node.loaded && loadedToGPUThisFrame < options.maxLoadsToGPU) {
-        node = pointCloud.toTreeNode(node, treeParent);
+        node = options.callbacks.materializeLoadedGeometryNode(
+          pointCloud,
+          node,
+          treeParent,
+        );
         loadedToGPUThisFrame += 1;
       } else if (!node.failed) {
         if (node.loaded && loadedToGPUThisFrame >= options.maxLoadsToGPU) {
@@ -130,7 +197,7 @@ export function updateVisibility<TClipContext>(
       }
     }
 
-    if (isTreeNode(node)) {
+    if (isRenderedNode<TGeometryNode, TRenderedNode>(node)) {
       options.callbacks.updateTreeNodeVisibility(
         pointCloud,
         node,
@@ -143,8 +210,8 @@ export function updateVisibility<TClipContext>(
       queueItem,
       pointCloud,
       node,
-      cameraPositions[pointCloudIndex],
-      options.camera,
+      view.cameraPosition,
+      options.projection,
       halfHeight,
       densityLODStats,
       (nextQueueItem) => {
@@ -173,12 +240,25 @@ export function updateVisibility<TClipContext>(
   };
 }
 
+function isGeometryNode<TGeometryNode extends IPointCloudGeometryNode>(
+  node: IPointCloudTreeNode | undefined | null,
+): node is TGeometryNode {
+  return node?.isGeometryNode === true;
+}
+
+function isRenderedNode<
+  TGeometryNode extends IPointCloudGeometryNode,
+  TRenderedNode extends IPointCloudRenderedNode<TGeometryNode>,
+>(node: IPointCloudTreeNode | undefined | null): node is TRenderedNode {
+  return node?.isTreeNode === true;
+}
+
 export function enqueueChildVisibilityItems(
   queueItem: QueueItem,
-  pointCloud: PointCloudOctree,
+  pointCloud: VisibilityPointCloudTarget,
   node: IPointCloudTreeNode,
   cameraPosition: Vector3,
-  camera: Camera,
+  projection: VisibilityProjection,
   halfHeight: number,
   densityLODStats: { culledNodes: number; culledPoints: number },
   pushQueueItem: (queueItem: QueueItem) => void,
@@ -198,10 +278,8 @@ export function enqueueChildVisibilityItems(
     let weight: number;
     let screenPixelRadius: number;
 
-    if (camera.type === PERSPECTIVE_CAMERA) {
-      const perspective = camera as PerspectiveCamera;
-      const fov = (perspective.fov * Math.PI) / 180.0;
-      const slope = Math.tan(fov / 2.0);
+    if (projection.type === "perspective") {
+      const slope = Math.tan(projection.fovRadians / 2.0);
       projectionFactor = halfHeight / (slope * distance);
       screenPixelRadius = radius * projectionFactor;
       weight =
@@ -209,10 +287,8 @@ export function enqueueChildVisibilityItems(
           ? Number.MAX_VALUE
           : screenPixelRadius + 1 / distance;
     } else {
-      const orthographic = camera as OrthographicCamera;
       projectionFactor =
-        ((2 * halfHeight) / (orthographic.top - orthographic.bottom)) *
-        orthographic.zoom;
+        ((2 * halfHeight) / projection.verticalSpan) * projection.zoom;
       screenPixelRadius = radius * projectionFactor;
       weight = screenPixelRadius;
     }

@@ -7,11 +7,14 @@ import {
   type Sphere,
 } from "three";
 import type { PointCloudOctreeGeometryNode } from "./point-cloud-octree-geometry-node";
-import type { IPointCloudTreeNode } from "./core/types";
+import type {
+  IPointCloudRenderedNode,
+  IPointCloudTreeNode,
+} from "./core/types";
 
 export class PointCloudOctreeNode
   extends EventDispatcher
-  implements IPointCloudTreeNode
+  implements IPointCloudRenderedNode<PointCloudOctreeGeometryNode>
 {
   /**
    * Unique identifier for the node, automatically incremented.
@@ -58,14 +61,14 @@ export class PointCloudOctreeNode
   /**
    * Indicates whether the node is currently loading.
    */
-  public readonly isTreeNode: boolean = true;
+  public readonly isTreeNode = true;
 
   /**
    * Indicates whether this node is a geometry node.
    *
    * This is always false for PointCloudOctreeNode, as it represents a tree node.
    */
-  public readonly isGeometryNode: boolean = false;
+  public readonly isGeometryNode = false;
 
   public constructor(
     geometryNode: PointCloudOctreeGeometryNode,
