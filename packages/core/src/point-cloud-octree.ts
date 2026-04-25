@@ -23,19 +23,7 @@ import {
   type PickParams,
   pickPointCloud,
 } from "./renderer-three/point-cloud-octree-picker";
-import {
-  createDefaultPointCloudMaterial,
-  disposePointCloudVisibleBounds,
-  getPointCloudBoundingBoxWorld,
-  getPointCloudVisibleExtent,
-  hidePointCloudDescendants,
-  materializePointCloudOctreeNode,
-  movePointCloudToGroundPlane,
-  movePointCloudToOrigin,
-  updatePointCloudBoundingBoxes,
-  updatePointCloudMaterialBounds,
-  updatePointCloudVisibleBounds,
-} from "./renderer-three/point-cloud-octree-renderer";
+import { pointCloudOctreeRendererAdapter } from "./renderer-three/point-cloud-octree-renderer";
 import { PointCloudTree } from "./renderer-three/point-cloud-tree";
 import type { IPotree, PickPoint } from "./renderer-three/types";
 
@@ -159,7 +147,9 @@ export class PointCloudOctree
     this.position.copy(toThreeVector3(pcoGeometry.offset));
     this.updateMatrix();
 
-    this.material = material || createDefaultPointCloudMaterial(pcoGeometry);
+    this.material =
+      material ||
+      pointCloudOctreeRendererAdapter.createDefaultMaterial(pcoGeometry);
   }
 
   public dispose(): void {
@@ -177,7 +167,7 @@ export class PointCloudOctree
     this.visibleGeometry = [];
 
     disposePointCloudOctreePicker(this);
-    disposePointCloudVisibleBounds(this);
+    pointCloudOctreeRendererAdapter.dispose(this);
 
     this.disposed = true;
   }
@@ -188,7 +178,7 @@ export class PointCloudOctree
 
   public set material(material: PointCloudMaterial) {
     this._material = material;
-    updatePointCloudMaterialBounds(this, material);
+    pointCloudOctreeRendererAdapter.updateMaterialBounds(this, material);
   }
 
   public get pointSizeType(): PointSizeType {
@@ -203,15 +193,19 @@ export class PointCloudOctree
     geometryNode: OctreeGeometryNode,
     parent?: PointCloudOctreeNode | null,
   ): PointCloudOctreeNode {
-    return materializePointCloudOctreeNode(this, geometryNode, parent);
+    return pointCloudOctreeRendererAdapter.materializeTreeNode(
+      this,
+      geometryNode,
+      parent,
+    );
   }
 
   public updateVisibleBounds() {
-    updatePointCloudVisibleBounds(this);
+    pointCloudOctreeRendererAdapter.updateVisibleBounds(this);
   }
 
   public updateBoundingBoxes(): void {
-    updatePointCloudBoundingBoxes(this);
+    pointCloudOctreeRendererAdapter.updateBoundingBoxes(this);
   }
 
   public updateMatrixWorld(force: boolean): void {
@@ -233,23 +227,23 @@ export class PointCloudOctree
   }
 
   public hideDescendants(object: PointCloudOctreeNode["sceneNode"]): void {
-    hidePointCloudDescendants(object);
+    pointCloudOctreeRendererAdapter.hideDescendants(object);
   }
 
   public moveToOrigin(): void {
-    movePointCloudToOrigin(this);
+    pointCloudOctreeRendererAdapter.moveToOrigin(this);
   }
 
   public moveToGroundPlane(): void {
-    movePointCloudToGroundPlane(this);
+    pointCloudOctreeRendererAdapter.moveToGroundPlane(this);
   }
 
   public getBoundingBoxWorld(): Box3 {
-    return getPointCloudBoundingBoxWorld(this);
+    return pointCloudOctreeRendererAdapter.getBoundingBoxWorld(this);
   }
 
   public getVisibleExtent() {
-    return getPointCloudVisibleExtent(this);
+    return pointCloudOctreeRendererAdapter.getVisibleExtent(this);
   }
 
   public pick(

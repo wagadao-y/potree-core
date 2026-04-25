@@ -216,6 +216,64 @@ export class ThreePointCloudVisibilityAdapter {
   }
 }
 
+export class PointCloudOctreeRendererAdapter {
+  public createDefaultMaterial(
+    pointCloudGeometry: PointCloudOctree["pcoGeometry"],
+  ): PointCloudMaterial {
+    return createDefaultPointCloudMaterial(pointCloudGeometry);
+  }
+
+  public updateMaterialBounds(
+    pointCloud: PointCloudOctree,
+    material: PointCloudMaterial,
+  ): void {
+    updatePointCloudMaterialBounds(pointCloud, material);
+  }
+
+  public materializeTreeNode(
+    pointCloud: PointCloudOctree,
+    geometryNode: OctreeGeometryNode,
+    parent?: PointCloudOctreeNode | null,
+  ): PointCloudOctreeNode {
+    return materializePointCloudOctreeNode(pointCloud, geometryNode, parent);
+  }
+
+  public updateVisibleBounds(pointCloud: PointCloudOctree): void {
+    updatePointCloudVisibleBounds(pointCloud);
+  }
+
+  public updateBoundingBoxes(pointCloud: PointCloudOctree): void {
+    updatePointCloudBoundingBoxes(pointCloud);
+  }
+
+  public hideDescendants(object: Object3D): void {
+    hidePointCloudDescendants(object);
+  }
+
+  public moveToOrigin(pointCloud: PointCloudOctree): void {
+    movePointCloudToOrigin(pointCloud);
+  }
+
+  public moveToGroundPlane(pointCloud: PointCloudOctree): void {
+    movePointCloudToGroundPlane(pointCloud);
+  }
+
+  public getBoundingBoxWorld(pointCloud: PointCloudOctree): Box3 {
+    return getPointCloudBoundingBoxWorld(pointCloud);
+  }
+
+  public getVisibleExtent(pointCloud: PointCloudOctree): Box3 {
+    return getPointCloudVisibleExtent(pointCloud);
+  }
+
+  public dispose(pointCloud: PointCloudOctree): void {
+    disposePointCloudVisibleBounds(pointCloud);
+  }
+}
+
+export const pointCloudOctreeRendererAdapter =
+  new PointCloudOctreeRendererAdapter();
+
 export function createDefaultPointCloudMaterial(
   _pcoGeometry: PointCloudOctree["pcoGeometry"],
 ): PointCloudMaterial {
