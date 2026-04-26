@@ -107,7 +107,7 @@ uniform sampler2D depthMap;
 	out vec3 vColor;
 #endif
 
-#if !defined(color_type_point_index)
+#if defined(use_opacity_varying)
 	out float vOpacity;
 #endif
 
@@ -402,7 +402,7 @@ void main() {
 
 
 	// OPACITY
-	#ifndef color_type_point_index
+	#ifdef use_opacity_varying
 		#ifdef attenuated_opacity
 			vOpacity = opacity * exp(-length(-mvPosition.xyz) / opacityAttenuation);
 		#else

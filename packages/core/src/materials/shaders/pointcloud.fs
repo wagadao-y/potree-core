@@ -31,7 +31,7 @@ out vec4 fragColor;
 	in vec3 vColor;
 #endif
 
-#if !defined(color_type_point_index)
+#if defined(use_opacity_varying)
 	// Opacity attribute when not using point index color type
 	in float vOpacity;
 #endif
@@ -93,8 +93,12 @@ void main() {
 		fragColor = vec4(color * w, w);
 	#elif defined(color_type_point_index)
 		fragColor = vec4(color, pcIndex / 255.0);
-	#else
+	#elif defined(use_edl) || defined(opaque_opacity)
+		fragColor = vec4(color, 1.0);
+	#elif defined(use_opacity_varying)
 		fragColor = vec4(color, vOpacity);
+	#else
+		fragColor = vec4(color, opacity);
 	#endif
 
 	// Lighting calculations for Phong shading

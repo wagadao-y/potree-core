@@ -346,6 +346,7 @@ export class PointCloudMaterial extends RawShaderMaterial {
       pointOpacityType: this.pointOpacityType,
       outputColorEncoding: this.outputColorEncoding,
       inputColorEncoding: this.inputColorEncoding,
+      opacity: this.opacity,
       rgbGamma: this.rgbGamma,
       rgbBrightness: this.rgbBrightness,
       rgbContrast: this.rgbContrast,

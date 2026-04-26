@@ -297,7 +297,7 @@ document.body.onload = () => {
     logarithmicDepthBuffer: true,
     precision: "highp",
     premultipliedAlpha: true,
-    antialias: true,
+    antialias: false,
     preserveDrawingBuffer: false,
     powerPreference: "high-performance",
   });

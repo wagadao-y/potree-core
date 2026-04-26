@@ -79,6 +79,7 @@ export interface PointCloudMaterialDefineOptions {
   pointOpacityType: PointOpacityType;
   outputColorEncoding: ColorEncoding;
   inputColorEncoding: ColorEncoding;
+  opacity: number;
   rgbGamma: number;
   rgbBrightness: number;
   rgbContrast: number;
@@ -114,6 +115,22 @@ export function applyPointCloudMaterialDefines(
   define(OPACITY_DEFS[options.pointOpacityType]);
   define(OUTPUT_COLOR_ENCODING[options.outputColorEncoding]);
   define(INPUT_COLOR_ENCODING[options.inputColorEncoding]);
+
+  if (
+    options.opacity === 1.0 &&
+    options.pointOpacityType === PointOpacityType.FIXED
+  ) {
+    define("opaque_opacity");
+  }
+
+  if (
+    options.pointOpacityType === PointOpacityType.ATTENUATED &&
+    !options.useEDL &&
+    !options.weighted &&
+    options.pointColorType !== PointColorType.POINT_INDEX
+  ) {
+    define("use_opacity_varying");
+  }
 
   if (
     options.rgbGamma !== DEFAULT_RGB_GAMMA ||
