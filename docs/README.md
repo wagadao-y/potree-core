@@ -2,6 +2,10 @@
 
 ## 現在参照する文書
 
+- `packages-core-dataset-access-strategy-20260426.md`
+  - 2026-04-26 時点のデータセットアクセス方針。
+  - S3 署名付き URL 3 本対応と OPFS 対応を、セキュリティとローカル閲覧体験の観点からどう整理するかをここで管理する。
+
 - `packages-core-layer-separation-inventory-20260425.md`
   - 2026-04-25 時点の `packages/core` 層分離棚卸し。
   - pure core 相当、renderer 相当、混在箇所の整理と、WebGPU を見据えた責務境界の前提をここで管理する。
