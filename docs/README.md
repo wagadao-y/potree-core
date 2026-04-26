@@ -18,6 +18,10 @@
   - クリッピング処理に絞った現行の設計 / 改善メモ。
   - CPU 粗判定、clip-aware point budget、clip relation cache などの検討を扱う。
 
+- `packages-core-shader-performance-investigation-20260426.md`
+  - `packages/core/src/materials/shaders` に絞った描画性能改善メモ。
+  - adaptive point size / LOD、EDL、clipping、classification、weighted splats の shader 側改善候補を扱う。
+
 - `packages-core-webgpu-migration-analysis.md`
   - WebGPU 移行方針の調査メモ。
   - WebGL 側の現在方針とは切り分けて読み、最終方針は `packages-core-webgpu-strategy-20260425.md` を優先する。
