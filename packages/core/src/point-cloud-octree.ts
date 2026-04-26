@@ -15,9 +15,12 @@ import type {
 } from "./core/types";
 import type { OctreeGeometry } from "./loading/OctreeGeometry";
 import type { OctreeGeometryNode } from "./loading/OctreeGeometryNode";
-import type { PointCloudMaterial, PointSizeType } from "./materials";
 import { pointCloudOctreeRendererAdapter } from "./renderer-three/adapters/point-cloud-octree-renderer";
 import type { PointCloudOctreeNode } from "./renderer-three/geometry/point-cloud-octree-node";
+import type {
+  PointCloudMaterial,
+  PointSizeType,
+} from "./renderer-three/materials";
 import { toThreeBox3, toThreeVector3 } from "./renderer-three/math/box3-like";
 import {
   disposePointCloudOctreePicker,
