@@ -1,5 +1,7 @@
 # packages/core シェーダーパフォーマンス調査 2026-04-26
 
+> 2026-04-26 完了。low-risk な shader / EDL 改善は実装と計測を終えたため、本書は履歴メモとして `docs/old/` に移した。現行の優先順位は `docs/packages-core-performance-strategy-20260425.md` を参照する。
+
 ## 目的
 
 - `packages/core/src/materials/shaders` 配下の現行シェーダーを確認し、描画パフォーマンス改善の余地を整理する。

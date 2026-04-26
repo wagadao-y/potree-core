@@ -1,5 +1,7 @@
 # packages/core リファクタリング計画
 
+> 2026-04-26 時点で主要フェーズは一区切りに入ったため、本書は履歴メモとして `docs/old/` に移した。現行の構造前提は `docs/packages-core-layer-separation-inventory-20260425.md` を優先する。
+
 > 本文書は 2026-04-25 時点の `packages/core` を調査し、ディレクトリ構造、ファイル分割、公開 API、責務分離、コードの見通しの改善に向けた段階的なリファクタリング計画をまとめたものである。既存の層分離方針は `docs/packages-core-layer-separation-inventory-20260425.md` を前提としつつ、本書では pure core / renderer 分離に限定せず、コード品質改善全般を対象とする。
 
 > 2026-04-26 更新: Phase 1 は概ね完了し、Phase 2 から Phase 4 にまたがる主要な責務分離もひとまず一区切りに入った。`loading/OctreeLoader.ts`、`PointCloudOctree`、`Potree`、`materials/point-cloud-material.ts`、`renderer-three/point-cloud-octree-renderer.ts` の中心責務は段階的に切り出され、最後に material の更新 helper、picker の result decode、visibility scheduler の visible-run 選別も分離した。`packages/core/tsconfig.json` の整理も完了しており、現時点の次関心は残る facade の厚み確認と `renderer-three` 配下の再配置を、必要になった時点で再開することにある。

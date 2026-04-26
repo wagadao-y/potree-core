@@ -4,7 +4,7 @@
 
 - `packages-core-layer-separation-inventory-20260425.md`
   - 2026-04-25 時点の `packages/core` 層分離棚卸し。
-  - pure core 相当、renderer 相当、混在箇所の整理と、最初に分離すべき対象をここで管理する。
+  - pure core 相当、renderer 相当、混在箇所の整理と、WebGPU を見据えた責務境界の前提をここで管理する。
 
 - `packages-core-webgpu-strategy-20260425.md`
   - 2026-04-25 時点の WebGPU 化の設計方針。
@@ -12,15 +12,11 @@
 
 - `packages-core-performance-strategy-20260425.md`
   - 2026-04-25 時点の最新のパフォーマンス改善方針。
-  - 実装済み事項、標準データ配信方針、今後の優先順位をここで管理する。
+  - 実装済み事項、標準データ配信方針、シェーダー改善完了後を含む今後の優先順位をここで管理する。
 
 - `packages-core-clipping-analysis.md`
   - クリッピング処理に絞った現行の設計 / 改善メモ。
   - CPU 粗判定、clip-aware point budget、clip relation cache などの検討を扱う。
-
-- `packages-core-shader-performance-investigation-20260426.md`
-  - `packages/core/src/materials/shaders` に絞った描画性能改善メモ。
-  - adaptive point size / LOD、EDL、clipping、classification、weighted splats の shader 側改善候補を扱う。
 
 - `packages-core-webgpu-migration-analysis.md`
   - WebGPU 移行方針の調査メモ。
@@ -40,9 +36,13 @@
 - `screen-space-density-lod-20260423.md`
 - `packages-core-performance-analysis.md`
 - `zstd-position-rgb-pipeline-20260425.md`
+- `packages-core-shader-performance-investigation-20260426.md`
+- `packages-core-refactoring-plan-20260425.md`
+- `packages-core-refactoring-candidates-20260426.md`
 
 ## 運用ルール
 
 - 新しい実装判断や優先順位の更新は、まず `packages-core-performance-strategy-20260425.md` に反映する。
+- 構造整理や責務分離の現行前提は `packages-core-layer-separation-inventory-20260425.md` を優先し、完了した段階的計画は `old/` へ移す。
 - 個別の検証や一時的な比較結果は、日付つきのメモとして追加する。
 - 個別メモの結論が方針へ取り込まれたら、トップレベルに置き続けず `old/` へ移す。

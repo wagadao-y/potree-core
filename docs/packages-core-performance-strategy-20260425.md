@@ -12,6 +12,8 @@
 - 4/24 の CPU 側改善により、可視判定と可視ノード更新の明確な無駄はかなり削れている。
 - 4/25 の実測では、Zstd は decompress 単体には効くが、ロード完了後の FPS 改善は限定的だった。
 - 一方、属性を position + rgb のみに絞ると、JS heap、attribute decode、transfer bytes は大きく改善した。
+- 2026-04-26 のシェーダー改善では、low-risk な shader / EDL 周辺項目は一通り消化した。
+- 同日の計測では、JS heap 悪化の主因は shader 本体ではなく renderer-side geometry materialization による不要配列だった。
 
 したがって、現在の改善方針は次の 2 軸に分ける。
 
@@ -47,6 +49,18 @@
 - 2026-04-25 の同一条件測定では、近接・高密度視点では `maxPointsPerPixel` を下げることで submitted points、draw call、GPU time が明確に低下した。
 - 一方、引き視点では OFF の時点で 60 FPS / GPU time 5 ms 台の余裕があり、固定閾値を強くかけると性能利益が小さいまま visible points だけを大きく削る。
 - したがって Screen-Space Density LOD は、標準で常時強く有効化する品質最適化ではなく、描画品質の自動制御、カメラ操作中の一時軽量化、低スペック端末向けプリセットで使う制御レバーとして扱う。
+
+### シェーダー改善の現在地
+
+- `docs/old/packages-core-shader-performance-investigation-20260426.md` に記録した low-risk 項目は実装済みとみなしてよい。
+- octree LOD 算出、point size scale uniform 化、EDL 背景 discard、classification lookup 重複削減、weighted splats 式簡略化、clipping の world position 共有、EDL projection matrix uniform 更新時の allocation 削減は採用済みである。
+- 今後の shader 側は、新しい機能追加に伴う回帰監視を除いて優先度を下げ、主戦場を submitted points / draw calls 制御へ戻す。
+
+### メモリ改善の現在地
+
+- runtime heap の観点では、decoder や worker payload だけでなく renderer-side geometry materialization が支配的になる場合がある。
+- normal 属性が存在しない node に対して zero-filled normal 配列を追加していた箇所は削除済みで、同一条件で JS heap は約 `1.02 GB -> 0.66 GB` まで低下した。
+- 今後のメモリ改善では、decoded 後バッファだけでなく、圧縮データ range cache や geometry upload 後の CPU 配列保持も対象に含めてよい。
 
 ## 標準データ配信方針
 
@@ -111,15 +125,20 @@ attributes: position + rgb のみ
 5. Zstd decoder warmup
    - 初回 node の decoder init をロード開始時に先出しし、p95 / max の初回遅延を下げる。
 
-6. bytes in flight 制御
+6. 圧縮データ range cache の LRU 化 / 容量拡張
+   - 現在の `octree-range-cache.ts` には 64 MB 上限の range cache があるが、再訪時の network fetch 削減にはまだ弱い。
+   - 圧縮済み byte range を byte-size ベースの LRU として保持し、remote dataset での再訪時 fetch を減らす。
+   - これは network / request には効くが decode 自体は残るため、steady-state FPS 改善ではなくロード / 遠隔 I/O 最適化として扱う。
+
+7. bytes in flight 制御
    - `maxNumNodesLoading` だけでなく bytes ベースのバックプレッシャーを導入する。
    - 巨大 node 混在時の heap peak と transfer スパイクを抑える。
 
-7. octree range merge gap 許容
+8. octree range merge gap 許容
    - 連続 range のみではなく、小さな gap を許容して request 数を削減する。
    - 余分な fetch bytes とのトレードオフは計測で判断する。
 
-8. clip 操作中の uniform 更新コスト削減
+9. clip 操作中の uniform 更新コスト削減
    - clip plane / sphere / box の uniform 配列を再利用し、操作中 allocation を減らす。
    - これは clip interaction の入力追従性改善として扱う。
 
