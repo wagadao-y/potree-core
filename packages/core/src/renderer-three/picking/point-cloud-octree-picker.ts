@@ -1,24 +1,23 @@
 import {
   type Camera,
-  Color,
-  LinearFilter,
-  NearestFilter,
-  NoBlending,
-  Points,
   type Ray,
-  RGBAFormat,
   Scene,
-  Sphere,
   Vector3,
   type WebGLRenderer,
-  WebGLRenderTarget,
+  type WebGLRenderTarget,
 } from "three";
-import { ClipMode, PointCloudMaterial, PointColorType } from "../materials";
-import type { PointCloudOctree } from "../point-cloud-octree";
-import type { PickPoint } from "../types";
-import { clamp } from "../utils/math";
-import { COLOR_BLACK, DEFAULT_PICK_WINDOW_SIZE } from "./constants";
-import type { PointCloudOctreeNode } from "./point-cloud-octree-node";
+import { ClipMode, PointCloudMaterial, PointColorType } from "../../materials";
+import type { PointCloudOctree } from "../../point-cloud-octree";
+import type { PickPoint } from "../../types";
+import { clamp } from "../../utils/math";
+import { DEFAULT_PICK_WINDOW_SIZE } from "../constants";
+import {
+  makePickRenderTarget,
+  preparePickRender,
+  readPickPixels,
+  updatePickRenderTarget,
+} from "./pick-render-target";
+import { createTempNodes, nodesOnRay } from "./pick-scene";
 import {
   findPointCloudPickHit,
   getPointCloudPickPoint,
@@ -51,10 +50,6 @@ interface IPickState {
 export class PointCloudOctreePicker {
   private static readonly helperVec3 = new Vector3();
 
-  private static readonly helperSphere = new Sphere();
-
-  private static readonly clearColor = new Color();
-
   private pickState: IPickState | undefined;
 
   dispose() {
@@ -85,8 +80,8 @@ export class PointCloudOctreePicker {
     const pixelRatio = renderer.getPixelRatio();
     const width = Math.ceil(renderer.domElement.clientWidth * pixelRatio);
     const height = Math.ceil(renderer.domElement.clientHeight * pixelRatio);
-    PointCloudOctreePicker.updatePickRenderTarget(
-      this.pickState,
+    pickState.renderTarget = updatePickRenderTarget(
+      pickState.renderTarget,
       width,
       height,
     );
@@ -110,13 +105,14 @@ export class PointCloudOctreePicker {
 
     const prevRenderTarget = renderer.getRenderTarget();
 
-    PointCloudOctreePicker.prepareRender(
+    preparePickRender(
       renderer,
+      pickState.renderTarget,
       x,
       y,
       pickWndSize,
-      pickMaterial,
-      pickState,
+      pickMaterial.depthTest,
+      pickMaterial.depthWrite,
     );
 
     const renderedNodes = PointCloudOctreePicker.render(
@@ -129,46 +125,12 @@ export class PointCloudOctreePicker {
       params,
     );
 
-    const pixels = PointCloudOctreePicker.readPixels(
-      renderer,
-      x,
-      y,
-      pickWndSize,
-    );
+    const pixels = readPickPixels(renderer, x, y, pickWndSize);
 
     renderer.setRenderTarget(prevRenderTarget);
 
     const hit = findPointCloudPickHit(pixels, pickWndSize);
     return getPointCloudPickPoint(hit, renderedNodes);
-  }
-
-  private static prepareRender(
-    renderer: WebGLRenderer,
-    x: number,
-    y: number,
-    pickWndSize: number,
-    pickMaterial: PointCloudMaterial,
-    pickState: IPickState,
-  ) {
-    renderer.setRenderTarget(pickState.renderTarget);
-
-    const pixelRatio = renderer.getPixelRatio();
-    renderer.setScissor(
-      x / pixelRatio,
-      y / pixelRatio,
-      pickWndSize / pixelRatio,
-      pickWndSize / pixelRatio,
-    );
-    renderer.setScissorTest(true);
-    renderer.state.buffers.depth.setTest(pickMaterial.depthTest);
-    renderer.state.buffers.depth.setMask(pickMaterial.depthWrite);
-    renderer.state.setBlending(NoBlending);
-
-    renderer.getClearColor(PointCloudOctreePicker.clearColor);
-    const oldClearAlpha = renderer.getClearAlpha();
-    renderer.setClearColor(COLOR_BLACK, 0);
-    renderer.clear(true, true, true);
-    renderer.setClearColor(PointCloudOctreePicker.clearColor, oldClearAlpha);
   }
 
   private static render(
@@ -182,7 +144,7 @@ export class PointCloudOctreePicker {
   ): RenderedNode[] {
     const renderedNodes: RenderedNode[] = [];
     for (const octree of octrees) {
-      const nodes = PointCloudOctreePicker.nodesOnRay(octree, ray);
+      const nodes = nodesOnRay(octree, ray);
       if (!nodes.length) {
         continue;
       }
@@ -198,7 +160,7 @@ export class PointCloudOctreePicker {
         params.onBeforePickRender(pickMaterial, pickState.renderTarget);
       }
 
-      pickState.scene.children = PointCloudOctreePicker.createTempNodes(
+      pickState.scene.children = createTempNodes(
         octree,
         nodes,
         pickMaterial,
@@ -212,78 +174,6 @@ export class PointCloudOctreePicker {
       });
     }
     return renderedNodes;
-  }
-
-  private static nodesOnRay(
-    octree: PointCloudOctree,
-    ray: Ray,
-  ): PointCloudOctreeNode[] {
-    const nodesOnRay: PointCloudOctreeNode[] = [];
-
-    const rayClone = ray.clone();
-    for (const node of octree.visibleNodes) {
-      const sphere = PointCloudOctreePicker.helperSphere
-        .copy(node.boundingSphere)
-        .applyMatrix4(octree.matrixWorld);
-
-      if (rayClone.intersectsSphere(sphere)) {
-        nodesOnRay.push(node);
-      }
-    }
-
-    return nodesOnRay;
-  }
-
-  private static readPixels(
-    renderer: WebGLRenderer,
-    x: number,
-    y: number,
-    pickWndSize: number,
-  ): Uint8Array {
-    const pixels = new Uint8Array(4 * pickWndSize * pickWndSize);
-    renderer.readRenderTargetPixels(
-      renderer.getRenderTarget()!,
-      x,
-      y,
-      pickWndSize,
-      pickWndSize,
-      pixels,
-    );
-    renderer.setScissorTest(false);
-    renderer.setRenderTarget(null!);
-    return pixels;
-  }
-
-  private static createTempNodes(
-    octree: PointCloudOctree,
-    nodes: PointCloudOctreeNode[],
-    pickMaterial: PointCloudMaterial,
-    nodeIndexOffset: number,
-  ): Points[] {
-    const tempNodes: Points[] = [];
-    for (let i = 0; i < nodes.length; i++) {
-      const node = nodes[i];
-      const sceneNode = node.sceneNode;
-      const tempNode = new Points(sceneNode.geometry, pickMaterial);
-      tempNode.matrix = sceneNode.matrixWorld;
-      tempNode.matrixWorld = sceneNode.matrixWorld;
-      tempNode.matrixAutoUpdate = false;
-      tempNode.frustumCulled = false;
-      tempNode.layers.enableAll();
-
-      const nodeIndex = nodeIndexOffset + i + 1;
-      if (nodeIndex > 255) {
-        throw Error("More than 255 nodes for pick are not supported.");
-      }
-      tempNode.onBeforeRender = PointCloudMaterial.makeOnBeforeRender(
-        octree,
-        node,
-        nodeIndex,
-      );
-
-      tempNodes.push(tempNode);
-    }
-    return tempNodes;
   }
 
   private static updatePickMaterial(
@@ -312,31 +202,6 @@ export class PointCloudOctreePicker {
     }
   }
 
-  private static updatePickRenderTarget(
-    pickState: IPickState,
-    width: number,
-    height: number,
-  ): void {
-    if (
-      pickState.renderTarget.width === width &&
-      pickState.renderTarget.height === height
-    ) {
-      return;
-    }
-
-    pickState.renderTarget.dispose();
-    pickState.renderTarget = PointCloudOctreePicker.makePickRenderTarget();
-    pickState.renderTarget.setSize(width, height);
-  }
-
-  private static makePickRenderTarget() {
-    return new WebGLRenderTarget(1, 1, {
-      minFilter: LinearFilter,
-      magFilter: NearestFilter,
-      format: RGBAFormat,
-    });
-  }
-
   private static getPickState() {
     const scene = new Scene();
 
@@ -347,7 +212,7 @@ export class PointCloudOctreePicker {
     material.pointColorType = PointColorType.POINT_INDEX;
 
     return {
-      renderTarget: PointCloudOctreePicker.makePickRenderTarget(),
+      renderTarget: makePickRenderTarget(),
       material: material,
       scene: scene,
     };

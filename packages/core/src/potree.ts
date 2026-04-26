@@ -15,16 +15,16 @@ import type { OctreeGeometry } from "./loading/OctreeGeometry";
 import type { OctreeGeometryNode } from "./loading/OctreeGeometryNode";
 import type { RequestManager } from "./loading/RequestManager";
 import { PointCloudOctree } from "./point-cloud-octree";
-import { getFeatures } from "./renderer-three/features";
-import type { PointCloudOctreeNode } from "./renderer-three/point-cloud-octree-node";
-import {
-  type PickParams,
-  pickPointClouds,
-} from "./renderer-three/point-cloud-octree-picker";
 import {
   type ClipVisibilityContext,
   ThreePointCloudVisibilityAdapter,
-} from "./renderer-three/point-cloud-visibility-adapter";
+} from "./renderer-three/adapters/point-cloud-visibility-adapter";
+import { getFeatures } from "./renderer-three/features";
+import type { PointCloudOctreeNode } from "./renderer-three/geometry/point-cloud-octree-node";
+import {
+  type PickParams,
+  pickPointClouds,
+} from "./renderer-three/picking/point-cloud-octree-picker";
 import type { IPotree, PickPoint } from "./renderer-three/types";
 import { LRU } from "./utils/lru";
 

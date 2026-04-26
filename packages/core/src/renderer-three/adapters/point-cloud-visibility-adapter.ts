@@ -1,21 +1,21 @@
 import { Box3, type Camera, Vector2, Vector3, type WebGLRenderer } from "three";
-import type { PointCloudVisibilityUpdateInput } from "../core";
-import type { Box3Like, IPointCloudTreeNode } from "../core/types";
-import type { OctreeGeometryNode } from "../loading/OctreeGeometryNode";
-import { ClipMode } from "../materials";
-import type { PointCloudOctree } from "../point-cloud-octree";
-import { toThreeBox3 } from "./box3-like";
-import type { PointCloudOctreeNode } from "./point-cloud-octree-node";
-import { updatePointCloudAfterVisibility } from "./point-cloud-octree-renderer";
+import type { PointCloudVisibilityUpdateInput } from "../../core";
+import type { Box3Like, IPointCloudTreeNode } from "../../core/types";
+import type { OctreeGeometryNode } from "../../loading/OctreeGeometryNode";
+import { ClipMode } from "../../materials";
+import type { PointCloudOctree } from "../../point-cloud-octree";
+import type { PointCloudOctreeNode } from "../geometry/point-cloud-octree-node";
+import { toThreeBox3 } from "../math/box3-like";
 import {
   materializePointCloudOctreeNode,
   resetPointCloudOctreeRenderedVisibility,
   updatePointCloudOctreeNodeVisibility,
-} from "./point-cloud-octree-scene";
+} from "../scene/point-cloud-octree-scene";
 import {
   createVisibilityProjection as createProjection,
   createPointCloudVisibilityViews as createVisibilityViews,
-} from "./point-cloud-visibility-view";
+} from "../scene/point-cloud-visibility-view";
+import { updatePointCloudAfterVisibility } from "./point-cloud-octree-renderer";
 
 export interface ClipVisibilityContext {
   enabled: boolean;

@@ -1,6 +1,6 @@
 import { Object3D } from "three";
-import { PointCloudTreeModel } from "../core/point-cloud-tree-model";
-import type { IPointCloudTreeNode } from "../types";
+import { PointCloudTreeModel } from "../../core/point-cloud-tree-model";
+import type { IPointCloudTreeNode } from "../../types";
 
 /**
  * Represents a point cloud tree structure backed by a THREE.Object3D.

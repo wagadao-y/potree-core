@@ -1,7 +1,7 @@
 import { type BufferAttribute, type Points, Vector3, Vector4 } from "three";
-import type { PointCloudOctree } from "../point-cloud-octree";
-import type { PickPoint, PointCloudHit } from "../types";
-import type { PointCloudOctreeNode } from "./point-cloud-octree-node";
+import type { PointCloudOctree } from "../../point-cloud-octree";
+import type { PickPoint, PointCloudHit } from "../../types";
+import type { PointCloudOctreeNode } from "../geometry/point-cloud-octree-node";
 
 export interface RenderedNode {
   node: PointCloudOctreeNode;

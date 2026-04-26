@@ -2,7 +2,7 @@ import {
   AdditiveBlending,
   type BufferGeometry,
   type Camera,
-  Color,
+  type Color,
   GLSL3,
   LessEqualDepth,
   type Material,
@@ -11,26 +11,16 @@ import {
   type PerspectiveCamera,
   RawShaderMaterial,
   type Scene,
-  Texture,
-  Vector3,
+  type Texture,
+  type Vector3,
   type Vector4,
   type WebGLRenderer,
   WebGLRenderTarget,
 } from "three";
-import {
-  DEFAULT_MAX_POINT_SIZE,
-  DEFAULT_MIN_POINT_SIZE,
-  DEFAULT_RGB_BRIGHTNESS,
-  DEFAULT_RGB_CONTRAST,
-  DEFAULT_RGB_GAMMA,
-} from "../constants";
 import { getBox3Size } from "../core/box3-like-utils";
 import type { PointCloudOctree } from "../point-cloud-octree";
-import {
-  DEFAULT_HIGHLIGHT_COLOR,
-  PERSPECTIVE_CAMERA,
-} from "../renderer-three/constants";
-import type { PointCloudOctreeNode } from "../renderer-three/point-cloud-octree-node";
+import { PERSPECTIVE_CAMERA } from "../renderer-three/constants";
+import type { PointCloudOctreeNode } from "../renderer-three/geometry/point-cloud-octree-node";
 import { DEFAULT_CLASSIFICATION } from "./classification";
 import { ClipMode, type IClipBox, type IClipSphere } from "./clipping";
 import { ColorEncoding } from "./color-encoding";
@@ -43,6 +33,10 @@ import {
 } from "./enums";
 import { SPECTRAL } from "./gradients";
 import { applyPointCloudMaterialDefines } from "./point-cloud-material-defines";
+import {
+  createPointCloudMaterialUniforms,
+  type IPointCloudMaterialUniforms,
+} from "./point-cloud-material-uniforms";
 import {
   buildClipBoxesArray,
   buildClipPlanesArray,
@@ -91,128 +85,6 @@ export interface IPointCloudMaterialParameters {
   newFormat: boolean;
 }
 
-/**
- * Interface defining uniforms for point cloud material rendering in WebGL shaders.
- * These uniforms control various aspects of point cloud visualization including
- * appearance, filtering, transformations, and rendering parameters.
- *
- * @interface IPointCloudMaterialUniforms
- */
-export interface IPointCloudMaterialUniforms {
-  /** Bounding box size as [width, height, depth] */
-  bbSize: IUniform<[number, number, number]>;
-  /** Supplement value for depth blending calculations */
-  blendDepthSupplement: IUniform<number>;
-  /** Hardness factor for blending operations */
-  blendHardness: IUniform<number>;
-  /** Lookup texture for point classification rendering */
-  classificationLUT: IUniform<Texture>;
-  /** Number of active clipping boxes */
-  clipBoxCount: IUniform<number>;
-  /** Array containing clipping box parameters */
-  clipBoxes: IUniform<Float32Array>;
-  /** Number of active clipping spheres */
-  clipSphereCount: IUniform<number>;
-  /** Array containing clipping sphere parameters (vec4: xyz=center, w=radius) */
-  clipSpheres: IUniform<Float32Array>;
-  /** Number of active clipping planes */
-  clipPlaneCount: IUniform<number>;
-  /** Array containing clipping plane parameters (vec4: xyz=normal, w=constant) */
-  clipPlanes: IUniform<Float32Array>;
-  /** Depth map texture for depth-based effects, null if not used */
-  depthMap: IUniform<Texture | null>;
-  /** Diffuse color as RGB values [r, g, b] */
-  diffuse: IUniform<[number, number, number]>;
-  /** Field of view angle in radians */
-  fov: IUniform<number>;
-  /** Gradient texture for color mapping */
-  gradient: IUniform<Texture>;
-  /** Maximum height value for elevation-based coloring */
-  heightMax: IUniform<number>;
-  /** Minimum height value for elevation-based coloring */
-  heightMin: IUniform<number>;
-  /** Brightness adjustment for intensity values */
-  intensityBrightness: IUniform<number>;
-  /** Contrast adjustment for intensity values */
-  intensityContrast: IUniform<number>;
-  /** Gamma correction for intensity values */
-  intensityGamma: IUniform<number>;
-  /** Intensity range as [min, max] values */
-  intensityRange: IUniform<[number, number]>;
-  /** Current level of detail */
-  level: IUniform<number>;
-  /** Maximum point size in pixels */
-  maxSize: IUniform<number>;
-  /** Minimum point size in pixels */
-  minSize: IUniform<number>;
-  /** Size of the octree structure */
-  octreeSize: IUniform<number>;
-  /** Overall opacity of the point cloud (0.0 to 1.0) */
-  opacity: IUniform<number>;
-  /** Point cloud index identifier */
-  pcIndex: IUniform<number>;
-  /** Brightness adjustment for RGB color values */
-  rgbBrightness: IUniform<number>;
-  /** Contrast adjustment for RGB color values */
-  rgbContrast: IUniform<number>;
-  /** Gamma correction for RGB color values */
-  rgbGamma: IUniform<number>;
-  /** Screen height in pixels */
-  screenHeight: IUniform<number>;
-  /** Screen width in pixels */
-  screenWidth: IUniform<number>;
-  /** Orthographic camera height */
-  orthoHeight: IUniform<number>;
-  /** Orthographic camera width */
-  orthoWidth: IUniform<number>;
-  /** Flag indicating whether orthographic camera is being used */
-  useOrthographicCamera: IUniform<boolean>;
-  /** Far clipping plane distance */
-  far: IUniform<number>;
-  /** Base point size */
-  size: IUniform<number>;
-  /** Spacing between points */
-  spacing: IUniform<number>;
-  /** Transformation matrix to model space */
-  toModel: IUniform<number[]>;
-  /** Transition factor for animations or interpolations */
-  transition: IUniform<number>;
-  /** Color uniform for material */
-  uColor: IUniform<Color>;
-  /** Texture containing visible node information */
-  visibleNodes: IUniform<Texture>;
-  /** Width of the visible nodes texture in texels */
-  visibleNodesTextureSize: IUniform<number>;
-  /** Starting index for visible nodes */
-  vnStart: IUniform<number>;
-  /** Weight factor for classification-based coloring */
-  wClassification: IUniform<number>;
-  /** Weight factor for elevation-based coloring */
-  wElevation: IUniform<number>;
-  /** Weight factor for intensity-based coloring */
-  wIntensity: IUniform<number>;
-  /** Weight factor for return number-based coloring */
-  wReturnNumber: IUniform<number>;
-  /** Weight factor for RGB color contribution */
-  wRGB: IUniform<number>;
-  /** Weight factor for source ID-based coloring */
-  wSourceID: IUniform<number>;
-  /** Opacity attenuation factor based on distance or other criteria */
-  opacityAttenuation: IUniform<number>;
-  /** Threshold value for normal-based point filtering */
-  filterByNormalThreshold: IUniform<number>;
-  /** 3D coordinate of the highlighted point */
-  highlightedPointCoordinate: IUniform<Vector3>;
-  /** RGBA color for highlighted point rendering */
-  highlightedPointColor: IUniform<Vector4>;
-  /** Flag to enable or disable point highlighting feature */
-  enablePointHighlighting: IUniform<boolean>;
-  /** Scale factor for highlighted point size */
-  highlightedPointScale: IUniform<number>;
-  /** Scale factor for view-dependent sizing */
-  viewScale: IUniform<number>;
-}
-
 export class PointCloudMaterial extends RawShaderMaterial {
   private static readonly INITIAL_VISIBLE_NODES_TEXTURE_SIZE = 2048;
 
@@ -247,72 +119,12 @@ export class PointCloudMaterial extends RawShaderMaterial {
   private classificationTexture: Texture | undefined =
     generateClassificationTexture(this._classification);
 
-  uniforms: IPointCloudMaterialUniforms & Record<string, IUniform<any>> = {
-    bbSize: makeUniform("fv", [0, 0, 0] as [number, number, number]),
-    blendDepthSupplement: makeUniform("f", 0.0),
-    blendHardness: makeUniform("f", 2.0),
-    classificationLUT: makeUniform(
-      "t",
-      this.classificationTexture || new Texture(),
-    ),
-    clipBoxCount: makeUniform("f", 0),
-    clipBoxes: makeUniform("Matrix4fv", [] as any),
-    clipSphereCount: makeUniform("f", 0),
-    clipSpheres: makeUniform("fv", [] as any),
-    clipPlaneCount: makeUniform("f", 0),
-    clipPlanes: makeUniform("fv", [] as any),
-    depthMap: makeUniform("t", null),
-    diffuse: makeUniform("fv", [1, 1, 1] as [number, number, number]),
-    fov: makeUniform("f", 1.0),
-    gradient: makeUniform("t", this.gradientTexture || new Texture()),
-    heightMax: makeUniform("f", 1.0),
-    heightMin: makeUniform("f", 0.0),
-    intensityBrightness: makeUniform("f", 0),
-    intensityContrast: makeUniform("f", 0),
-    intensityGamma: makeUniform("f", 1),
-    intensityRange: makeUniform("fv", [0, 65000] as [number, number]),
-    isLeafNode: makeUniform("b", 0),
-    level: makeUniform("f", 0.0),
-    maxSize: makeUniform("f", DEFAULT_MAX_POINT_SIZE),
-    minSize: makeUniform("f", DEFAULT_MIN_POINT_SIZE),
-    octreeSize: makeUniform("f", 0),
-    opacity: makeUniform("f", 1.0),
-    pcIndex: makeUniform("f", 0),
-    rgbBrightness: makeUniform("f", DEFAULT_RGB_BRIGHTNESS),
-    rgbContrast: makeUniform("f", DEFAULT_RGB_CONTRAST),
-    rgbGamma: makeUniform("f", DEFAULT_RGB_GAMMA),
-    screenHeight: makeUniform("f", 1.0),
-    screenWidth: makeUniform("f", 1.0),
-    useOrthographicCamera: makeUniform("b", false),
-    orthoHeight: makeUniform("f", 1.0),
-    orthoWidth: makeUniform("f", 1.0),
-    far: makeUniform("f", 1000.0),
-    size: makeUniform("f", 1),
-    spacing: makeUniform("f", 1.0),
-    toModel: makeUniform("Matrix4f", []),
-    transition: makeUniform("f", 0.5),
-    uColor: makeUniform("c", new Color(0xffffff)),
-    // @ts-ignore
-    visibleNodes: makeUniform("t", this.visibleNodesTexture || new Texture()),
-    visibleNodesTextureSize: makeUniform(
-      "f",
-      this.visibleNodesTextureData.textureSize,
-    ),
-    vnStart: makeUniform("f", 0.0),
-    wClassification: makeUniform("f", 0),
-    wElevation: makeUniform("f", 0),
-    wIntensity: makeUniform("f", 0),
-    wReturnNumber: makeUniform("f", 0),
-    wRGB: makeUniform("f", 1),
-    wSourceID: makeUniform("f", 0),
-    opacityAttenuation: makeUniform("f", 1),
-    filterByNormalThreshold: makeUniform("f", 0),
-    highlightedPointCoordinate: makeUniform("fv", new Vector3()),
-    highlightedPointColor: makeUniform("fv", DEFAULT_HIGHLIGHT_COLOR.clone()),
-    enablePointHighlighting: makeUniform("b", true),
-    highlightedPointScale: makeUniform("f", 2.0),
-    viewScale: makeUniform("f", 1.0),
-  };
+  uniforms: IPointCloudMaterialUniforms & Record<string, IUniform<any>> =
+    createPointCloudMaterialUniforms({
+      classificationTexture: this.classificationTexture,
+      gradientTexture: this.gradientTexture,
+      visibleNodesTextureSize: this.visibleNodesTextureData.textureSize,
+    });
 
   @uniform("bbSize") bbSize!: [number, number, number];
 
@@ -800,10 +612,6 @@ export class PointCloudMaterial extends RawShaderMaterial {
       }
     };
   }
-}
-
-function makeUniform<T>(type: string, value: T): IUniform<T> {
-  return { type: type, value: value };
 }
 
 function getValid<T>(a: T | undefined, b: T): T {

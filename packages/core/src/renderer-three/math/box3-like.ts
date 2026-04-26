@@ -1,5 +1,5 @@
 import { Box3, Sphere, Vector3 } from "three";
-import type { Box3Like, SphereLike, Vec3Like } from "../core/types";
+import type { Box3Like, SphereLike, Vec3Like } from "../../core/types";
 
 export function toThreeVector3(vec: Vec3Like, target = new Vector3()): Vector3 {
   return target.set(vec.x, vec.y, vec.z);

@@ -5,13 +5,13 @@ import {
   Vector3,
   type WebGLRenderer,
 } from "three";
-import type { OctreeGeometryNode } from "../loading/OctreeGeometryNode";
-import { PointCloudMaterial } from "../materials";
-import type { PointCloudOctree } from "../point-cloud-octree";
-import { computeTransformedBoundingBox } from "./bounds";
-import { toThreeBox3 } from "./box3-like";
-import type { PointCloudOctreeNode } from "./point-cloud-octree-node";
-import { materializePointCloudOctreeNode } from "./point-cloud-octree-scene";
+import type { OctreeGeometryNode } from "../../loading/OctreeGeometryNode";
+import { PointCloudMaterial } from "../../materials";
+import type { PointCloudOctree } from "../../point-cloud-octree";
+import type { PointCloudOctreeNode } from "../geometry/point-cloud-octree-node";
+import { computeTransformedBoundingBox } from "../math/bounds";
+import { toThreeBox3 } from "../math/box3-like";
+import { materializePointCloudOctreeNode } from "../scene/point-cloud-octree-scene";
 
 const pointCloudVisibleBounds = new WeakMap<PointCloudOctree, Box3>();
 

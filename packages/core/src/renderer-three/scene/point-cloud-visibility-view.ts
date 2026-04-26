@@ -7,11 +7,11 @@ import {
   type PerspectiveCamera,
   Vector3,
 } from "three";
-import type { Box3Like } from "../core/types";
-import type { VisibilityProjection } from "../core/visibility/update-visibility";
-import type { PointCloudVisibilityView } from "../core/visibility/visibility-structures";
-import type { PointCloudOctree } from "../point-cloud-octree";
-import { toThreeBox3 } from "./box3-like";
+import type { Box3Like } from "../../core/types";
+import type { VisibilityProjection } from "../../core/visibility/update-visibility";
+import type { PointCloudVisibilityView } from "../../core/visibility/visibility-structures";
+import type { PointCloudOctree } from "../../point-cloud-octree";
+import { toThreeBox3 } from "../math/box3-like";
 
 export function createPointCloudVisibilityViews(
   pointClouds: PointCloudOctree[],

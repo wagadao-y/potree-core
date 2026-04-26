@@ -8,9 +8,9 @@ import {
 import type {
   IPointCloudRenderedNode,
   IPointCloudTreeNode,
-} from "../core/types";
-import type { OctreeGeometryNode } from "../loading/OctreeGeometryNode";
-import { toThreeBox3, toThreeSphere } from "./box3-like";
+} from "../../core/types";
+import type { OctreeGeometryNode } from "../../loading/OctreeGeometryNode";
+import { toThreeBox3, toThreeSphere } from "../math/box3-like";
 import { disposeMaterializedOctreeNodeGeometry } from "./octree-node-geometry";
 
 export class PointCloudOctreeNode

@@ -16,15 +16,15 @@ import type {
 import type { OctreeGeometry } from "./loading/OctreeGeometry";
 import type { OctreeGeometryNode } from "./loading/OctreeGeometryNode";
 import type { PointCloudMaterial, PointSizeType } from "./materials";
-import { toThreeBox3, toThreeVector3 } from "./renderer-three/box3-like";
-import type { PointCloudOctreeNode } from "./renderer-three/point-cloud-octree-node";
+import { pointCloudOctreeRendererAdapter } from "./renderer-three/adapters/point-cloud-octree-renderer";
+import type { PointCloudOctreeNode } from "./renderer-three/geometry/point-cloud-octree-node";
+import { toThreeBox3, toThreeVector3 } from "./renderer-three/math/box3-like";
 import {
   disposePointCloudOctreePicker,
   type PickParams,
   pickPointCloud,
-} from "./renderer-three/point-cloud-octree-picker";
-import { pointCloudOctreeRendererAdapter } from "./renderer-three/point-cloud-octree-renderer";
-import { PointCloudTree } from "./renderer-three/point-cloud-tree";
+} from "./renderer-three/picking/point-cloud-octree-picker";
+import { PointCloudTree } from "./renderer-three/scene/point-cloud-tree";
 import type { IPotree, PickPoint } from "./renderer-three/types";
 
 export class PointCloudOctree

@@ -1,6 +1,6 @@
 import { BufferAttribute, BufferGeometry } from "three";
-import type { OctreeGeometryNode } from "../loading/OctreeGeometryNode";
-import { toThreeBox3 } from "./box3-like";
+import type { OctreeGeometryNode } from "../../loading/OctreeGeometryNode";
+import { toThreeBox3 } from "../math/box3-like";
 
 const materializedOctreeNodeGeometries = new WeakMap<
   OctreeGeometryNode,
