@@ -42,6 +42,35 @@ tokei packages/core/src/materials/shaders
 
 一方、常に全モードで効く改善は限られる。現行の `PointCloudMaterial` は define によって多くの分岐をコンパイル時に落としているため、各案は「どの描画モードで効くか」を明確にして実装する必要がある。
 
+## 2026-04-26 実施結果
+
+本調査をもとに、以下の項目を実装・計測した。
+
+| 項目 | 状態 | 実施内容 | 結果 |
+| --- | --- | --- | --- |
+| 1. octree LOD 算出軽量化 | 採用 | `pow()` の loop 内再計算を除去し、visible node byte decode を helper 化、child offset は手動 popcount に置換 | shader compile を壊さずに実装可能。steady-state FPS / GPU time の改善は小さいが、low-risk な ALU 削減として維持 |
+| 2. point size scale uniform 化 | 採用 | draw call ごとに一定の scale を CPU 側で計算し uniform 化 | vertex shader 内の行列演算を削減。効果は限定的だが安全で維持 |
+| 3. EDL 背景早期 discard | 採用 | 背景 fragment を `response()` より前に discard | 背景面積が大きい view でのみ効く。変更が小さく安全 |
+| 4. clipping の world position 計算共有 | 採用 | `worldPos` を 1 回計算し、clip box / sphere / plane で共有 | 既にコードへ反映済み。3 clip plane 条件でも GPU / FPS 差は小さく、low-risk だが ROI は低い |
+| 5. classification の texture lookup 重複削除 | 採用 | classification LUT の取得結果を alpha 判定にも再利用 | 局所変更で安全。classification 表示時の無駄を削減 |
+| 6. weighted splats の sqrt 除去 | 採用 | `length()` 経由の式を `dot(pc, pc)` へ置換 | weighted splats path 限定の ALU 削減として採用 |
+| 7. EDL projection matrix uniform 更新時の allocation 削減 | 未着手 | - | シェーダー外だが、EDL path の CPU / GC 側改善候補として残す |
+
+採用済みコミット:
+
+- `bcd7ff1` EDL 背景の早期 discard
+- `a222758` classification 重複 lookup 削減、weighted splats の式簡略化
+- `6b78e2f` point size scale uniform 化
+- `2e842b6` clipping 比較用設定追加時点で world position 共有は反映済み
+- `ca297b8` octree LOD 算出軽量化
+
+補足:
+
+- 2026-04-26 の計測では、JS heap 悪化の主因はシェーダーではなく renderer-side geometry materialization だった。
+- `packages/core/src/renderer-three/geometry/octree-node-geometry.ts` で、normal 属性が無い node に zero-filled normal 配列を全点分追加していたため、position+rgb データでも main-thread heap が約 1.0 GB まで膨らんでいた。
+- この不要配列を削除した結果、同一 preset / 同一視点で JS heap は約 `1.02 GB -> 0.66 GB` まで低下し、GPU time はほぼ不変だった。
+- したがって、シェーダー改善と並行して、renderer / geometry materialization 側の不要配列や二次バッファも継続的に疑う必要がある。
+
 ## 優先度 A: GPU hot path に効く可能性が高い案
 
 ### 1. `pointcloud.vs` の octree LOD 算出を軽量化する
@@ -249,20 +278,21 @@ float w = exp(-2.0 * dot(pc, pc));
 
 - Three.js が uniform value の同一参照更新を正しく拾うことを確認する。
 
-## 実装順の推奨
+## 次のアクション
 
-1. EDL 背景早期 discard
-   - 変更が小さく、効果が出る条件も明確。
-2. classification texture lookup 重複削除
-   - 変更が局所的で、classification 表示時の削減が明確。
-3. weighted splats の weight 計算簡略化
-   - 数式確認しやすく、変更が小さい。
-4. clipping world position 共有
-   - clipping 組み合わせの確認が必要だが、実装範囲は shader 内で閉じる。
-5. point size scale uniform 化
-   - CPU 側 uniform 更新設計が必要なため、shader 単体変更より少し重い。
-6. octree LOD 算出軽量化
-   - 効果は大きい可能性があるが、LOD 境界の視覚差分検証が必要。
+シェーダー改善まわりで次に着手するなら、順番は以下を推奨する。
+
+1. `EDLPass` / `EyeDomeLightingMaterial` の uniform 更新 allocation 削減
+   - シェーダー本文ではないが、EDL path の CPU / GC 改善として未着手で、変更範囲も局所的。
+   - 既存の shader 改善群と同じく low-risk で検証しやすい。
+2. clipping の world position 計算共有は、必要なら再計測して採否を再確認する
+   - 実装自体は小さいが、現時点の実測では優先度が低い。
+   - clip box / plane / sphere の多重使用ケースを重点的に見ない限り、ROI は高くない。
+3. シェーダー単体の micro-optimization はいったん優先度を下げ、主戦場を submitted points / draw calls 制御へ戻す
+   - `docs/packages-core-performance-strategy-20260425.md` のとおり、steady-state FPS は GPU time と submitted points に強く支配される。
+   - そのため、今後の主軸は dynamic point budget、Screen-Space Density LOD の運用化、clip-aware な可視制御の拡張に置くのが妥当。
+
+判断としては、シェーダー改善のうち low-risk な案は一通り消化できた。ここから先は、シェーダー micro-optimization よりも、GPU に送る点数と draw call 数を直接減らす施策の方が優先度が高い。
 
 ## 検証観点
 
