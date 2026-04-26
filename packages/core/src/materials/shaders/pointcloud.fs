@@ -88,8 +88,7 @@ void main() {
 
 	// Initialize fragment color and opacity
 	#if defined(weighted_splats)
-		float wx = 2.0 * length(pc);
-		float w = exp(-wx * wx * 0.5);
+		float w = exp(-2.0 * dot(pc, pc));
 		fragColor = vec4(color * w, w);
 	#elif defined(color_type_point_index)
 		fragColor = vec4(color, pcIndex / 255.0);

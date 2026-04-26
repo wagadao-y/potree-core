@@ -410,6 +410,8 @@ void main() {
 		#endif
 	#endif
 
+	float classificationAlpha = 1.0;
+
 
 	// NORMAL FILTERING
 	#ifdef use_filter_by_normal
@@ -448,6 +450,7 @@ void main() {
 		vColor = getPointIndexColor();
 	#elif defined color_type_classification
 		vec4 cl = getClassification();
+		classificationAlpha = cl.a;
 		vColor = cl.rgb;
 	#elif defined color_type_return_number
 		vColor = getReturnNumber();
@@ -462,7 +465,7 @@ void main() {
 	#endif
 	
 	#if !defined color_type_composite && defined color_type_classification
-		if (getClassification().a == 0.0) {
+		if (classificationAlpha == 0.0) {
 			gl_Position = vec4(100.0, 100.0, 100.0, 0.0); // Cull point if classification alpha is zero
 			return;
 		}
