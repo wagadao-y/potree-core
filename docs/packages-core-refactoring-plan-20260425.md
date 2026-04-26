@@ -2,7 +2,7 @@
 
 > 本文書は 2026-04-25 時点の `packages/core` を調査し、ディレクトリ構造、ファイル分割、公開 API、責務分離、コードの見通しの改善に向けた段階的なリファクタリング計画をまとめたものである。既存の層分離方針は `docs/packages-core-layer-separation-inventory-20260425.md` を前提としつつ、本書では pure core / renderer 分離に限定せず、コード品質改善全般を対象とする。
 
-> 2026-04-26 更新: Phase 1 は概ね完了し、Phase 2 から Phase 4 にまたがる主要な責務分離も一段落した。`loading/OctreeLoader.ts`、`PointCloudOctree`、`Potree`、`materials/point-cloud-material.ts`、`renderer-three/point-cloud-octree-renderer.ts` の中心責務は段階的に切り出され、`packages/core/tsconfig.json` の整理も完了した。次の関心は、残る facade の厚み確認、material の追加分離、`renderer-three` 配下の再配置に移りつつある。
+> 2026-04-26 更新: Phase 1 は概ね完了し、Phase 2 から Phase 4 にまたがる主要な責務分離もひとまず一区切りに入った。`loading/OctreeLoader.ts`、`PointCloudOctree`、`Potree`、`materials/point-cloud-material.ts`、`renderer-three/point-cloud-octree-renderer.ts` の中心責務は段階的に切り出され、最後に material の更新 helper、picker の result decode、visibility scheduler の visible-run 選別も分離した。`packages/core/tsconfig.json` の整理も完了しており、現時点の次関心は残る facade の厚み確認と `renderer-three` 配下の再配置を、必要になった時点で再開することにある。
 
 ## 目的
 
@@ -141,23 +141,27 @@
 - `OctreeLoader.ts` の batch planning と hierarchy transport も helper 化し、loader 本体を orchestration 中心へ寄せた。
 - `PointCloudOctree` の renderer helper 依存を adapter 経由へ集約し、`Potree` の visibility input 構築と post-visibility 更新ループも renderer-three 側へ委譲した。
 - `materials/point-cloud-material.ts` から visible nodes texture 管理と shader define 構築を分離し、material 本体の責務を縮小した。
+- `materials/point-cloud-material.ts` から classification 比較と clipping uniform 配列生成を `point-cloud-material-updates.ts` へ分離し、material 本体の更新責務をさらに縮小した。
 - `renderer-three/point-cloud-octree-renderer.ts` から visibility adapter、rendered-node / scene helper、visibility view / projection 生成を別ファイルへ分離した。
+- `renderer-three/point-cloud-octree-picker.ts` から hit 抽出と pick point 展開を `point-cloud-pick-result.ts` へ分離し、picker 本体を render pipeline 中心へ寄せた。
+- `core/point-cloud-visibility-scheduler.ts` から visible-run 候補収集を `point-cloud-visible-run.ts` へ分離し、scheduler 本体を visibility 更新と loader grouping 中心へ整理した。
 - `packages/core/tsconfig.json` を declaration 出力前提のライブラリ設定として整理し、`composite`、`declarationMap`、`tsBuildInfoFile`、`skipLibCheck` を反映した。
 - `packages/core/tsconfig.json` で `noImplicitReturns`、`noUnusedParameters`、`strictNullChecks`、`noImplicitAny`、`strict` を段階的に有効化し、`packages/core` は strict mode で通る状態になった。
 - `useDefineForClassFields` は decorator 実装との実行時互換のため `false` 維持が妥当と確認し、TypeScript 側の strict 系フラグだけを簡潔化した。
+- コミット `0968b7d` で、material / picker / visibility scheduler の責務分離を一区切りとして記録した。
 
 ### 進行中
 
 - `PointCloudOctree` と `Potree` は facade としてかなり薄くなったが、src 直下の入口としてはまだ厚みが残っている。
-- `renderer-three` 配下の責務分割は進んだが、ファイル配置はまだ `scene`、`geometry`、`adapters` などのサブディレクトリに整理し切っていない。
-- `materials/point-cloud-material.ts` は改善したものの、classification / clipping / uniform 更新の一部はなお同一ファイルに残っている。
+- `renderer-three` 配下の責務分割は進んだが、ファイル配置はまだ `scene`、`geometry`、`adapters`、`picking` などのサブディレクトリに整理し切っていない。
 - `packages/core/tsconfig.json` の主要な見直しは完了したため、今後は tsconfig 自体よりも decorator 実装と field semantics の互換性をどう扱うかが論点になる。
+- 直近のリファクタリングはここで一区切りとし、残作業は継続前提の backlog ではなく「必要時に再開する候補」として扱う。
 
 ### 残作業の判断軸
 
 - ここまでで「loading と renderer の結合を下げる」ための基盤分離は一通り進んだ。
 - 今後は「実装の所在が読めること」と「主要 facade を短時間で理解できること」の改善効果が高い。
-- そのため、残タスクは loading の追加分割よりも、material / picking / renderer facade の見通し改善を優先するのが妥当である。
+- そのため、今後の再開時は loading の追加分割よりも、renderer-three 配下の再配置や facade の最終的な厚み判断のような「構造の見え方」を整える作業を優先するのが妥当である。
 
 ## 目標ディレクトリ構造
 
@@ -401,7 +405,7 @@ packages/core/src/
 
 状態:
 
-- 進行中
+- 主要タスク完了、ひとまず一区切り
 
 目的:
 
@@ -419,9 +423,10 @@ packages/core/src/
 
 進捗メモ:
 
-- picker の実体は `renderer-three` に移設済みだが、`picking` サブディレクトリ化や API の整理までは未着手である。
-- `materials/point-cloud-material.ts` から visible nodes texture 管理と shader define 構築は切り出し済みである。
-- `renderer-three/point-cloud-octree-renderer.ts` から visibility adapter、scene helper、visibility view 生成は分離済みで、残る主対象は clipping / classification などの material 更新ロジックである。
+- picker の実体は `renderer-three` に移設済みで、さらに hit 抽出と pick point 展開を `point-cloud-pick-result.ts` へ分離した。
+- `materials/point-cloud-material.ts` から visible nodes texture 管理、shader define 構築、classification 比較、clipping uniform 配列生成を切り出し済みである。
+- `core/point-cloud-visibility-scheduler.ts` から visible-run 候補収集も helper 化し、大型ファイルだった 3 スライスの局所責務分離はここで一巡した。
+- なお `renderer-three/picking` 方向の再配置や render pass / renderer facade 境界の追加整理は未着手で、再開時の候補に残す。
 
 ### Phase 5. 公開 API を整理する
 
@@ -450,20 +455,19 @@ packages/core/src/
 
 ## 優先順位
 
-2026-04-26 時点の残作業優先順位:
+2026-04-26 時点の再開候補優先順位:
 
-1. `materials/point-cloud-material.ts` に残る classification / clipping / uniform 更新ロジックの追加分離
-2. `renderer-three` 配下の `scene` / `geometry` / `adapters` / `picking` 方向の再配置
-3. `potree.ts` と `point-cloud-octree.ts` の追加薄化を行うかの再評価
-4. root export と subpath export の最終整理
-5. `useDefineForClassFields` を切り替えられる設計へ寄せる必要があるかの再評価
+1. `renderer-three` 配下の `scene` / `geometry` / `adapters` / `picking` 方向の再配置
+2. `potree.ts` と `point-cloud-octree.ts` の追加薄化を行うかの再評価
+3. root export と subpath export の最終整理
+4. `useDefineForClassFields` を切り替えられる設計へ寄せる必要があるかの再評価
 
 優先順位の理由:
 
-- 1 と 2 は依然として構造改善の余地が大きく、利用者と保守者の双方に見える複雑さを直接下げやすい。
-- 3 は現在でも実施可能だが、追加の薄化が本当に必要かは一度評価してからでよい。
-- 4 は内部構造の安定化がもう一段進んだ後に進める方が手戻りが少ない。
-- 5 は型設定の問題ではなく decorator 実装の実行時互換の問題なので、専用の設計判断として後段に分離するのが妥当である。
+- 1 は今も構造改善の余地が大きいが、機能退行を起こしにくい再配置中心の作業として再開しやすい。
+- 2 は現在でも実施可能だが、追加の薄化が本当に必要かは一度評価してからでよい。
+- 3 は内部構造の安定化がもう一段進んだ後に進める方が手戻りが少ない。
+- 4 は型設定の問題ではなく decorator 実装の実行時互換の問題なので、専用の設計判断として後段に分離するのが妥当である。
 
 ## 実施時のルール
 
@@ -489,11 +493,11 @@ packages/core/src/
 
 ## 次のアクション候補
 
-次の実作業としては、以下の順が妥当である。
+リファクタリングを再開する場合は、以下の順が妥当である。
 
-1. `materials/point-cloud-material.ts` に残る classification / clipping / uniform 更新ロジックの独立性を確認する
-2. `renderer-three` のファイル群を `scene`、`geometry`、`adapters`、`picking` へ再配置するか判断する
-3. `potree.ts` と `point-cloud-octree.ts` の facade としての厚みを再評価し、必要なら追加で薄化する
-4. その後に export surface を再点検し、必要なら migration note を docs に追加する
+1. `renderer-three` のファイル群を `scene`、`geometry`、`adapters`、`picking` へ再配置するか判断する
+2. `potree.ts` と `point-cloud-octree.ts` の facade としての厚みを再評価し、必要なら追加で薄化する
+3. その後に export surface を再点検し、必要なら migration note を docs に追加する
+4. 最後に `useDefineForClassFields` まわりの互換性設計を独立テーマとして再評価する
 
-この順で進めると、第一段のリファクタリング成果と tsconfig 見直しの成果を保ったまま、次段では残る局所改善と facade / 配置の整理を安全に進めやすい。
+この順で進めると、ここまでの責務分離と tsconfig 見直しの成果を保ったまま、次段では残る配置整理と facade 判断を安全に進めやすい。
