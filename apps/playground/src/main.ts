@@ -43,73 +43,270 @@ document.body.onload = () => {
   const potree = new Potree();
   const loadMetrics = createLoadMetrics();
   const pointClouds: PointCloudOctree[] = [];
-  let clipPlanesTarget: PointCloudOctree | null = null;
-  let clipBoxHelperMesh: Mesh | null = null;
   let clipSphereHelperMesh: Mesh | null = null;
+  let clipBoxesActive = false;
+  let clipPlanesActive = false;
 
-  // Clip plane state
-  const clipPlaneX = new Plane(new Vector3(1, 0, 0), 0);
-  const clipPlaneY = new Plane(new Vector3(0, 1, 0), 0);
-  const clipPlaneZ = new Plane(new Vector3(0, 0, 1), 0);
+  type ClipPlaneAxis = "X" | "Y" | "Z";
+  type ClipPlaneEntry = {
+    id: number;
+    axis: ClipPlaneAxis;
+    offset: number;
+    enabled: boolean;
+    plane: Plane;
+    helper: PlaneHelper;
+  };
+  type ClipBoxEntry = {
+    id: number;
+    offsetX: number;
+    offsetY: number;
+    offsetZ: number;
+    scale: number;
+    enabled: boolean;
+    helper: Mesh;
+  };
+  type ClipPlanePresetEntry = {
+    axis: ClipPlaneAxis;
+    enabled: boolean;
+    offset: number;
+  };
+  type ClipBoxPresetEntry = {
+    enabled: boolean;
+    offsetX: number;
+    offsetY: number;
+    offsetZ: number;
+    scale: number;
+  };
+  const clipPlaneColors: Record<ClipPlaneAxis, number> = {
+    X: 0xe53935,
+    Y: 0x43a047,
+    Z: 0x1e88e5,
+  };
   const planeCenter = new Vector3();
   const planeExtent = new Vector3();
+  const clipBoxCenter = new Vector3();
+  const clipBoxExtent = new Vector3();
+  const clipPlaneEntries: ClipPlaneEntry[] = [];
+  const clipBoxEntries: ClipBoxEntry[] = [];
+  let nextClipPlaneId = 1;
+  let nextClipBoxId = 1;
+  let clipPlaneFolder: GUI | null = null;
+  let clipBoxFolder: GUI | null = null;
 
-  const clipPlaneState = {
-    enableX: true,
-    enableY: false,
-    enableZ: false,
-    offsetX: 0,
-    offsetY: 0,
-    offsetZ: 0,
-    showHelpers: true,
+  const clippingUiState = {
+    showPlaneHelpers: true,
+    showBoxHelpers: true,
+    addClipPlane: () => {
+      addClipPlaneEntry({
+        axis: (["X", "Y", "Z"] as const)[clipPlaneEntries.length % 3],
+        enabled: true,
+        offset: 0,
+      });
+      renderClipPlaneFolder();
+      updateClipPlanes();
+      markPresetCustom();
+    },
+    addClipBox: () => {
+      const index = clipBoxEntries.length;
+      const offsetStep = Math.min(index * 0.15, 0.75);
+      addClipBoxEntry({
+        offsetX: offsetStep,
+        offsetY: 0,
+        offsetZ: 0,
+        scale: 1,
+        enabled: true,
+      });
+      renderClipBoxFolder();
+      updateClipBoxes();
+      markPresetCustom();
+    },
   };
 
-  // Clip plane helpers
   const helperSize = 1;
-  const clipHelperX = new PlaneHelper(clipPlaneX, helperSize, 0xe53935);
-  const clipHelperY = new PlaneHelper(clipPlaneY, helperSize, 0x43a047);
-  const clipHelperZ = new PlaneHelper(clipPlaneZ, helperSize, 0x1e88e5);
-  clipHelperX.raycast = () => false;
-  clipHelperY.raycast = () => false;
-  clipHelperZ.raycast = () => false;
 
-  function updateClipPlanes() {
-    if (!clipPlanesTarget) return;
-    const planes: Plane[] = [];
-    if (clipPlaneState.enableX) planes.push(clipPlaneX);
-    if (clipPlaneState.enableY) planes.push(clipPlaneY);
-    if (clipPlaneState.enableZ) planes.push(clipPlaneZ);
-    clipPlanesTarget.material.clippingPlanes =
-      planes.length > 0 ? planes : null;
-
-    clipHelperX.visible = clipPlaneState.showHelpers && clipPlaneState.enableX;
-    clipHelperY.visible = clipPlaneState.showHelpers && clipPlaneState.enableY;
-    clipHelperZ.visible = clipPlaneState.showHelpers && clipPlaneState.enableZ;
+  function setPlaneNormal(plane: Plane, axis: ClipPlaneAxis) {
+    if (axis === "X") {
+      plane.normal.set(1, 0, 0);
+    } else if (axis === "Y") {
+      plane.normal.set(0, 1, 0);
+    } else {
+      plane.normal.set(0, 0, 1);
+    }
   }
 
-  function updatePlaneConstant(axis: "X" | "Y" | "Z") {
-    const plane =
-      axis === "X" ? clipPlaneX : axis === "Y" ? clipPlaneY : clipPlaneZ;
-    const offset =
-      axis === "X"
-        ? clipPlaneState.offsetX
-        : axis === "Y"
-          ? clipPlaneState.offsetY
-          : clipPlaneState.offsetZ;
-    const center =
-      axis === "X"
-        ? planeCenter.x
-        : axis === "Y"
-          ? planeCenter.y
-          : planeCenter.z;
-    const extent =
-      axis === "X"
-        ? planeExtent.x
-        : axis === "Y"
-          ? planeExtent.y
-          : planeExtent.z;
-    plane.constant = -(center + offset * extent);
+  function updateClipPlanes() {
+    const hasTarget = clipPlanesActive && pointClouds.length > 0;
+    for (const entry of clipPlaneEntries) {
+      setPlaneNormal(entry.plane, entry.axis);
+      const center =
+        entry.axis === "X"
+          ? planeCenter.x
+          : entry.axis === "Y"
+            ? planeCenter.y
+            : planeCenter.z;
+      const extent =
+        entry.axis === "X"
+          ? planeExtent.x
+          : entry.axis === "Y"
+            ? planeExtent.y
+            : planeExtent.z;
+      entry.plane.constant = -(center + entry.offset * extent);
+      entry.helper.visible =
+        hasTarget && clippingUiState.showPlaneHelpers && entry.enabled;
+    }
+
+    const planes = hasTarget
+      ? clipPlaneEntries
+          .filter((entry) => entry.enabled)
+          .map((entry) => entry.plane)
+      : [];
+    for (const pointCloud of pointClouds) {
+      pointCloud.material.clippingPlanes = planes.length > 0 ? planes : null;
+    }
+  }
+
+  function updateClipBoxes() {
+    const hasTarget = clipBoxesActive && pointClouds.length > 0;
+    const clipBoxes = hasTarget
+      ? clipBoxEntries
+          .filter((entry) => entry.enabled)
+          .map((entry) => {
+            const position = new Vector3(
+              clipBoxCenter.x + entry.offsetX * clipBoxExtent.x,
+              clipBoxCenter.y + entry.offsetY * clipBoxExtent.y,
+              clipBoxCenter.z + entry.offsetZ * clipBoxExtent.z,
+            );
+            const size = clipBoxExtent.clone().multiplyScalar(entry.scale);
+            entry.helper.position.copy(position);
+            entry.helper.scale.copy(size);
+            entry.helper.visible = clippingUiState.showBoxHelpers;
+            return createClipBox(size, position);
+          })
+      : [];
+
+    for (const entry of clipBoxEntries) {
+      if (!hasTarget || !entry.enabled) {
+        entry.helper.visible = false;
+      }
+    }
+
+    for (const pointCloud of pointClouds) {
+      pointCloud.material.setClipBoxes(clipBoxes);
+    }
+  }
+
+  function addClipPlaneEntry(
+    options: Partial<Pick<ClipPlaneEntry, "axis" | "offset" | "enabled">> = {},
+  ) {
+    const axis = options.axis ?? "X";
+    const plane = new Plane();
+    setPlaneNormal(plane, axis);
+    const helper = new PlaneHelper(plane, helperSize, clipPlaneColors[axis]);
+    helper.raycast = () => false;
+    const entry: ClipPlaneEntry = {
+      id: nextClipPlaneId++,
+      axis,
+      offset: options.offset ?? 0,
+      enabled: options.enabled ?? true,
+      plane,
+      helper,
+    };
+    clipPlaneEntries.push(entry);
+    scene.add(helper);
+  }
+
+  function removeClipPlaneEntry(id: number) {
+    const index = clipPlaneEntries.findIndex((entry) => entry.id === id);
+    if (index < 0) return;
+    const [entry] = clipPlaneEntries.splice(index, 1);
+    scene.remove(entry.helper);
+    renderClipPlaneFolder();
     updateClipPlanes();
+    markPresetCustom();
+  }
+
+  function addClipBoxEntry(
+    options: Partial<
+      Pick<
+        ClipBoxEntry,
+        "offsetX" | "offsetY" | "offsetZ" | "scale" | "enabled"
+      >
+    > = {},
+  ) {
+    const helper = new Mesh(
+      new BoxGeometry(1, 1, 1),
+      new MeshBasicMaterial({ color: 0x0066ff, wireframe: true }),
+    );
+    helper.raycast = () => false;
+    const entry: ClipBoxEntry = {
+      id: nextClipBoxId++,
+      offsetX: options.offsetX ?? 0,
+      offsetY: options.offsetY ?? 0,
+      offsetZ: options.offsetZ ?? 0,
+      scale: options.scale ?? 1,
+      enabled: options.enabled ?? true,
+      helper,
+    };
+    clipBoxEntries.push(entry);
+    scene.add(helper);
+  }
+
+  function removeClipBoxEntry(id: number) {
+    const index = clipBoxEntries.findIndex((entry) => entry.id === id);
+    if (index < 0) return;
+    const [entry] = clipBoxEntries.splice(index, 1);
+    scene.remove(entry.helper);
+    renderClipBoxFolder();
+    updateClipBoxes();
+    markPresetCustom();
+  }
+
+  let renderClipPlaneFolder = () => {};
+
+  let renderClipBoxFolder = () => {};
+
+  function getClipPlanePresetEntries(): ClipPlanePresetEntry[] {
+    return clipPlaneEntries.map((entry) => ({
+      axis: entry.axis,
+      enabled: entry.enabled,
+      offset: entry.offset,
+    }));
+  }
+
+  function getClipBoxPresetEntries(): ClipBoxPresetEntry[] {
+    return clipBoxEntries.map((entry) => ({
+      enabled: entry.enabled,
+      offsetX: entry.offsetX,
+      offsetY: entry.offsetY,
+      offsetZ: entry.offsetZ,
+      scale: entry.scale,
+    }));
+  }
+
+  function replaceClipPlaneEntries(entries: ClipPlanePresetEntry[]) {
+    for (const entry of clipPlaneEntries.splice(0)) {
+      scene.remove(entry.helper);
+    }
+
+    for (const entry of entries) {
+      addClipPlaneEntry(entry);
+    }
+
+    renderClipPlaneFolder();
+    updateClipPlanes();
+  }
+
+  function replaceClipBoxEntries(entries: ClipBoxPresetEntry[]) {
+    for (const entry of clipBoxEntries.splice(0)) {
+      scene.remove(entry.helper);
+    }
+
+    for (const entry of entries) {
+      addClipBoxEntry(entry);
+    }
+
+    renderClipBoxFolder();
+    updateClipBoxes();
   }
 
   // ClipMode
@@ -273,6 +470,7 @@ document.body.onload = () => {
         position: new Vector3(0, -1.5, 3),
         rotation: new Euler(-Math.PI / 2, 0, 0),
         scale: new Vector3(2, 2, 2),
+        applyClipBox: true,
         applyClipPlanes: true,
       },
       {
@@ -354,13 +552,8 @@ document.body.onload = () => {
   scene.add(cube);
   scene.add(new AmbientLight(0xffffff));
 
-  // Add clip plane helpers to scene (initially hidden until planes are configured)
-  clipHelperX.visible = false;
-  clipHelperY.visible = false;
-  clipHelperZ.visible = false;
-  scene.add(clipHelperX);
-  scene.add(clipHelperY);
-  scene.add(clipHelperZ);
+  updateClipBoxes();
+  updateClipPlanes();
 
   // ---- ViewHelper ----
   let viewHelper = new ViewHelper(camera, canvas);
@@ -463,24 +656,19 @@ document.body.onload = () => {
   function clearPointCloudScene() {
     transformControls.detach();
     selectedPco = null;
-    clipPlanesTarget = null;
+    clipBoxesActive = false;
+    clipPlanesActive = false;
     pointClouds.splice(0).forEach((pointCloud) => {
       scene.remove(pointCloud);
     });
-
-    if (clipBoxHelperMesh !== null) {
-      scene.remove(clipBoxHelperMesh);
-      clipBoxHelperMesh = null;
-    }
 
     if (clipSphereHelperMesh !== null) {
       scene.remove(clipSphereHelperMesh);
       clipSphereHelperMesh = null;
     }
 
-    clipHelperX.visible = false;
-    clipHelperY.visible = false;
-    clipHelperZ.visible = false;
+    updateClipBoxes();
+    updateClipPlanes();
   }
 
   async function loadPointCloudFromSource(
@@ -517,10 +705,6 @@ document.body.onload = () => {
       console.log(`${hooks.label} loaded`, pco);
       pco.showBoundingBox = false;
 
-      if (options.applyClipPlanes) {
-        clipPlanesTarget = pco;
-      }
-
       pco.updateMatrixWorld(true);
       const worldBBox = toThreeBox3(pco.pcoGeometry.boundingBox).applyMatrix4(
         pco.matrixWorld,
@@ -530,31 +714,23 @@ document.body.onload = () => {
 
       pco.material.clipMode = clipModeMap[params.clipMode];
 
-      if (options.applyClipBox) {
-        // ClipBox
-        const halfSize = worldSize.clone().multiplyScalar(0.5);
-        const clipBox = createClipBox(halfSize, center);
-        pco.material.setClipBoxes([clipBox]);
+      clipBoxesActive = options.applyClipBox ?? false;
+      clipPlanesActive = options.applyClipPlanes ?? false;
 
-        clipBoxHelperMesh = new Mesh(
-          new BoxGeometry(halfSize.x, halfSize.y, halfSize.z),
-          new MeshBasicMaterial({ color: 0x0066ff, wireframe: true }),
-        );
-        clipBoxHelperMesh.position.copy(center);
-        clipBoxHelperMesh.raycast = () => false;
-        scene.add(clipBoxHelperMesh);
+      if (clipBoxesActive) {
+        clipBoxCenter.copy(center);
+        clipBoxExtent.copy(worldSize).multiplyScalar(0.5);
+        updateClipBoxes();
+      } else {
+        pco.material.setClipBoxes([]);
       }
 
-      if (options.applyClipPlanes) {
-        // ClipPlane
+      if (clipPlanesActive) {
         planeCenter.copy(center);
         planeExtent.copy(worldSize).multiplyScalar(0.5);
-
-        clipPlaneX.constant = -planeCenter.x;
-        clipPlaneY.constant = -planeCenter.y;
-        clipPlaneZ.constant = -planeCenter.z;
-
         updateClipPlanes();
+      } else {
+        pco.material.clippingPlanes = null;
       }
 
       if (options.applyClipSphere) {
@@ -656,6 +832,12 @@ document.body.onload = () => {
         position: camera.position.toArray(),
         target: controls.target.toArray(),
       },
+      clipping: {
+        boxes: getClipBoxPresetEntries(),
+        planes: getClipPlanePresetEntries(),
+        showBoxHelpers: clippingUiState.showBoxHelpers,
+        showPlaneHelpers: clippingUiState.showPlaneHelpers,
+      },
       clipMode: params.clipMode,
       edl: {
         enabled: params.edlEnabled,
@@ -682,7 +864,7 @@ document.body.onload = () => {
         sizeType: params.sizeType,
       },
       savedAt: new Date().toISOString(),
-      version: 1,
+      version: 2,
     };
   }
 
@@ -749,6 +931,12 @@ document.body.onload = () => {
     });
 
     params.clipMode = preset.clipMode;
+    if (preset.clipping) {
+      clippingUiState.showBoxHelpers = preset.clipping.showBoxHelpers;
+      clippingUiState.showPlaneHelpers = preset.clipping.showPlaneHelpers;
+      replaceClipBoxEntries(preset.clipping.boxes);
+      replaceClipPlaneEntries(preset.clipping.planes);
+    }
     params.pointSize = preset.points.pointSize;
     params.minPointSize = preset.points.minPointSize;
     params.maxPointSize = preset.points.maxPointSize;
@@ -862,36 +1050,104 @@ document.body.onload = () => {
     });
   clipFolder.close();
 
-  // Clip Plane sub-folder
-  const planeFolder = clipFolder.addFolder("Clip Planes");
-  planeFolder
-    .add(clipPlaneState, "enableX")
-    .name("Enable X")
-    .onChange(() => updateClipPlanes());
-  planeFolder
-    .add(clipPlaneState, "offsetX", -1, 1, 0.01)
-    .name("X Offset")
-    .onChange(() => updatePlaneConstant("X"));
-  planeFolder
-    .add(clipPlaneState, "enableY")
-    .name("Enable Y")
-    .onChange(() => updateClipPlanes());
-  planeFolder
-    .add(clipPlaneState, "offsetY", -1, 1, 0.01)
-    .name("Y Offset")
-    .onChange(() => updatePlaneConstant("Y"));
-  planeFolder
-    .add(clipPlaneState, "enableZ")
-    .name("Enable Z")
-    .onChange(() => updateClipPlanes());
-  planeFolder
-    .add(clipPlaneState, "offsetZ", -1, 1, 0.01)
-    .name("Z Offset")
-    .onChange(() => updatePlaneConstant("Z"));
-  planeFolder
-    .add(clipPlaneState, "showHelpers")
-    .name("Show Helpers")
-    .onChange(() => updateClipPlanes());
+  renderClipBoxFolder = function renderClipBoxFolderImpl() {
+    clipBoxFolder?.destroy();
+    clipBoxFolder = clipFolder.addFolder("Clip Boxes");
+    clipBoxFolder.add(clippingUiState, "addClipBox").name("Add Box");
+    clipBoxFolder
+      .add(clippingUiState, "showBoxHelpers")
+      .name("Show Helpers")
+      .onChange(() => {
+        updateClipBoxes();
+        markPresetCustom();
+      });
+
+    for (const entry of clipBoxEntries) {
+      const entryFolder = clipBoxFolder.addFolder(`Box ${entry.id}`);
+      entryFolder
+        .add(entry, "enabled")
+        .name("Enabled")
+        .onChange(() => {
+          updateClipBoxes();
+          markPresetCustom();
+        });
+      entryFolder
+        .add(entry, "offsetX", -1, 1, 0.01)
+        .name("Offset X")
+        .onChange(() => {
+          updateClipBoxes();
+          markPresetCustom();
+        });
+      entryFolder
+        .add(entry, "offsetY", -1, 1, 0.01)
+        .name("Offset Y")
+        .onChange(() => {
+          updateClipBoxes();
+          markPresetCustom();
+        });
+      entryFolder
+        .add(entry, "offsetZ", -1, 1, 0.01)
+        .name("Offset Z")
+        .onChange(() => {
+          updateClipBoxes();
+          markPresetCustom();
+        });
+      entryFolder
+        .add(entry, "scale", 0.1, 2, 0.05)
+        .name("Scale")
+        .onChange(() => {
+          updateClipBoxes();
+          markPresetCustom();
+        });
+      entryFolder
+        .add({ remove: () => removeClipBoxEntry(entry.id) }, "remove")
+        .name("Remove");
+    }
+  };
+
+  renderClipPlaneFolder = function renderClipPlaneFolderImpl() {
+    clipPlaneFolder?.destroy();
+    clipPlaneFolder = clipFolder.addFolder("Clip Planes");
+    clipPlaneFolder.add(clippingUiState, "addClipPlane").name("Add Plane");
+    clipPlaneFolder
+      .add(clippingUiState, "showPlaneHelpers")
+      .name("Show Helpers")
+      .onChange(() => {
+        updateClipPlanes();
+        markPresetCustom();
+      });
+
+    for (const entry of clipPlaneEntries) {
+      const entryFolder = clipPlaneFolder.addFolder(`Plane ${entry.id}`);
+      entryFolder
+        .add(entry, "enabled")
+        .name("Enabled")
+        .onChange(() => {
+          updateClipPlanes();
+          markPresetCustom();
+        });
+      entryFolder
+        .add(entry, "axis", ["X", "Y", "Z"])
+        .name("Axis")
+        .onChange(() => {
+          updateClipPlanes();
+          markPresetCustom();
+        });
+      entryFolder
+        .add(entry, "offset", -1, 1, 0.01)
+        .name("Offset")
+        .onChange(() => {
+          updateClipPlanes();
+          markPresetCustom();
+        });
+      entryFolder
+        .add({ remove: () => removeClipPlaneEntry(entry.id) }, "remove")
+        .name("Remove");
+    }
+  };
+
+  renderClipBoxFolder();
+  renderClipPlaneFolder();
 
   // Points folder
   const pointsFolder = gui.addFolder("Points");
@@ -1209,6 +1465,22 @@ interface BenchmarkPreset {
     position: number[];
     target: number[];
   };
+  clipping?: {
+    boxes: Array<{
+      enabled: boolean;
+      offsetX: number;
+      offsetY: number;
+      offsetZ: number;
+      scale: number;
+    }>;
+    planes: Array<{
+      axis: "X" | "Y" | "Z";
+      enabled: boolean;
+      offset: number;
+    }>;
+    showBoxHelpers: boolean;
+    showPlaneHelpers: boolean;
+  };
   clipMode: string;
   edl: {
     enabled: boolean;
@@ -1235,7 +1507,7 @@ interface BenchmarkPreset {
     sizeType: string;
   };
   savedAt: string;
-  version: 1;
+  version: 1 | 2;
 }
 
 interface FrameStatSample {

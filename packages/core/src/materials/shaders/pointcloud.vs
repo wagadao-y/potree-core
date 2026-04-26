@@ -476,12 +476,13 @@ void main() {
 	#if defined use_clip_box || defined use_clip_sphere || defined use_clip_plane
 		bool insideAny = false;
 		bool hasVolumeClip = false;
+		vec4 worldPos = modelMatrix * vec4(position, 1.0);
 
 		#if defined use_clip_box
 			hasVolumeClip = true;
 			for (int i = 0; i < max_clip_boxes; i++) {
 				if (i == int(clipBoxCount)) break;
-				vec4 clipPosition = clipBoxes[i] * modelMatrix * vec4(position, 1.0);
+				vec4 clipPosition = clipBoxes[i] * worldPos;
 				bool inside = abs(clipPosition.x) <= 0.5 && abs(clipPosition.y) <= 0.5 && abs(clipPosition.z) <= 0.5;
 				insideAny = insideAny || inside;
 			}
@@ -489,10 +490,9 @@ void main() {
 
 		#if defined use_clip_sphere
 			hasVolumeClip = true;
-			vec4 modelPos = modelMatrix * vec4(position, 1.0);
 			for (int i = 0; i < max_clip_spheres; i++) {
 				if (i == int(clipSphereCount)) break;
-				float dist = distance(modelPos.xyz, clipSpheres[i].xyz);
+				float dist = distance(worldPos.xyz, clipSpheres[i].xyz);
 				insideAny = insideAny || (dist <= clipSpheres[i].w);
 			}
 		#endif
@@ -502,10 +502,9 @@ void main() {
 
 		#if defined use_clip_plane
 			// Point must be on positive side of all planes
-			vec4 clipWorldPos = modelMatrix * vec4(position, 1.0);
 			for (int i = 0; i < max_clip_planes; i++) {
 				if (i == int(clipPlaneCount)) break;
-				float d = dot(clipPlanes[i].xyz, clipWorldPos.xyz) + clipPlanes[i].w;
+				float d = dot(clipPlanes[i].xyz, worldPos.xyz) + clipPlanes[i].w;
 				// Even if a point was accepted by a volume clip,
 				// it is rejected when it falls on the negative side of a plane.
 				if (d < 0.0) { insideAny = false; break; }
