@@ -584,15 +584,15 @@ document.body.onload = () => {
 
   let selectedPco: PointCloudOctree | null = null;
 
-  canvas.ondblclick = () => {
+  canvas.ondblclick = (event) => {
     const ray = raycaster.ray;
+    const potreePick = Potree.pick(pointClouds, renderer, camera, ray);
+    const intersects = raycaster.intersectObjects(pointClouds, true);
     let pickedPco: PointCloudOctree | null = null;
 
     if (params.pickMethod === "Potree") {
-      const pick = Potree.pick(pointClouds, renderer, camera, ray);
-      pickedPco = pick?.pointCloud ?? null;
+      pickedPco = potreePick?.pointCloud ?? null;
     } else {
-      const intersects = raycaster.intersectObjects(pointClouds, true);
       if (intersects.length > 0) {
         let node = intersects[0].object;
         while (node != null) {
@@ -613,7 +613,42 @@ document.body.onload = () => {
       transformControls.detach();
     }
 
-    const intersects = raycaster.intersectObjects(pointClouds, true);
+    const potreePosition = potreePick?.position;
+    const raycasterPosition = intersects[0]?.point;
+    const pickDelta =
+      potreePosition && raycasterPosition
+        ? potreePosition.distanceTo(raycasterPosition)
+        : null;
+
+    const clickScreen = new Vector2(event.clientX, event.clientY);
+    const potreeScreen = potreePosition
+      ? toScreenPosition(potreePosition, camera, renderer)
+      : null;
+    const raycasterScreen = raycasterPosition
+      ? toScreenPosition(raycasterPosition, camera, renderer)
+      : null;
+    const potreeScreenDelta = potreeScreen
+      ? clickScreen.distanceTo(potreeScreen)
+      : null;
+    const raycasterScreenDelta = raycasterScreen
+      ? clickScreen.distanceTo(raycasterScreen)
+      : null;
+
+    console.log("pick comparison", {
+      pickMethod: params.pickMethod,
+      clickScreen: clickScreen.toArray(),
+      potreePointCloud: potreePick?.pointCloud?.name ?? null,
+      potreePosition: potreePosition?.toArray() ?? null,
+      potreeScreen: potreeScreen?.toArray() ?? null,
+      potreeScreenDelta,
+      raycasterPosition: raycasterPosition?.toArray() ?? null,
+      raycasterScreen: raycasterScreen?.toArray() ?? null,
+      raycasterScreenDelta,
+      delta: pickDelta,
+      rayOrigin: ray.origin.toArray(),
+      rayDirection: ray.direction.toArray(),
+    });
+
     if (intersects.length > 0) {
       const sphere = new Mesh(
         new SphereGeometry(0.2, 32, 32),
@@ -623,6 +658,21 @@ document.body.onload = () => {
       scene.add(sphere);
     }
   };
+
+  function toScreenPosition(
+    worldPosition: Vector3,
+    camera: PerspectiveCamera | OrthographicCamera,
+    renderer: WebGLRenderer,
+  ) {
+    const projected = worldPosition.clone().project(camera);
+    const width = renderer.domElement.clientWidth;
+    const height = renderer.domElement.clientHeight;
+
+    return new Vector2(
+      (projected.x + 1) * width * 0.5,
+      (1 - projected.y) * height * 0.5,
+    );
+  }
 
   // Load point cloud: pump
   loadMetrics.reset();
