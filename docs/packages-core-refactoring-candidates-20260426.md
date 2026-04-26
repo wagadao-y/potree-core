@@ -2,6 +2,13 @@
 
 > 本文書は `tokei packages/core/src --sort code -f` の結果を起点に、現時点の `packages/core/src` で次に進めるリファクタリング候補を整理したものである。既存方針は `docs/packages-core-refactoring-plan-20260425.md` と `docs/packages-core-layer-separation-inventory-20260425.md` を前提にし、本書では「今の行数偏りと責務の残り方」から着手順を決める。
 
+更新: 2026-04-26 時点で優先度 A と優先度 B は完了した。
+
+- コミット `815c3a4`: `packages/core の renderer-three 構成を整理`
+- コミット `5e7f710`: `packages/core の loader と scheduler を分割`
+
+本書は当初の候補整理を残しつつ、完了した項目には実施結果を追記した。以後の着手候補は優先度 C 以降、または別文書で扱う。
+
 ## 計測結果
 
 実行コマンド:
@@ -47,7 +54,7 @@ tokei packages/core/src --sort code -f
 
 そのため、次のリファクタリングでは無理に pure core 化を進めるより、責務名を持つ小さな module へ再配置し、既存の分離成果を見える形にするのが費用対効果が高い。
 
-## 優先度 A: 次に着手する候補
+## 優先度 A: 完了
 
 ### 1. `materials/point-cloud-material.ts` の uniform 定義と初期化を分離する
 
@@ -78,6 +85,11 @@ tokei packages/core/src --sort code -f
 - `PointCloudMaterial` は public class なので、外部から参照される property 名や挙動を変えない。
 - 分割後は `pnpm run typecheck` だけでなく、shader define と clipping の組み合わせに関わる手動確認または小さなユニットテストが欲しい。
 
+実施結果:
+
+- `materials/point-cloud-material-uniforms.ts` を追加し、uniform 型定義と初期化を material 本体から分離した。
+- `PointCloudMaterial` は material lifecycle と public API に寄せ、uniform 追加時の編集箇所を局所化した。
+
 ### 2. `renderer-three/point-cloud-octree-picker.ts` を render target 管理と探索ロジックに分ける
 
 現状:
@@ -104,6 +116,11 @@ tokei packages/core/src --sort code -f
 
 - `renderer.setRenderTarget(prevRenderTarget)` 以外の renderer state 復元が暗黙に残っているため、分割時に scissor test や blend/depth state の扱いを確認する。
 - public export は現状維持し、`renderer-three/picking/*` は内部 module として始める。
+
+実施結果:
+
+- `renderer-three/picking/pick-render-target.ts` と `renderer-three/picking/pick-scene.ts` を追加し、picker orchestration から render target 管理と temporary scene 生成を分離した。
+- `renderer-three/picking/point-cloud-octree-picker.ts` は public picker facade と処理順の管理に集中する形へ整理した。
 
 ### 3. `renderer-three` 配下をサブディレクトリ化する
 
@@ -150,7 +167,12 @@ packages/core/src/renderer-three/
 - package export の `./renderer-three` は現在かなり絞られているため、内部 import の機械的更新で済む可能性が高い。
 - 一度に移動すると diff が大きくなるため、`picking`、`geometry/math`、`scene/adapters` の順に小分けにする。
 
-## 優先度 B: A の後に検討する候補
+実施結果:
+
+- `renderer-three` 配下を `adapters`、`geometry`、`math`、`picking`、`scene` に再配置した。
+- `renderer-three/index.ts` と core 側 import を更新し、内部責務の見通しをディレクトリ構造に反映した。
+
+## 優先度 B: 完了
 
 ### 4. `OctreeLoader.ts` の計測と range decode orchestration を整理する
 
@@ -177,6 +199,12 @@ packages/core/src/renderer-three/
 - `OctreeLoader.ts` はすでに一度大きく分割済みなので、行数削減だけを目的にしない。
 - `octree-range-cache.ts` と責務が重なりやすいため、cache class には I/O と buffer cache、load helper には decode task 化、という境界にする。
 
+実施結果:
+
+- `loading/octree-load-measurements.ts` を追加し、`octree-slice-read` 計測生成を helper 化した。
+- `loading/load-merged-octree-range.ts` を追加し、merged range の cache read と decode dispatch を `NodeLoader` から分離した。
+- `OctreeLoader.ts` は「どの node をいつ読むか」の orchestration に寄せた。
+
 ### 5. `PointCloudVisibilityScheduler` から loader grouping を切り出す
 
 現状:
@@ -201,6 +229,11 @@ packages/core/src/renderer-three/
 - `BatchLoadableGeometryNode` の型境界を広げすぎない。
 - loader grouping は loading へ置きたくなるが、現状は visibility scheduler の「選ばれた node をどう load request に変換するか」という責務なので、まずは `core/visibility` 近傍が自然。
 
+実施結果:
+
+- `core/visibility/group-geometry-loads.ts` を追加し、loader ごとの grouping と fallback load を pure helper 化した。
+- `PointCloudVisibilityScheduler` は visibility update と node cache 制御の facade に寄せた。
+
 ### 6. `point-cloud-octree.ts` を facade と Three.js object として再評価する
 
 現状:
@@ -222,6 +255,19 @@ packages/core/src/renderer-three/
 
 - `PointCloudOctree` は package の主要利用型なので、内部美化だけを目的に破壊的変更をしない。
 - WebGPU 対応時に `PointCloudOctree` を renderer 非依存にしたくなる可能性はあるが、その場合は設計判断として別文書で扱う。
+
+実施結果:
+
+- `PointCloudOctree` は public Three.js facade として残し、material、transform、picking、bounds、lifecycle が主な利用面であることをコードコメントで明文化した。
+- renderer integration hook と user-facing API の境界だけを整理し、破壊的な public API 変更は避けた。
+
+## 完了サマリ
+
+2026-04-26 時点で、本書の優先度 A と優先度 B は完了した。現在の次候補は以下のいずれかになる。
+
+- 優先度 C にある worker / visibility algorithm / shader 周辺の見直し
+- `core/visibility/update-visibility.ts` のテスト整備
+- 次フェーズの WebGPU 対応に向けた設計文書の更新
 
 ## 優先度 C: 今は大きく触らない候補
 
