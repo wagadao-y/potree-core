@@ -9,9 +9,9 @@ import {
 import type { PointCloudVisibilityUpdateInput } from "../../core";
 import type { Box3Like, IPointCloudTreeNode } from "../../core/types";
 import type { OctreeGeometryNode } from "../../loading/OctreeGeometryNode";
-import { ClipMode } from "../../materials";
 import type { PointCloudOctree } from "../../point-cloud-octree";
 import type { PointCloudOctreeNode } from "../geometry/point-cloud-octree-node";
+import { ClipMode } from "../materials";
 import { toThreeBox3 } from "../math/box3-like";
 import {
   materializePointCloudOctreeNode,

@@ -2,7 +2,7 @@ import {
   DEFAULT_RGB_BRIGHTNESS,
   DEFAULT_RGB_CONTRAST,
   DEFAULT_RGB_GAMMA,
-} from "../constants";
+} from "../../constants";
 import { ClipMode } from "./clipping";
 import { ColorEncoding } from "./color-encoding";
 import {

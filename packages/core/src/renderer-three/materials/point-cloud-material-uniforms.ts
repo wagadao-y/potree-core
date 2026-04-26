@@ -5,8 +5,8 @@ import {
   DEFAULT_RGB_BRIGHTNESS,
   DEFAULT_RGB_CONTRAST,
   DEFAULT_RGB_GAMMA,
-} from "../constants";
-import { DEFAULT_HIGHLIGHT_COLOR } from "../renderer-three/constants";
+} from "../../constants";
+import { DEFAULT_HIGHLIGHT_COLOR } from "../constants";
 import type { IUniform } from "./types";
 
 export interface IPointCloudMaterialUniforms {

@@ -1,10 +1,10 @@
 import { Box3, type Object3D, Points, Vector3 } from "three";
 import type { IPointCloudTreeNode } from "../../core/types";
 import type { OctreeGeometryNode } from "../../loading/OctreeGeometryNode";
-import { PointCloudMaterial } from "../../materials";
 import type { PointCloudOctree } from "../../point-cloud-octree";
 import { materializeOctreeNodeGeometry } from "../geometry/octree-node-geometry";
 import { PointCloudOctreeNode } from "../geometry/point-cloud-octree-node";
+import { PointCloudMaterial } from "../materials";
 import { Box3Helper } from "../math/box3-helper";
 import { toThreeBox3 } from "../math/box3-like";
 

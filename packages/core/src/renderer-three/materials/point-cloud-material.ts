@@ -18,10 +18,10 @@ import {
   type WebGLRenderer,
   WebGLRenderTarget,
 } from "three";
-import { getBox3Size } from "../core/box3-like-utils";
-import type { PointCloudOctree } from "../point-cloud-octree";
-import { PERSPECTIVE_CAMERA } from "../renderer-three/constants";
-import type { PointCloudOctreeNode } from "../renderer-three/geometry/point-cloud-octree-node";
+import { getBox3Size } from "../../core/box3-like-utils";
+import type { PointCloudOctree } from "../../point-cloud-octree";
+import { PERSPECTIVE_CAMERA } from "../constants";
+import type { PointCloudOctreeNode } from "../geometry/point-cloud-octree-node";
 import { DEFAULT_CLASSIFICATION } from "./classification";
 import { ClipMode, type IClipBox, type IClipSphere } from "./clipping";
 import { ColorEncoding } from "./color-encoding";

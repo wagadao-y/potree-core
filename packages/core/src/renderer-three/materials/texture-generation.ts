@@ -7,8 +7,8 @@ import {
   RGBAFormat,
   Texture,
 } from "three";
-import type { IClassification, IGradient } from "../materials/types";
-import { isBrowser } from "../utils/utils";
+import { isBrowser } from "../../utils/utils";
+import type { IClassification, IGradient } from "./types";
 
 /**
  * Generates a texture from a color.

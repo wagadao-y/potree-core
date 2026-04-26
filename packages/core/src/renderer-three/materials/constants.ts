@@ -4,4 +4,4 @@ export {
   DEFAULT_RGB_BRIGHTNESS,
   DEFAULT_RGB_CONTRAST,
   DEFAULT_RGB_GAMMA,
-} from "../constants";
+} from "../../constants";

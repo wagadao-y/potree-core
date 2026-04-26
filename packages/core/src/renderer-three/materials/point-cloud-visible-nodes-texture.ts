@@ -1,6 +1,6 @@
 import { Color, NearestFilter, type Texture } from "three";
-import type { PointCloudOctreeNode } from "../renderer-three/geometry/point-cloud-octree-node";
-import { byLevelAndIndex } from "../utils/utils";
+import { byLevelAndIndex } from "../../utils/utils";
+import type { PointCloudOctreeNode } from "../geometry/point-cloud-octree-node";
 import { generateDataTexture } from "./texture-generation";
 
 export class PointCloudVisibleNodesTexture {
