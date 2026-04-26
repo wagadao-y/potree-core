@@ -1,5 +1,4 @@
 import {
-  type BufferAttribute,
   type Camera,
   Color,
   LinearFilter,
@@ -11,16 +10,20 @@ import {
   Scene,
   Sphere,
   Vector3,
-  Vector4,
   type WebGLRenderer,
   WebGLRenderTarget,
 } from "three";
 import { ClipMode, PointCloudMaterial, PointColorType } from "../materials";
 import type { PointCloudOctree } from "../point-cloud-octree";
-import type { PickPoint, PointCloudHit } from "../types";
+import type { PickPoint } from "../types";
 import { clamp } from "../utils/math";
 import { COLOR_BLACK, DEFAULT_PICK_WINDOW_SIZE } from "./constants";
 import type { PointCloudOctreeNode } from "./point-cloud-octree-node";
+import {
+  findPointCloudPickHit,
+  getPointCloudPickPoint,
+  type RenderedNode,
+} from "./point-cloud-pick-result";
 
 const pointCloudOctreePickers = new WeakMap<
   PointCloudOctree,
@@ -43,11 +46,6 @@ interface IPickState {
   renderTarget: WebGLRenderTarget;
   material: PointCloudMaterial;
   scene: Scene;
-}
-
-interface RenderedNode {
-  node: PointCloudOctreeNode;
-  octree: PointCloudOctree;
 }
 
 export class PointCloudOctreePicker {
@@ -140,8 +138,8 @@ export class PointCloudOctreePicker {
 
     renderer.setRenderTarget(prevRenderTarget);
 
-    const hit = PointCloudOctreePicker.findHit(pixels, pickWndSize);
-    return PointCloudOctreePicker.getPickPoint(hit, renderedNodes);
+    const hit = findPointCloudPickHit(pixels, pickWndSize);
+    return getPointCloudPickPoint(hit, renderedNodes);
   }
 
   private static prepareRender(
@@ -337,112 +335,6 @@ export class PointCloudOctreePicker {
       magFilter: NearestFilter,
       format: RGBAFormat,
     });
-  }
-
-  private static findHit(
-    pixels: Uint8Array,
-    pickWndSize: number,
-  ): PointCloudHit | null {
-    const ibuffer = new Uint32Array(pixels.buffer);
-
-    let min = Number.MAX_VALUE;
-    let hit: PointCloudHit | null = null;
-    for (let u = 0; u < pickWndSize; u++) {
-      for (let v = 0; v < pickWndSize; v++) {
-        const offset = u + v * pickWndSize;
-        const distance =
-          (u - (pickWndSize - 1) / 2) ** 2 + (v - (pickWndSize - 1) / 2) ** 2;
-
-        const pcIndex = pixels[4 * offset + 3];
-        pixels[4 * offset + 3] = 0;
-        const pIndex = ibuffer[offset];
-
-        if (pcIndex > 0 && distance < min) {
-          hit = {
-            pIndex: pIndex,
-            pcIndex: pcIndex - 1,
-          };
-          min = distance;
-        }
-      }
-    }
-    return hit;
-  }
-
-  private static getPickPoint(
-    hit: PointCloudHit | null,
-    nodes: RenderedNode[],
-  ): PickPoint | null {
-    if (!hit) {
-      return null;
-    }
-
-    const point: PickPoint = {};
-
-    const points = nodes[hit.pcIndex] && nodes[hit.pcIndex].node.sceneNode;
-    if (!points) {
-      return null;
-    }
-
-    point.pointCloud = nodes[hit.pcIndex].octree;
-
-    const attributes: BufferAttribute[] = (points.geometry as any).attributes;
-
-    for (const property in attributes) {
-      if (!Object.hasOwn(attributes, property)) {
-        continue;
-      }
-
-      const values = attributes[property];
-
-      if (property === "position") {
-        PointCloudOctreePicker.addPositionToPickPoint(
-          point,
-          hit,
-          values,
-          points,
-        );
-      } else if (property === "normal") {
-        PointCloudOctreePicker.addNormalToPickPoint(point, hit, values, points);
-      } else if (property === "indices") {
-      } else if (values.itemSize === 1) {
-        point[property] = values.array[hit.pIndex];
-      } else {
-        const value: number[] = [];
-        for (let j = 0; j < values.itemSize; j++) {
-          value.push(values.array[values.itemSize * hit.pIndex + j]);
-        }
-        point[property] = value;
-      }
-    }
-
-    return point;
-  }
-
-  private static addPositionToPickPoint(
-    point: PickPoint,
-    hit: PointCloudHit,
-    values: BufferAttribute,
-    points: Points,
-  ): void {
-    point.position = new Vector3()
-      .fromBufferAttribute(values, hit.pIndex)
-      .applyMatrix4(points.matrixWorld);
-  }
-
-  private static addNormalToPickPoint(
-    point: PickPoint,
-    hit: PointCloudHit,
-    values: BufferAttribute,
-    points: Points,
-  ): void {
-    const normal = new Vector3().fromBufferAttribute(values, hit.pIndex);
-    const normal4 = new Vector4(normal.x, normal.y, normal.z, 0).applyMatrix4(
-      points.matrixWorld,
-    );
-    normal.set(normal4.x, normal4.y, normal4.z);
-
-    point.normal = normal;
   }
 
   private static getPickState() {

@@ -43,6 +43,13 @@ import {
 } from "./enums";
 import { SPECTRAL } from "./gradients";
 import { applyPointCloudMaterialDefines } from "./point-cloud-material-defines";
+import {
+  buildClipBoxesArray,
+  buildClipPlanesArray,
+  buildClipSpheresArray,
+  classificationsEqual,
+  cloneClassification,
+} from "./point-cloud-material-updates";
 import { PointCloudVisibleNodesTexture } from "./point-cloud-visible-nodes-texture";
 import FragShader from "./shaders/pointcloud.fs?raw";
 import VertShader from "./shaders/pointcloud.vs?raw";
@@ -561,20 +568,10 @@ export class PointCloudMaterial extends RawShaderMaterial {
       this.updateShaderSource();
     }
 
-    const clipBoxesLength = this.numClipBoxes * 16;
-    const clipBoxesArray = new Float32Array(clipBoxesLength);
-
-    for (let i = 0; i < this.numClipBoxes; i++) {
-      clipBoxesArray.set(clipBoxes[i].inverse.elements, 16 * i);
-    }
-
-    for (let i = 0; i < clipBoxesLength; i++) {
-      if (Number.isNaN(clipBoxesArray[i])) {
-        clipBoxesArray[i] = Infinity;
-      }
-    }
-
-    this.setUniform("clipBoxes", clipBoxesArray);
+    this.setUniform(
+      "clipBoxes",
+      buildClipBoxesArray(clipBoxes, this.numClipBoxes),
+    );
   }
 
   setClipSpheres(clipSpheres: IClipSphere[]): void {
@@ -593,17 +590,10 @@ export class PointCloudMaterial extends RawShaderMaterial {
       this.updateShaderSource();
     }
 
-    const clipSpheresLength = this.numClipSpheres * 4;
-    const clipSpheresArray = new Float32Array(clipSpheresLength);
-
-    for (let i = 0; i < this.numClipSpheres; i++) {
-      clipSpheresArray[i * 4 + 0] = clipSpheres[i].center.x;
-      clipSpheresArray[i * 4 + 1] = clipSpheres[i].center.y;
-      clipSpheresArray[i * 4 + 2] = clipSpheres[i].center.z;
-      clipSpheresArray[i * 4 + 3] = clipSpheres[i].radius;
-    }
-
-    this.setUniform("clipSpheres", clipSpheresArray);
+    this.setUniform(
+      "clipSpheres",
+      buildClipSpheresArray(clipSpheres, this.numClipSpheres),
+    );
   }
 
   /**
@@ -627,14 +617,7 @@ export class PointCloudMaterial extends RawShaderMaterial {
 
     // If there are clipping planes, update shader uniforms each frame with their positions.
     if (count > 0 && planes) {
-      const arr = new Float32Array(count * 4);
-      for (let i = 0; i < count; i++) {
-        arr[i * 4 + 0] = planes[i].normal.x;
-        arr[i * 4 + 1] = planes[i].normal.y;
-        arr[i * 4 + 2] = planes[i].normal.z;
-        arr[i * 4 + 3] = planes[i].constant;
-      }
-      this.setUniform("clipPlanes", arr);
+      this.setUniform("clipPlanes", buildClipPlanesArray(planes));
     }
   }
 
@@ -655,23 +638,8 @@ export class PointCloudMaterial extends RawShaderMaterial {
   }
 
   set classification(value: IClassification) {
-    const copy: IClassification = {} as any;
-    for (const key of Object.keys(value)) {
-      copy[key] = value[key].clone();
-    }
-
-    let isEqual = false;
-    if (this._classification === undefined) {
-      isEqual = false;
-    } else {
-      isEqual =
-        Object.keys(copy).length === Object.keys(this._classification).length;
-
-      for (const key of Object.keys(copy)) {
-        isEqual = isEqual && this._classification[key] !== undefined;
-        isEqual = isEqual && copy[key].equals(this._classification[key]);
-      }
-    }
+    const copy = cloneClassification(value);
+    const isEqual = classificationsEqual(this._classification, copy);
 
     if (!isEqual) {
       this._classification = copy;
