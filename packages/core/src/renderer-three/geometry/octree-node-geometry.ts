@@ -90,16 +90,6 @@ export function materializeOctreeNodeGeometry(
     geometry.setAttribute(property, bufferAttribute);
   }
 
-  if (!geometry.getAttribute("normal")) {
-    const positionAttribute = geometry.getAttribute("position");
-    if (positionAttribute) {
-      geometry.setAttribute(
-        "normal",
-        new BufferAttribute(new Float32Array(positionAttribute.count * 3), 3),
-      );
-    }
-  }
-
   materializedOctreeNodeGeometries.set(geometryNode, geometry);
   geometryNode.decodedPointAttributes = null;
   return geometry;

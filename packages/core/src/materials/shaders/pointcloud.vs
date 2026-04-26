@@ -136,18 +136,27 @@ out vec3 vViewPosition;
 // OCTREE LOD FUNCTIONS
 #if (defined(adaptive_point_size) || defined(color_type_lod)) && defined(tree_type_octree)
 
-// Returns count of bits set up to a given index
-int numberOfOnes(int number, int index) {
-	int numOnes = 0;
-	int tmp = 128;
-	for (int i = 7; i >= 0; i--) {
-		if (number >= tmp) {
-			number -= tmp;
-			if (i <= index) { numOnes++; }
-		}
-		tmp /= 2;
+int decodeVisibleNodeByte(float value) {
+	return int(round(value * 255.0));
+}
+
+int countChildOffset(int mask, int index) {
+	if (index <= 0) {
+		return 0;
 	}
-	return numOnes;
+
+	int prefixMask = (1 << index) - 1;
+	int prefix = mask & prefixMask;
+	int count = 0;
+	count += prefix & 1;
+	count += (prefix >> 1) & 1;
+	count += (prefix >> 2) & 1;
+	count += (prefix >> 3) & 1;
+	count += (prefix >> 4) & 1;
+	count += (prefix >> 5) & 1;
+	count += (prefix >> 6) & 1;
+	count += (prefix >> 7) & 1;
+	return count;
 }
 
 // Checks if bit at specific index is set
@@ -160,19 +169,19 @@ float getLOD() {
 	vec3 offset = vec3(0.0);
 	int iOffset = int(vnStart);
 	float depth = level;
+	float nodeSizeAtLevel = octreeSize / pow(2.0, level);
 
 	for (float i = 0.0; i <= 30.0; i++) {
-		float nodeSizeAtLevel = octreeSize / pow(2.0, i + level);
 		vec3 index3d = floor((position - offset) / nodeSizeAtLevel + 0.5);
 		int index = int(round(4.0 * index3d.x + 2.0 * index3d.y + index3d.z));
 		
 		vec4 value = texture(visibleNodes, vec2((float(iOffset) + 0.5) / visibleNodesTextureSize, 0.0));
-		int mask = int(round(value.r * 255.0));
+		int mask = decodeVisibleNodeByte(value.r);
 
 		if (isBitSet(mask, index)) {
-			int advanceG = int(round(value.g * 255.0)) * 256;
-			int advanceB = int(round(value.b * 255.0));
-			int advanceChild = numberOfOnes(mask, index - 1);
+			int advanceG = decodeVisibleNodeByte(value.g) * 256;
+			int advanceB = decodeVisibleNodeByte(value.b);
+			int advanceChild = countChildOffset(mask, index);
 			int advance = advanceG + advanceB + advanceChild;
 			iOffset += advance;
 			depth++;
@@ -180,6 +189,7 @@ float getLOD() {
 			return depth;
 		}
 		offset += (vec3(1.0) * nodeSizeAtLevel * 0.5) * index3d;
+		nodeSizeAtLevel *= 0.5;
 	}
 	return depth;
 }

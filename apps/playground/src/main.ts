@@ -12,7 +12,6 @@ import {
   type PotreeLoadMeasurement,
   type PotreeLoadStage,
   PotreeRenderer,
-  toThreeBox3,
 } from "potree-core";
 import Stats from "stats.js";
 import {
@@ -37,6 +36,7 @@ import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { TransformControls } from "three/examples/jsm/controls/TransformControls.js";
 import { ViewHelper } from "three/examples/jsm/helpers/ViewHelper.js";
 import { GUI } from "three/examples/jsm/libs/lil-gui.module.min.js";
+import { toThreeBox3 } from "../../../packages/core/src/renderer-three/math/box3-like";
 import "./style.css";
 
 document.body.onload = () => {
