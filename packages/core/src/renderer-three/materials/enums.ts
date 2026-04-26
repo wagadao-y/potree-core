@@ -20,6 +20,11 @@ export enum PointOpacityType {
   ATTENUATED = 1,
 }
 
+export enum ColorEncoding {
+  LINEAR = 0,
+  SRGB = 1,
+}
+
 export enum PointColorType {
   RGB = 0,
   COLOR = 1,

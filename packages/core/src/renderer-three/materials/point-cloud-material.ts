@@ -24,8 +24,8 @@ import { PERSPECTIVE_CAMERA } from "../constants";
 import type { PointCloudOctreeNode } from "../geometry/point-cloud-octree-node";
 import { DEFAULT_CLASSIFICATION } from "./classification";
 import { ClipMode, type IClipBox, type IClipSphere } from "./clipping";
-import { ColorEncoding } from "./color-encoding";
 import {
+  ColorEncoding,
   PointColorType,
   PointOpacityType,
   PointShape,

@@ -4,6 +4,4 @@ export * from "./loading/LocalPotreeRequestManager";
 export * from "./point-cloud-octree";
 export * from "./potree";
 export * from "./renderer-three";
-export * from "./renderer-three/materials";
-export * from "./renderer-three/rendering/potree-renderer";
 export * from "./types";

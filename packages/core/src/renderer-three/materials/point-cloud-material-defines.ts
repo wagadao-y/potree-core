@@ -4,8 +4,8 @@ import {
   DEFAULT_RGB_GAMMA,
 } from "../../constants";
 import { ClipMode } from "./clipping";
-import { ColorEncoding } from "./color-encoding";
 import {
+  ColorEncoding,
   PointColorType,
   PointOpacityType,
   PointShape,
