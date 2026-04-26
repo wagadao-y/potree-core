@@ -27,6 +27,14 @@ import {
 import { PointCloudTree } from "./renderer-three/scene/point-cloud-tree";
 import type { IPotree, PickPoint } from "./renderer-three/types";
 
+/**
+ * Public Three.js facade for an octree-backed point cloud.
+ *
+ * This class intentionally remains both a scene object and the main user-facing
+ * API surface for point cloud interaction. Renderer integration hooks are kept
+ * public where the visibility pipeline needs them, but user code should primarily
+ * interact with material, transforms, picking, bounds, and lifecycle methods.
+ */
 export class PointCloudOctree
   extends PointCloudTree
   implements
@@ -152,6 +160,9 @@ export class PointCloudOctree
       pointCloudOctreeRendererAdapter.createDefaultMaterial(pcoGeometry);
   }
 
+  /**
+   * Releases geometry, material, picker, and cached renderer-side state.
+   */
   public dispose(): void {
     if (this.root) {
       this.root.dispose();
@@ -176,6 +187,9 @@ export class PointCloudOctree
     return this._material;
   }
 
+  /**
+   * Replaces the active material and immediately synchronizes derived bounds.
+   */
   public set material(material: PointCloudMaterial) {
     this._material = material;
     pointCloudOctreeRendererAdapter.updateMaterialBounds(this, material);
@@ -189,6 +203,10 @@ export class PointCloudOctree
     this.material.pointSizeType = value;
   }
 
+  /**
+   * Renderer integration hook that materializes a loaded geometry node.
+   * End-user code should not usually need to call this directly.
+   */
   public toTreeNode(
     geometryNode: OctreeGeometryNode,
     parent?: PointCloudOctreeNode | null,
@@ -200,10 +218,16 @@ export class PointCloudOctree
     );
   }
 
+  /**
+   * Renderer integration hook that refreshes the cached visible bounds.
+   */
   public updateVisibleBounds() {
     pointCloudOctreeRendererAdapter.updateVisibleBounds(this);
   }
 
+  /**
+   * Renderer integration hook that synchronizes debug bounding boxes.
+   */
   public updateBoundingBoxes(): void {
     pointCloudOctreeRendererAdapter.updateBoundingBoxes(this);
   }
@@ -226,26 +250,44 @@ export class PointCloudOctree
     }
   }
 
+  /**
+   * Renderer integration hook used when visibility changes hide child scene nodes.
+   */
   public hideDescendants(object: PointCloudOctreeNode["sceneNode"]): void {
     pointCloudOctreeRendererAdapter.hideDescendants(object);
   }
 
+  /**
+   * Recenters the point cloud at the world origin.
+   */
   public moveToOrigin(): void {
     pointCloudOctreeRendererAdapter.moveToOrigin(this);
   }
 
+  /**
+   * Moves the point cloud so its world-space minimum Y sits on the ground plane.
+   */
   public moveToGroundPlane(): void {
     pointCloudOctreeRendererAdapter.moveToGroundPlane(this);
   }
 
+  /**
+   * Returns the world-space bounding box for the current transform.
+   */
   public getBoundingBoxWorld(): Box3 {
     return pointCloudOctreeRendererAdapter.getBoundingBoxWorld(this);
   }
 
+  /**
+   * Returns the current visible extent in world space.
+   */
   public getVisibleExtent() {
     return pointCloudOctreeRendererAdapter.getVisibleExtent(this);
   }
 
+  /**
+   * Performs point picking against the currently visible nodes.
+   */
   public pick(
     renderer: WebGLRenderer,
     camera: Camera,
@@ -282,6 +324,9 @@ export class PointCloudOctree
     }
   }
 
+  /**
+   * Approximate visibility progress based on rendered versus visible geometry nodes.
+   */
   public get progress() {
     return this.visibleGeometry.length === 0
       ? 0

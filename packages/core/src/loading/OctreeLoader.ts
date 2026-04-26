@@ -11,16 +11,11 @@ import type {
   PotreeLoadInstrumentation,
   PotreeLoadMeasurement,
 } from "./LoadInstrumentation";
+import { loadMergedOctreeRanges } from "./load-merged-octree-range";
 import { loadOctreeHierarchy } from "./load-octree-hierarchy";
 import { OctreeGeometry } from "./OctreeGeometry";
 import { OctreeGeometryNode } from "./OctreeGeometryNode";
-import {
-  createMergedOctreeRanges,
-  type MergedOctreeRange,
-  OctreeRangeCache,
-  type PendingOctreeNode,
-  sliceCachedOctreeBuffer,
-} from "./octree-range-cache";
+import { OctreeRangeCache } from "./octree-range-cache";
 import {
   PointAttribute,
   PointAttributes,
@@ -107,7 +102,13 @@ export class NodeLoader {
 
       await Promise.all([
         ...zeroByteLoads,
-        ...this.loadMergedOctreeRanges(pendingNodes, decodeNodes),
+        ...loadMergedOctreeRanges({
+          pendingNodes,
+          decodeNodes,
+          octreeRangeCache: this.octreeRangeCache,
+          emitMeasurement: (measurement) => this.emitMeasurement(measurement),
+          decodeNode: (node, buffer) => this.decodeNode(node, buffer),
+        }),
       ]);
     } catch (error) {
       for (const node of loadableNodes) {
@@ -134,105 +135,6 @@ export class NodeLoader {
 
   private emitMeasurement(measurement: PotreeLoadMeasurement) {
     this.instrumentation?.onStage?.(measurement);
-  }
-
-  private loadMergedOctreeRanges(
-    pendingNodes: PendingOctreeNode<OctreeGeometryNode>[],
-    decodeNodes: Set<OctreeGeometryNode>,
-  ) {
-    const ranges = createMergedOctreeRanges(pendingNodes).filter((range) =>
-      range.nodes.some((pendingNode) => decodeNodes.has(pendingNode.node)),
-    );
-    return ranges.map((range) =>
-      this.loadMergedOctreeRange(range, decodeNodes),
-    );
-  }
-
-  private async loadMergedOctreeRange(
-    range: MergedOctreeRange<OctreeGeometryNode>,
-    decodeNodes: Set<OctreeGeometryNode>,
-  ) {
-    const urlOctree = await this.octreeRangeCache.getOctreeUrl();
-    const cachedBuffer = await this.octreeRangeCache.readFromOctreeCache(
-      urlOctree,
-      range.start,
-      range.endExclusive,
-    );
-
-    if (cachedBuffer !== null) {
-      const decodePendingNodes = range.nodes.filter((pendingNode) =>
-        decodeNodes.has(pendingNode.node),
-      );
-      return await Promise.all(
-        decodePendingNodes.map((pendingNode) => {
-          const buffer = sliceCachedOctreeBuffer(
-            cachedBuffer,
-            range.start,
-            pendingNode.byteOffset,
-            pendingNode.endExclusive,
-          );
-          this.emitOctreeReadMeasurement(
-            pendingNode,
-            0,
-            0,
-            range.nodes.length,
-            true,
-          );
-          return this.decodeNode(pendingNode.node, buffer);
-        }),
-      ).then(() => undefined);
-    }
-
-    const readStartedAt = performance.now();
-    const fetchedBuffer = await this.octreeRangeCache.fetchOctreeRange(
-      urlOctree,
-      range.start,
-      range.endExclusive,
-    );
-    const readDurationMs = performance.now() - readStartedAt;
-    const decodePendingNodes = range.nodes.filter((pendingNode) =>
-      decodeNodes.has(pendingNode.node),
-    );
-
-    return await Promise.all(
-      decodePendingNodes.map((pendingNode, index) => {
-        const buffer = sliceCachedOctreeBuffer(
-          fetchedBuffer,
-          range.start,
-          pendingNode.byteOffset,
-          pendingNode.endExclusive,
-        );
-        this.emitOctreeReadMeasurement(
-          pendingNode,
-          index === 0 ? readDurationMs : 0,
-          index === 0 ? fetchedBuffer.byteLength : 0,
-          range.nodes.length,
-          index !== 0,
-        );
-        return this.decodeNode(pendingNode.node, buffer);
-      }),
-    ).then(() => undefined);
-  }
-
-  private emitOctreeReadMeasurement(
-    pendingNode: PendingOctreeNode<OctreeGeometryNode>,
-    durationMs: number,
-    fetchedByteSize: number,
-    mergedNodeCount: number,
-    cacheHit: boolean,
-  ) {
-    this.emitMeasurement({
-      stage: "octree-slice-read",
-      nodeName: pendingNode.node.name,
-      durationMs,
-      byteSize: Number(pendingNode.byteSize),
-      numPoints: pendingNode.node.numPoints,
-      metadata: {
-        cacheHit,
-        fetchedByteSize,
-        mergedNodeCount,
-      },
-    });
   }
 
   private decodeNode(node: OctreeGeometryNode, buffer: ArrayBuffer) {

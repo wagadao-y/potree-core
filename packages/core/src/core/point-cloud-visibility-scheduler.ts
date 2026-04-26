@@ -1,4 +1,3 @@
-import { collectVisibleRunCandidates as collectVisibleRunLoadCandidates } from "./point-cloud-visible-run";
 import type {
   Box3Like,
   IPointCloudGeometryNode,
@@ -8,6 +7,7 @@ import type {
   IVisibilityUpdateResult,
   Vec3Like,
 } from "./types";
+import { groupGeometryLoads } from "./visibility/group-geometry-loads";
 import {
   enqueueChildVisibilityItems,
   updateVisibility,
@@ -208,64 +208,6 @@ export class PointCloudVisibilityScheduler<
     nodes: TGeometryNode[],
     candidates: TGeometryNode[],
   ): Promise<void>[] {
-    const nodeLoadPromises: Promise<void>[] = [];
-    const nodesByLoader = new Map<
-      NonNullable<NonNullable<TGeometryNode["octreeGeometry"]>["loader"]>,
-      TGeometryNode[]
-    >();
-    const candidatesByLoader = new Map<
-      NonNullable<NonNullable<TGeometryNode["octreeGeometry"]>["loader"]>,
-      TGeometryNode[]
-    >();
-
-    for (const candidate of candidates) {
-      const loader = candidate.octreeGeometry?.loader;
-
-      if (loader?.loadBatchWithCandidates === undefined) {
-        continue;
-      }
-
-      const batch = candidatesByLoader.get(loader);
-
-      if (batch === undefined) {
-        candidatesByLoader.set(loader, [candidate]);
-      } else {
-        batch.push(candidate);
-      }
-    }
-
-    for (const node of nodes) {
-      const loader = node.octreeGeometry?.loader;
-
-      if (loader?.loadBatchWithCandidates === undefined) {
-        nodeLoadPromises.push(node.load());
-        continue;
-      }
-
-      const batch = nodesByLoader.get(loader);
-
-      if (batch === undefined) {
-        nodesByLoader.set(loader, [node]);
-      } else {
-        batch.push(node);
-      }
-    }
-
-    for (const [loader, batch] of nodesByLoader) {
-      if (loader.loadBatchWithCandidates === undefined) {
-        continue;
-      }
-
-      const runCandidates = collectVisibleRunLoadCandidates(
-        batch,
-        candidatesByLoader.get(loader) ?? batch,
-      );
-
-      nodeLoadPromises.push(
-        loader.loadBatchWithCandidates(runCandidates, runCandidates),
-      );
-    }
-
-    return nodeLoadPromises;
+    return groupGeometryLoads(nodes, candidates);
   }
 }
