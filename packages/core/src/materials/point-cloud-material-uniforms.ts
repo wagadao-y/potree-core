@@ -47,6 +47,7 @@ export interface IPointCloudMaterialUniforms {
   far: IUniform<number>;
   size: IUniform<number>;
   spacing: IUniform<number>;
+  spacingScale: IUniform<number>;
   toModel: IUniform<number[]>;
   transition: IUniform<number>;
   uColor: IUniform<Color>;
@@ -120,6 +121,7 @@ export function createPointCloudMaterialUniforms(
     far: makeUniform("f", 1000.0),
     size: makeUniform("f", 1),
     spacing: makeUniform("f", 1.0),
+    spacingScale: makeUniform("f", 1.0),
     toModel: makeUniform("Matrix4f", []),
     transition: makeUniform("f", 0.5),
     uColor: makeUniform("c", new Color(0xffffff)),

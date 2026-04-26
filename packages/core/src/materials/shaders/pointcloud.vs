@@ -28,6 +28,7 @@ uniform float screenWidth;
 uniform float screenHeight;
 uniform float fov;
 uniform float spacing;
+uniform float spacingScale;
 uniform float viewScale;
 
 uniform bool useOrthographicCamera;
@@ -359,9 +360,7 @@ void main() {
 	// POINT SIZE COMPUTATION
 	float tanHalfFOV = tan(fov * 0.5);
 	float projFactor = -0.5 * screenHeight / (tanHalfFOV * mvPosition.z);
-	// Scale compensation based on transformation difference 
-	float scale = length(modelViewMatrix * vec4(0, 0, 0, 1) - modelViewMatrix * vec4(spacing, 0, 0, 1)) / spacing;
-	projFactor *= scale;
+	projFactor *= spacingScale;
 	
 	float pointSize = 1.0;
 	#if defined fixed_point_size

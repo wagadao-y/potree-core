@@ -6,13 +6,14 @@ import {
   GLSL3,
   LessEqualDepth,
   type Material,
+  Matrix4,
   NoBlending,
   type OrthographicCamera,
   type PerspectiveCamera,
   RawShaderMaterial,
   type Scene,
   type Texture,
-  type Vector3,
+  Vector3,
   type Vector4,
   type WebGLRenderer,
   WebGLRenderTarget,
@@ -52,6 +53,10 @@ import {
   generateGradientTexture,
 } from "./texture-generation";
 import type { IClassification, IGradient, IUniform } from "./types";
+
+const spacingScaleModelViewMatrix = new Matrix4();
+const spacingScaleOrigin = new Vector3();
+const spacingScaleOffset = new Vector3();
 
 /**
  * Configuration parameters for point cloud material rendering.
@@ -173,6 +178,8 @@ export class PointCloudMaterial extends RawShaderMaterial {
   @uniform("size") size!: number;
 
   @uniform("spacing") spacing!: number;
+
+  @uniform("spacingScale") spacingScale!: number;
 
   @uniform("transition") transition!: number;
 
@@ -608,11 +615,45 @@ export class PointCloudMaterial extends RawShaderMaterial {
         materialUniforms.pcIndex.value =
           pcIndex !== undefined ? pcIndex : (node.pcIndex ?? 0);
 
+        if (
+          material.pointSizeType === PointSizeType.ATTENUATED ||
+          material.pointSizeType === PointSizeType.ADAPTIVE
+        ) {
+          materialUniforms.spacingScale.value = computeSpacingScale(
+            material.spacing,
+            _camera,
+            node.sceneNode.matrixWorld,
+          );
+        } else {
+          materialUniforms.spacingScale.value = 1.0;
+        }
+
         // Remove the cast to any after updating to Three.JS >= r113
         (material as RawShaderMaterial).uniformsNeedUpdate = true;
       }
     };
   }
+}
+
+function computeSpacingScale(
+  spacing: number,
+  camera: Camera,
+  matrixWorld: Matrix4,
+): number {
+  if (spacing === 0) {
+    return 1.0;
+  }
+
+  spacingScaleModelViewMatrix.multiplyMatrices(
+    camera.matrixWorldInverse,
+    matrixWorld,
+  );
+  spacingScaleOrigin.set(0, 0, 0).applyMatrix4(spacingScaleModelViewMatrix);
+  spacingScaleOffset
+    .set(spacing, 0, 0)
+    .applyMatrix4(spacingScaleModelViewMatrix);
+
+  return spacingScaleOrigin.distanceTo(spacingScaleOffset) / spacing;
 }
 
 function getValid<T>(a: T | undefined, b: T): T {
