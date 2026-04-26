@@ -27,6 +27,7 @@ export class EyeDomeLightingMaterial extends RawShaderMaterial {
   private _useLogDepth = false;
   private _useReversedDepth = false;
   private neighboursArray: Float32Array = new Float32Array(16);
+  private projectionMatrixArray: Float32Array = new Float32Array(16);
 
   public constructor() {
     super();
@@ -39,7 +40,7 @@ export class EyeDomeLightingMaterial extends RawShaderMaterial {
       opacity: { type: "f", value: 1.0 },
 
       neighbours: { type: "2fv", value: this.neighboursArray },
-      uProj: { type: "Matrix4fv", value: new Float32Array(16) },
+      uProj: { type: "Matrix4fv", value: this.projectionMatrixArray },
       colorMap: { type: "t", value: null },
       far: { type: "f", value: 1000.0 },
       useOrthographicCamera: { type: "b", value: false },
@@ -123,8 +124,6 @@ export class EyeDomeLightingMaterial extends RawShaderMaterial {
   }
 
   public setProjectionMatrix(projectionMatrix: Matrix4): void {
-    const out = new Float32Array(16);
-    out.set(projectionMatrix.elements);
-    this.uniforms.uProj.value = out;
+    this.projectionMatrixArray.set(projectionMatrix.elements);
   }
 }
