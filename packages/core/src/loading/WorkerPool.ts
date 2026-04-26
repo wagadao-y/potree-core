@@ -1,24 +1,19 @@
-import BrotliDecoderWorker from "./brotli-decoder.worker.ts?worker&inline";
-import DecoderWorker from "./decoder.worker.ts?worker&inline";
+import CompressedDecoderWorker from "./compressed-decoder.worker.ts?worker&inline";
+import UncompressedDecoderWorker from "./uncompressed-decoder.worker.ts?worker&inline";
 
 /**
  * Enumerates the types of workers available in the worker pool.
  */
 export enum WorkerType {
   /**
-   * Worker for decoding Brotli-compressed data.
+   * Worker for decoding compressed octree node data.
    */
-  DECODER_WORKER_BROTLI = "DECODER_WORKER_BROTLI",
+  COMPRESSED_DECODER_WORKER = "COMPRESSED_DECODER_WORKER",
 
   /**
-   * Worker for decoding Zstd-compressed data.
+   * Worker for decoding uncompressed octree node data.
    */
-  DECODER_WORKER_ZSTD = "DECODER_WORKER_ZSTD",
-
-  /**
-   * Worker for general decoding tasks.
-   */
-  DECODER_WORKER = "DECODER_WORKER",
+  UNCOMPRESSED_DECODER_WORKER = "UNCOMPRESSED_DECODER_WORKER",
 }
 
 /**
@@ -30,14 +25,11 @@ export enum WorkerType {
  */
 function createWorker(type: WorkerType): Worker {
   switch (type) {
-    case WorkerType.DECODER_WORKER_BROTLI: {
-      return new BrotliDecoderWorker();
+    case WorkerType.COMPRESSED_DECODER_WORKER: {
+      return new CompressedDecoderWorker();
     }
-    case WorkerType.DECODER_WORKER_ZSTD: {
-      return new BrotliDecoderWorker();
-    }
-    case WorkerType.DECODER_WORKER: {
-      return new DecoderWorker();
+    case WorkerType.UNCOMPRESSED_DECODER_WORKER: {
+      return new UncompressedDecoderWorker();
     }
     default:
       throw new Error("Unknown worker type");
@@ -48,13 +40,16 @@ function createWorker(type: WorkerType): Worker {
  * WorkerPool manages a collection of worker instances, allowing for efficient retrieval and return of workers based on their type.
  */
 export class WorkerPool {
+  private disposed = false;
+
+  private readonly allWorkers = new Set<Worker>();
+
   /**
    * Workers will be an object that has a key for each worker type and the value is an array of Workers that can be empty.
    */
   public workers: { [key in WorkerType]: Worker[] } = {
-    DECODER_WORKER: [],
-    DECODER_WORKER_BROTLI: [],
-    DECODER_WORKER_ZSTD: [],
+    COMPRESSED_DECODER_WORKER: [],
+    UNCOMPRESSED_DECODER_WORKER: [],
   };
 
   /**
@@ -67,6 +62,10 @@ export class WorkerPool {
    * @throws Error if the worker type is not recognized or if no workers are available in the pool.
    */
   public getWorker(workerType: WorkerType): Worker {
+    if (this.disposed) {
+      throw new Error("Worker pool has been disposed");
+    }
+
     // Throw error if workerType is not recognized
     if (this.workers[workerType] === undefined) {
       throw new Error("Unknown worker type");
@@ -74,6 +73,7 @@ export class WorkerPool {
     // Given a worker URL, if URL does not exist in the worker object, create a new array with the URL as a key
     if (this.workers[workerType].length === 0) {
       const worker = createWorker(workerType);
+      this.allWorkers.add(worker);
       this.workers[workerType].push(worker);
     }
     const worker = this.workers[workerType].pop();
@@ -92,6 +92,30 @@ export class WorkerPool {
    * @param worker - The worker instance to be returned to the pool.
    */
   public returnWorker(workerType: WorkerType, worker: Worker) {
+    if (this.disposed) {
+      this.allWorkers.delete(worker);
+      worker.terminate();
+      return;
+    }
+
     this.workers[workerType].push(worker);
+  }
+
+  public dispose(): void {
+    if (this.disposed) {
+      return;
+    }
+
+    this.disposed = true;
+
+    for (const worker of this.allWorkers) {
+      worker.terminate();
+    }
+
+    this.allWorkers.clear();
+
+    for (const workerType of Object.values(WorkerType)) {
+      this.workers[workerType] = [];
+    }
   }
 }

@@ -11,11 +11,10 @@ import type {
 function getDecoderWorkerType(encoding: string): WorkerType {
   switch (encoding) {
     case "BROTLI":
-      return WorkerType.DECODER_WORKER_BROTLI;
     case "ZSTD":
-      return WorkerType.DECODER_WORKER_ZSTD;
+      return WorkerType.COMPRESSED_DECODER_WORKER;
     default:
-      return WorkerType.DECODER_WORKER;
+      return WorkerType.UNCOMPRESSED_DECODER_WORKER;
   }
 }
 

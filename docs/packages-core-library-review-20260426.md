@@ -24,41 +24,41 @@
 
 ## レビュー結果
 
-### 1. Zstd データセットのデコード経路が壊れている
+### 1. 圧縮 worker の命名と責務境界が誤解を招く
 
-- 重要度: Critical
+- 重要度: Medium
 - 対象ファイル・該当箇所:
   - `packages/core/src/loading/WorkerPool.ts`
-    - `WorkerType.DECODER_WORKER_ZSTD` の worker 生成
+    - worker 種別と生成 worker の対応
   - `packages/core/src/loading/decode-octree-node.ts`
-    - `encoding === "ZSTD"` 時の worker type 選択
+    - `encoding` から worker 種別を選ぶ処理
+  - `packages/core/src/loading/compressed-decoder.worker.ts`
+    - Brotli / Zstd の両圧縮形式を処理する worker 本体
 - 問題の内容:
-  - `decodeOctreeNode()` は `encoding === "ZSTD"` のとき `DECODER_WORKER_ZSTD` を選んでいる。
-  - しかし `WorkerPool.createWorker()` では `DECODER_WORKER_ZSTD` に対して `BrotliDecoderWorker` を返している。
+  - Brotli と Zstd は別経路ではなく、同じ圧縮 worker 内で `encoding` を見て分岐する実装である。
+  - それにもかかわらず、旧命名では worker type と worker ファイル名が圧縮方式別に分かれているように読め、Zstd 専用 worker が存在するかのような誤解を招いていた。
 - なぜ問題なのか:
-  - Zstd 圧縮ノードの decode 経路が論理的に破綻しており、Zstd データセットの読込失敗や不正 decode の原因になる。
-  - Potree データ読み込みフローの中核にある問題であり、ライブラリの対応形式の正確性を直接損なう。
+  - 実際の decode 経路は壊れていないが、命名と責務の表現が実装実態とずれていると、レビュー、保守、将来の worker 分離判断を誤りやすい。
+  - 特に Zstd 対応の有無や、pool が何を単位に分離されているかをコードから素直に読み取れない。
 - 推奨される修正方針:
-  - Zstd 専用 worker を明示的に分離し、`WorkerType` と生成 worker の対応を 1 対 1 に揃える。
-  - Brotli と Zstd の両 fixture で decode 完了までを確認する回帰テストを追加する。
+  - worker を「圧縮 worker」と「非圧縮 worker」の 2 種別として命名し、Brotli / Zstd は共通の圧縮 worker で扱うことを明示する。
+  - Brotli と Zstd の両 fixture で decode 完了までを確認する回帰テストは引き続き追加する。
 - 可能な修正例または疑似コード:
 
 ```ts
 function createWorker(type: WorkerType): Worker {
   switch (type) {
-    case WorkerType.DECODER_WORKER_BROTLI:
-      return new BrotliDecoderWorker();
-    case WorkerType.DECODER_WORKER_ZSTD:
-      return new ZstdDecoderWorker();
-    case WorkerType.DECODER_WORKER:
-      return new DecoderWorker();
+    case WorkerType.COMPRESSED_DECODER_WORKER:
+      return new CompressedDecoderWorker();
+    case WorkerType.UNCOMPRESSED_DECODER_WORKER:
+      return new UncompressedDecoderWorker();
   }
 }
 ```
 
-### 2. dispose 後も decoder worker が生き残り、ライフサイクル管理が閉じていない
+### 2. dispose 時の decoder worker terminate 経路は実装済みだが、利用側で明示的な dispose が必要
 
-- 重要度: High
+- 重要度: Medium
 - 対象ファイル・該当箇所:
   - `packages/core/src/loading/OctreeLoader.ts`
     - `workerPool` の所有
@@ -67,14 +67,14 @@ function createWorker(type: WorkerType): Worker {
   - `packages/core/src/loading/WorkerPool.ts`
     - `dispose()` / `terminate()` 相当の API 不在
 - 問題の内容:
-  - `OctreeLoader` は `WorkerPool` を持つが、`OctreeGeometry.dispose()` で loader 側破棄が実行されない。
-  - `WorkerPool` 自体にも全 worker を terminate する手段がない。
+  - `WorkerPool.dispose()`、`OctreeLoader.dispose()`、`OctreeGeometry.dispose()` の terminate 経路は実装済みになった。
+  - 一方で、通常の viewer 稼働中は `PointCloudOctree.dispose()` を自動では呼ばないため、利用側が点群の寿命を明示的に閉じない限り worker は生き続ける。
 - なぜ問題なのか:
-  - 点群の再読込や複数データセット切替時に、不要になった worker がページ寿命まで残る。
-  - GPU リソースだけでなく worker も解放するのが、描画ライブラリとして自然な所有権境界である。
+  - terminate 経路があっても、アプリケーション側で dispose を呼ばなければ worker はページ寿命まで残る。
+  - GPU リソースだけでなく worker も解放するのが、描画ライブラリとして自然な所有権境界であり、利用者向けドキュメントとサンプルでも dispose 契約を明示すべきである。
 - 推奨される修正方針:
-  - `WorkerPool.dispose()` を追加し、保持中 worker をすべて `terminate()` する。
-  - `OctreeLoader.dispose()` から `workerPool.dispose()` を呼び、`OctreeGeometry.dispose()` で確実に伝播させる。
+  - 現在の terminate 経路は維持しつつ、README や example で `PointCloudOctree.dispose()` を呼ぶ寿命管理を明示する。
+  - データセット切替や viewer teardown 時に dispose を必ず通すサンプルとテストを追加する。
 - 可能な修正例または疑似コード:
 
 ```ts
@@ -345,8 +345,8 @@ scene.add(overlay);
 
 ## すぐ修正すべき問題
 
-1. Zstd worker の誤配線を修正する。
-2. worker の dispose 経路を追加し、`PointCloudOctree.dispose()` から確実に terminate まで届くようにする。
+1. 圧縮 worker と非圧縮 worker の命名整理を反映し、回帰テストを追加する。
+2. `PointCloudOctree.dispose()` を呼ぶ寿命管理を examples と README で明示する。
 3. pick の Y 座標変換を修正する。
 4. metadata / hierarchy / octree の fetch で HTTP 成功判定と range 応答検証を追加する。
 5. `metadata.json` 文字列置換依存から脱却する API 方針を確定する。

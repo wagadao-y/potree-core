@@ -60,6 +60,10 @@ export class NodeLoader {
     this.octreeRangeCache = new OctreeRangeCache(url, requestManager);
   }
 
+  public dispose(): void {
+    this.workerPool.dispose();
+  }
+
   /**
    * Loads the geometry for a given octree node.
    *

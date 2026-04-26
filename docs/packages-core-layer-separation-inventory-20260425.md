@@ -88,7 +88,7 @@
 
 #### worker とデコード周辺
 
-- `loading/decoder.worker.ts` と `loading/brotli-decoder.worker.ts`
+- `loading/uncompressed-decoder.worker.ts` と `loading/compressed-decoder.worker.ts`
   - 現行の decode worker 実装であり、Three.js 非依存の pure core 相当。
 
 - `loading/WorkerPool.ts`

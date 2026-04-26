@@ -45,7 +45,11 @@ export class OctreeGeometry {
   }
 
   public dispose(): void {
-    // this.loader.dispose();
+    if (this.disposed) {
+      return;
+    }
+
+    this.loader.dispose();
     this.root.traverse((node) => {
       return node.dispose();
     });
