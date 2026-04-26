@@ -66,6 +66,12 @@ void main() {
 	// Treat alpha==1.0 as background (see comment in response()).
 	depth = (depth == 1.0) ? 0.0 : depth;
 	
+	// Discard fragments with no valid depth before neighbor sampling.
+	// Background is cleared and should not pay the EDL sampling cost.
+	if (depth == 0.0) {
+		discard;
+	}
+	
 	// Compute the depth difference response using neighbor sampling.
 	float res = response(depth);
 	
@@ -73,12 +79,6 @@ void main() {
 	float factor = edlStrength * 300.0;
 	// Compute the shading value with an exponential decay function.
 	float shade = exp(-res * factor);
-	
-	// Discard fragments with no valid depth.
-	// (Keeps behavior close to upstream: background is cleared and not composited.)
-	if (depth == 0.0) {
-		discard;
-	}
 	
 	// Output the final color by combining the original color with the shading effect, and applying the set opacity.
 	fragColor = vec4(color.rgb * shade, opacity);
