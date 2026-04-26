@@ -26,6 +26,8 @@
 
 ### 1. 圧縮 worker の命名と責務境界が誤解を招く
 
+- 状態: 完了
+
 - 重要度: Medium
 - 対象ファイル・該当箇所:
   - `packages/core/src/loading/WorkerPool.ts`
@@ -40,9 +42,9 @@
 - なぜ問題なのか:
   - 実際の decode 経路は壊れていないが、命名と責務の表現が実装実態とずれていると、レビュー、保守、将来の worker 分離判断を誤りやすい。
   - 特に Zstd 対応の有無や、pool が何を単位に分離されているかをコードから素直に読み取れない。
-- 推奨される修正方針:
-  - worker を「圧縮 worker」と「非圧縮 worker」の 2 種別として命名し、Brotli / Zstd は共通の圧縮 worker で扱うことを明示する。
-  - Brotli と Zstd の両 fixture で decode 完了までを確認する回帰テストは引き続き追加する。
+- 対応内容:
+  - worker を「圧縮 worker」と「非圧縮 worker」の 2 種別へ整理し、Brotli / Zstd は共通の圧縮 worker で扱う形に改めた。
+  - 残る回帰テスト追加はテスト項目へ切り出す。
 - 可能な修正例または疑似コード:
 
 ```ts
@@ -56,7 +58,9 @@ function createWorker(type: WorkerType): Worker {
 }
 ```
 
-### 2. dispose 時の decoder worker terminate 経路は実装済みだが、利用側で明示的な dispose が必要
+### 2. dispose 時の decoder worker terminate 経路は実装済みで、playground の点群切替でも dispose を通す
+
+- 状態: 完了
 
 - 重要度: Medium
 - 対象ファイル・該当箇所:
@@ -67,14 +71,15 @@ function createWorker(type: WorkerType): Worker {
   - `packages/core/src/loading/WorkerPool.ts`
     - `dispose()` / `terminate()` 相当の API 不在
 - 問題の内容:
-  - `WorkerPool.dispose()`、`OctreeLoader.dispose()`、`OctreeGeometry.dispose()` の terminate 経路は実装済みになった。
-  - 一方で、通常の viewer 稼働中は `PointCloudOctree.dispose()` を自動では呼ばないため、利用側が点群の寿命を明示的に閉じない限り worker は生き続ける。
+  - `WorkerPool.dispose()`、`OctreeLoader.dispose()`、`OctreeGeometry.dispose()` の terminate 経路を実装した。
+  - あわせて playground の点群切替時に `PointCloudOctree.dispose()` を呼び、不要になった worker が残り続けないようにした。
 - なぜ問題なのか:
   - terminate 経路があっても、アプリケーション側で dispose を呼ばなければ worker はページ寿命まで残る。
-  - GPU リソースだけでなく worker も解放するのが、描画ライブラリとして自然な所有権境界であり、利用者向けドキュメントとサンプルでも dispose 契約を明示すべきである。
-- 推奨される修正方針:
-  - 現在の terminate 経路は維持しつつ、README や example で `PointCloudOctree.dispose()` を呼ぶ寿命管理を明示する。
-  - データセット切替や viewer teardown 時に dispose を必ず通すサンプルとテストを追加する。
+  - GPU リソースだけでなく worker も解放するのが、描画ライブラリとして自然な所有権境界である。
+- 対応内容:
+  - `PointCloudOctree.dispose()` から terminate まで届く所有境界を整えた。
+  - playground の点群切替時に dispose を通すようにした。
+  - 残る回帰テスト追加はテスト項目へ切り出す。
 - 可能な修正例または疑似コード:
 
 ```ts
@@ -132,28 +137,41 @@ interface PotreeDatasetSource {
 }
 ```
 
-### 4. ピック時の画面 Y 座標変換が誤っており、標準経路で上下反転した位置を読む
+### 4. ピック時の座標系取り扱いは条件付きで誤用しやすく、追加検証が必要
 
-- 重要度: High
+- 重要度: Medium
 - 対象ファイル・該当箇所:
   - `packages/core/src/renderer-three/picking/point-cloud-octree-picker.ts`
     - ray から pixelPosition を導出する処理
   - `apps/playground/src/main.ts`
     - `Potree.pick()` の利用例
 - 問題の内容:
-  - NDC から framebuffer pixel へ変換する際、`x` と同じ式を `y` にも使っている。
-  - WebGL の pixel 原点は下側なので、`y` は通常反転が必要である。
+  - `point-cloud-octree-picker.ts` の Y 変換式は、画面座標の直感とは逆向きに見える。
+  - ただし playground での実測では、`Potree.pick()` の既定経路は screen 再投影で 1 から 2 px 程度の差に収まり、上下反転のような大きな乖離は確認できなかった。
+  - 一方で `params.pixelPosition` は内部で無変換利用されるため、呼び出し側が左上原点の DOM 座標をそのまま渡すと、座標系の取り違えを起こす余地がある。
 - なぜ問題なのか:
-  - canvas 座標と 3D 空間をまたぐピック処理の正確性が落ちる。
-  - playground でも `pixelPosition` を渡さずに `Potree.pick()` を使っているため、利用者向けサンプル自体が誤った挙動を含んでいる。
+  - 既定経路が常時壊れているとは現時点で言えないが、API 利用者が `pixelPosition` の座標系を誤解しやすい。
+  - playground 側も ray 生成で canvas の配置や DPR 差を吸収しておらず、レイアウト条件次第で別種の座標ずれが表面化しうる。
 - 推奨される修正方針:
-  - `y` は反転して framebuffer 座標へ変換する。
-  - 利用者が誤りにくいよう、ray ベース API に加えて canvas 座標直指定 API を追加するのが望ましい。
+  - `pixelPosition` がどの座標系を要求するかを明文化する。
+  - 必要なら canvas 左上原点の座標を受ける公開 API を別途用意し、内部で framebuffer 座標へ正規化する。
+  - 既定経路の式修正は、専用の再現ケースと自動テストを用意してから判断する。
 - 可能な修正例または疑似コード:
 
 ```ts
-pixelPosition.x = (projected.x + 1) * width * 0.5;
-pixelPosition.y = (1 - (projected.y + 1) * 0.5) * height;
+interface PickParams {
+  // framebuffer pixel 座標なのか、canvas 左上原点の座標なのかを明示する
+  pixelPosition?: Vector3;
+}
+
+function normalizeCanvasPixelToFramebuffer(
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+) {
+  return { x, y: height - y };
+}
 ```
 
 ### 5. fetch 成功判定と range 応答検証がなく、I/O エラーが壊れた parse/decode として伝播する
@@ -311,12 +329,12 @@ scene.add(overlay);
 ### ピック処理・空間検索
 
 - pick は visible node ベースの offscreen render で構成されており、Three.js の `Raycaster` 補完も用意されている。
-- 一方で座標変換の誤りと renderer state 汚染があり、実運用での正確性と統合性に問題がある。
+- 一方で座標系契約がまだ曖昧で、renderer state 汚染とあわせて実運用での統合リスクが残っている。
 
 ### 状態管理・ライフサイクル
 
 - `PointCloudOctree.dispose()` で geometry、material、picker、LRU を片付ける意図は明確である。
-- しかし worker 側まで所有権が閉じていないため、完全な dispose にはなっていない。
+- worker terminate 経路は実装されたが、共有 picker など補助リソースの寿命管理は引き続き整理余地がある。
 
 ### 非同期処理・Worker・I/O
 
@@ -325,7 +343,7 @@ scene.add(overlay);
 
 ### 正確性・数値計算
 
-- visibility の基盤は整理されているが、pick の canvas 座標変換に不備がある。
+- visibility の基盤は整理されているが、pick 周りの座標系契約がまだ曖昧である。
 - 画面系と 3D 系の境界は、今後も重点的な検証対象にすべきである。
 
 ### テスト・検証
@@ -345,11 +363,9 @@ scene.add(overlay);
 
 ## すぐ修正すべき問題
 
-1. 圧縮 worker と非圧縮 worker の命名整理を反映し、回帰テストを追加する。
-2. `PointCloudOctree.dispose()` を呼ぶ寿命管理を examples と README で明示する。
-3. pick の Y 座標変換を修正する。
-4. metadata / hierarchy / octree の fetch で HTTP 成功判定と range 応答検証を追加する。
-5. `metadata.json` 文字列置換依存から脱却する API 方針を確定する。
+1. pick API の座標系契約を明文化し、必要なら canvas 座標受け API を追加する。
+2. metadata / hierarchy / octree の fetch で HTTP 成功判定と range 応答検証を追加する。
+3. `metadata.json` 文字列置換依存から脱却する API 方針を確定する。
 
 ## 次のマイナーリリースまでに改善すべき問題
 
@@ -369,11 +385,12 @@ scene.add(overlay);
 ## 追加すべきテスト
 
 1. Brotli / Zstd の両 encoding での読込テスト。
-2. 3 本の URL が個別に解決されるケースを想定した resource resolution テスト。
-3. 403、404、期限切れ、range 非対応、壊れた `Content-Range` のエラーテスト。
-4. pick の正確性を DPR 1 / 2、Perspective / Orthographic で検証するテスト。
-5. dispose 後に worker、geometry、material、pick render target が解放されることのテスト。
-6. 公開 exports のみで最小 example が build できる smoke test。
+2. worker 命名整理後の decode 経路と dispose 経路を守る回帰テスト。
+3. 3 本の URL が個別に解決されるケースを想定した resource resolution テスト。
+4. 403、404、期限切れ、range 非対応、壊れた `Content-Range` のエラーテスト。
+5. pick の正確性を DPR 1 / 2、Perspective / Orthographic で検証するテスト。
+6. dispose 後に worker、geometry、material、pick render target が解放されることのテスト。
+7. 公開 exports のみで最小 example が build できる smoke test。
 
 ## README または examples に追加すべき内容
 
