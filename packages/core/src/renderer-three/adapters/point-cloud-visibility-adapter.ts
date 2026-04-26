@@ -1,4 +1,11 @@
-import { Box3, type Camera, Vector2, Vector3, type WebGLRenderer } from "three";
+import {
+  Box3,
+  type Camera,
+  type Plane,
+  Vector2,
+  Vector3,
+  type WebGLRenderer,
+} from "three";
 import type { PointCloudVisibilityUpdateInput } from "../../core";
 import type { Box3Like, IPointCloudTreeNode } from "../../core/types";
 import type { OctreeGeometryNode } from "../../loading/OctreeGeometryNode";
@@ -19,8 +26,11 @@ import { updatePointCloudAfterVisibility } from "./point-cloud-octree-renderer";
 
 export interface ClipVisibilityContext {
   enabled: boolean;
+  clipMode: ClipMode;
   clipBoxCount: number;
   clipBoxesWorld: Box3[];
+  clipPlanes: Plane[];
+  clipPlaneCount: number;
 }
 
 class PointCloudClipVisibilityEvaluator {
@@ -30,6 +40,13 @@ class PointCloudClipVisibilityEvaluator {
   );
 
   private readonly clipNodeWorldBox = new Box3();
+
+  private readonly clipNodeCorners = Array.from(
+    { length: 8 },
+    () => new Vector3(),
+  );
+
+  private readonly clipLocalCorner = new Vector3();
 
   private readonly clipContexts: (ClipVisibilityContext | undefined)[] = [];
 
@@ -43,14 +60,21 @@ class PointCloudClipVisibilityEvaluator {
       const pointCloud = pointClouds[i];
       const material = pointCloud.material;
       const existingContext = contexts[i];
+      const clipPlanes = material.clippingPlanes ?? [];
+      const supportsClipPruning =
+        material.clipMode === ClipMode.CLIP_OUTSIDE ||
+        material.clipMode === ClipMode.CLIP_INSIDE;
 
       if (
-        material.numClipBoxes === 0 ||
-        material.clipMode !== ClipMode.CLIP_OUTSIDE
+        !supportsClipPruning ||
+        (material.numClipBoxes === 0 && clipPlanes.length === 0)
       ) {
         if (existingContext !== undefined) {
           existingContext.enabled = false;
+          existingContext.clipMode = ClipMode.DISABLED;
           existingContext.clipBoxCount = 0;
+          existingContext.clipPlaneCount = 0;
+          existingContext.clipPlanes = [];
         }
         continue;
       }
@@ -61,8 +85,11 @@ class PointCloudClipVisibilityEvaluator {
       if (context === undefined) {
         context = {
           enabled: true,
+          clipMode: material.clipMode,
           clipBoxCount: 0,
           clipBoxesWorld: [],
+          clipPlanes: [],
+          clipPlaneCount: 0,
         };
         contexts[i] = context;
       }
@@ -70,7 +97,10 @@ class PointCloudClipVisibilityEvaluator {
       const clipBoxesWorld = context.clipBoxesWorld;
       const clipBoxes = material.clipBoxes;
       context.enabled = true;
+      context.clipMode = material.clipMode;
       context.clipBoxCount = clipBoxes.length;
+      context.clipPlanes = clipPlanes;
+      context.clipPlaneCount = clipPlanes.length;
 
       for (let j = 0; j < context.clipBoxCount; j++) {
         const clipBoxWorld = clipBoxesWorld[j] ?? new Box3();
@@ -94,15 +124,150 @@ class PointCloudClipVisibilityEvaluator {
     const nodeWorldBox = this.clipNodeWorldBox
       .copy(toThreeBox3(boundingBox))
       .applyMatrix4(pointCloud.matrixWorld);
+
+    if (clipContext.clipMode === ClipMode.CLIP_OUTSIDE) {
+      if (this.isEntirelyRejectedByAnyPlane(nodeWorldBox, clipContext)) {
+        return true;
+      }
+
+      return !this.intersectsAnyClipBox(nodeWorldBox, clipContext);
+    }
+
+    if (clipContext.clipMode !== ClipMode.CLIP_INSIDE) {
+      return false;
+    }
+
+    if (!this.isEntirelyAcceptedByPlanes(nodeWorldBox, clipContext)) {
+      return false;
+    }
+
+    return this.isEntirelyInsideAnyClipBox(
+      nodeWorldBox,
+      pointCloud,
+      clipContext,
+    );
+  }
+
+  private intersectsAnyClipBox(
+    nodeWorldBox: Box3,
+    clipContext: ClipVisibilityContext,
+  ): boolean {
     const clipBoxesWorld = clipContext.clipBoxesWorld;
+
+    if (clipContext.clipBoxCount === 0) {
+      return true;
+    }
 
     for (let i = 0; i < clipContext.clipBoxCount; i++) {
       if (clipBoxesWorld[i]?.intersectsBox(nodeWorldBox)) {
-        return false;
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  private isEntirelyRejectedByAnyPlane(
+    nodeWorldBox: Box3,
+    clipContext: ClipVisibilityContext,
+  ): boolean {
+    if (clipContext.clipPlaneCount === 0) {
+      return false;
+    }
+
+    this.populateBoxCorners(nodeWorldBox);
+
+    for (let i = 0; i < clipContext.clipPlaneCount; i++) {
+      const plane = clipContext.clipPlanes[i];
+      let allNegative = true;
+
+      for (const corner of this.clipNodeCorners) {
+        if (plane.distanceToPoint(corner) >= 0.0) {
+          allNegative = false;
+          break;
+        }
+      }
+
+      if (allNegative) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  private isEntirelyAcceptedByPlanes(
+    nodeWorldBox: Box3,
+    clipContext: ClipVisibilityContext,
+  ): boolean {
+    if (clipContext.clipPlaneCount === 0) {
+      return true;
+    }
+
+    this.populateBoxCorners(nodeWorldBox);
+
+    for (let i = 0; i < clipContext.clipPlaneCount; i++) {
+      const plane = clipContext.clipPlanes[i];
+
+      for (const corner of this.clipNodeCorners) {
+        if (plane.distanceToPoint(corner) < 0.0) {
+          return false;
+        }
       }
     }
 
     return true;
+  }
+
+  private isEntirelyInsideAnyClipBox(
+    nodeWorldBox: Box3,
+    pointCloud: PointCloudOctree,
+    clipContext: ClipVisibilityContext,
+  ): boolean {
+    if (clipContext.clipBoxCount === 0) {
+      return clipContext.clipPlaneCount > 0;
+    }
+
+    this.populateBoxCorners(nodeWorldBox);
+    const clipBoxes = pointCloud.material.clipBoxes;
+
+    for (let i = 0; i < clipContext.clipBoxCount; i++) {
+      const clipBox = clipBoxes[i];
+      let containsAllCorners = true;
+
+      for (const corner of this.clipNodeCorners) {
+        this.clipLocalCorner.copy(corner).applyMatrix4(clipBox.inverse);
+
+        if (
+          Math.abs(this.clipLocalCorner.x) > 0.5 ||
+          Math.abs(this.clipLocalCorner.y) > 0.5 ||
+          Math.abs(this.clipLocalCorner.z) > 0.5
+        ) {
+          containsAllCorners = false;
+          break;
+        }
+      }
+
+      if (containsAllCorners) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  private populateBoxCorners(box: Box3): void {
+    const { min, max } = box;
+    const corners = this.clipNodeCorners;
+
+    corners[0].set(min.x, min.y, min.z);
+    corners[1].set(min.x, min.y, max.z);
+    corners[2].set(min.x, max.y, min.z);
+    corners[3].set(min.x, max.y, max.z);
+    corners[4].set(max.x, min.y, min.z);
+    corners[5].set(max.x, min.y, max.z);
+    corners[6].set(max.x, max.y, min.z);
+    corners[7].set(max.x, max.y, max.z);
   }
 }
 
