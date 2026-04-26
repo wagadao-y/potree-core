@@ -613,13 +613,13 @@ document.body.onload = () => {
       transformControls.detach();
     }
 
-    const intesects = raycaster.intersectObject(scene, true);
-    if (intesects.length > 0) {
+    const intersects = raycaster.intersectObjects(pointClouds, true);
+    if (intersects.length > 0) {
       const sphere = new Mesh(
         new SphereGeometry(0.2, 32, 32),
         new MeshBasicMaterial({ color: Math.random() * 0xaa4444 }),
       );
-      sphere.position.copy(intesects[0].point);
+      sphere.position.copy(intersects[0].point);
       scene.add(sphere);
     }
   };
@@ -660,6 +660,7 @@ document.body.onload = () => {
     clipPlanesActive = false;
     pointClouds.splice(0).forEach((pointCloud) => {
       scene.remove(pointCloud);
+      pointCloud.dispose();
     });
 
     if (clipSphereHelperMesh !== null) {
