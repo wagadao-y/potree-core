@@ -6,16 +6,21 @@ import {
   type WebGLRenderer,
 } from "three";
 import type { OctreeGeometryNode } from "../../loading/OctreeGeometryNode";
-import type { PointCloudOctree } from "../../point-cloud-octree";
 import type { PointCloudOctreeNode } from "../geometry/point-cloud-octree-node";
 import { PointCloudMaterial } from "../materials";
 import { computeTransformedBoundingBox } from "../math/bounds";
 import { toThreeBox3 } from "../math/box3-like";
 import { materializePointCloudOctreeNode } from "../scene/point-cloud-octree-scene";
+import type { ThreePointCloudVisibilityTarget } from "../types";
 
-const pointCloudVisibleBounds = new WeakMap<PointCloudOctree, Box3>();
+const pointCloudVisibleBounds = new WeakMap<
+  ThreePointCloudVisibilityTarget,
+  Box3
+>();
 
-function getPointCloudVisibleBoundsState(pointCloud: PointCloudOctree): Box3 {
+function getPointCloudVisibleBoundsState(
+  pointCloud: ThreePointCloudVisibilityTarget,
+): Box3 {
   let visibleBounds = pointCloudVisibleBounds.get(pointCloud);
   if (visibleBounds === undefined) {
     visibleBounds = new Box3();
@@ -27,31 +32,35 @@ function getPointCloudVisibleBoundsState(pointCloud: PointCloudOctree): Box3 {
 
 export class PointCloudOctreeRendererAdapter {
   public createDefaultMaterial(
-    pointCloudGeometry: PointCloudOctree["pcoGeometry"],
+    pointCloudGeometry: ThreePointCloudVisibilityTarget["pcoGeometry"],
   ): PointCloudMaterial {
     return createDefaultPointCloudMaterial(pointCloudGeometry);
   }
 
   public updateMaterialBounds(
-    pointCloud: PointCloudOctree,
+    pointCloud: ThreePointCloudVisibilityTarget,
     material: PointCloudMaterial,
   ): void {
     updatePointCloudMaterialBounds(pointCloud, material);
   }
 
   public materializeTreeNode(
-    pointCloud: PointCloudOctree,
+    pointCloud: ThreePointCloudVisibilityTarget,
     geometryNode: OctreeGeometryNode,
     parent?: PointCloudOctreeNode | null,
   ): PointCloudOctreeNode {
     return materializePointCloudOctreeNode(pointCloud, geometryNode, parent);
   }
 
-  public updateVisibleBounds(pointCloud: PointCloudOctree): void {
+  public updateVisibleBounds(
+    pointCloud: ThreePointCloudVisibilityTarget,
+  ): void {
     updatePointCloudVisibleBounds(pointCloud);
   }
 
-  public updateBoundingBoxes(pointCloud: PointCloudOctree): void {
+  public updateBoundingBoxes(
+    pointCloud: ThreePointCloudVisibilityTarget,
+  ): void {
     updatePointCloudBoundingBoxes(pointCloud);
   }
 
@@ -59,23 +68,25 @@ export class PointCloudOctreeRendererAdapter {
     hidePointCloudDescendants(object);
   }
 
-  public moveToOrigin(pointCloud: PointCloudOctree): void {
+  public moveToOrigin(pointCloud: ThreePointCloudVisibilityTarget): void {
     movePointCloudToOrigin(pointCloud);
   }
 
-  public moveToGroundPlane(pointCloud: PointCloudOctree): void {
+  public moveToGroundPlane(pointCloud: ThreePointCloudVisibilityTarget): void {
     movePointCloudToGroundPlane(pointCloud);
   }
 
-  public getBoundingBoxWorld(pointCloud: PointCloudOctree): Box3 {
+  public getBoundingBoxWorld(
+    pointCloud: ThreePointCloudVisibilityTarget,
+  ): Box3 {
     return getPointCloudBoundingBoxWorld(pointCloud);
   }
 
-  public getVisibleExtent(pointCloud: PointCloudOctree): Box3 {
+  public getVisibleExtent(pointCloud: ThreePointCloudVisibilityTarget): Box3 {
     return getPointCloudVisibleExtent(pointCloud);
   }
 
-  public dispose(pointCloud: PointCloudOctree): void {
+  public dispose(pointCloud: ThreePointCloudVisibilityTarget): void {
     disposePointCloudVisibleBounds(pointCloud);
   }
 }
@@ -84,13 +95,13 @@ export const pointCloudOctreeRendererAdapter =
   new PointCloudOctreeRendererAdapter();
 
 export function createDefaultPointCloudMaterial(
-  _pcoGeometry: PointCloudOctree["pcoGeometry"],
+  _pcoGeometry: ThreePointCloudVisibilityTarget["pcoGeometry"],
 ): PointCloudMaterial {
   return new PointCloudMaterial({ newFormat: true });
 }
 
 export function updatePointCloudMaterialBounds(
-  pointCloud: PointCloudOctree,
+  pointCloud: ThreePointCloudVisibilityTarget,
   material: PointCloudMaterial,
 ): void {
   pointCloud.updateMatrixWorld(true);
@@ -108,7 +119,7 @@ export function updatePointCloudMaterialBounds(
 }
 
 export function updatePointCloudAfterVisibility(
-  pointCloud: PointCloudOctree,
+  pointCloud: ThreePointCloudVisibilityTarget,
   camera: Camera,
   renderer: WebGLRenderer,
 ): void {
@@ -118,12 +129,12 @@ export function updatePointCloudAfterVisibility(
     camera,
     renderer,
   );
-  pointCloud.updateVisibleBounds();
-  pointCloud.updateBoundingBoxes();
+  updatePointCloudVisibleBounds(pointCloud);
+  updatePointCloudBoundingBoxes(pointCloud);
 }
 
 export function updatePointCloudVisibleBounds(
-  pointCloud: PointCloudOctree,
+  pointCloud: ThreePointCloudVisibilityTarget,
 ): void {
   const visibleBounds = getPointCloudVisibleBoundsState(pointCloud);
   visibleBounds.min.set(Infinity, Infinity, Infinity);
@@ -138,7 +149,7 @@ export function updatePointCloudVisibleBounds(
 }
 
 export function updatePointCloudBoundingBoxes(
-  pointCloud: PointCloudOctree,
+  pointCloud: ThreePointCloudVisibilityTarget,
 ): void {
   if (!pointCloud.showBoundingBox || !pointCloud.parent) {
     return;
@@ -187,7 +198,7 @@ export function hidePointCloudDescendants(object: Object3D): void {
 }
 
 export function getPointCloudBoundingBoxWorld(
-  pointCloud: PointCloudOctree,
+  pointCloud: ThreePointCloudVisibilityTarget,
 ): Box3 {
   pointCloud.updateMatrixWorld(true);
   return computeTransformedBoundingBox(
@@ -196,7 +207,9 @@ export function getPointCloudBoundingBoxWorld(
   );
 }
 
-export function movePointCloudToOrigin(pointCloud: PointCloudOctree): void {
+export function movePointCloudToOrigin(
+  pointCloud: ThreePointCloudVisibilityTarget,
+): void {
   pointCloud.position.set(0, 0, 0);
   pointCloud.position
     .set(0, 0, 0)
@@ -204,19 +217,21 @@ export function movePointCloudToOrigin(pointCloud: PointCloudOctree): void {
 }
 
 export function movePointCloudToGroundPlane(
-  pointCloud: PointCloudOctree,
+  pointCloud: ThreePointCloudVisibilityTarget,
 ): void {
   pointCloud.position.y += -getPointCloudBoundingBoxWorld(pointCloud).min.y;
 }
 
-export function getPointCloudVisibleExtent(pointCloud: PointCloudOctree): Box3 {
+export function getPointCloudVisibleExtent(
+  pointCloud: ThreePointCloudVisibilityTarget,
+): Box3 {
   return getPointCloudVisibleBoundsState(pointCloud)
     .clone()
     .applyMatrix4(pointCloud.matrixWorld);
 }
 
 export function disposePointCloudVisibleBounds(
-  pointCloud: PointCloudOctree,
+  pointCloud: ThreePointCloudVisibilityTarget,
 ): void {
   pointCloudVisibleBounds.delete(pointCloud);
 }

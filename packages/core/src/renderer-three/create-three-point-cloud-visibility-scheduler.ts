@@ -5,13 +5,13 @@ import {
   DEFAULT_POINT_BUDGET,
 } from "../core/constants";
 import type { OctreeGeometryNode } from "../loading/OctreeGeometryNode";
-import type { PointCloudOctree } from "../point-cloud-octree";
 import type { LRU } from "../utils/lru";
 import {
   type ClipVisibilityContext,
   ThreePointCloudVisibilityAdapter,
 } from "./adapters/point-cloud-visibility-adapter";
 import type { PointCloudOctreeNode } from "./geometry/point-cloud-octree-node";
+import type { ThreePointCloudVisibilityTarget } from "./types";
 
 export function createThreePointCloudVisibilityScheduler(lru: LRU) {
   const visibilityAdapter = new ThreePointCloudVisibilityAdapter();
@@ -19,7 +19,7 @@ export function createThreePointCloudVisibilityScheduler(lru: LRU) {
   return new PointCloudVisibilityScheduler<
     OctreeGeometryNode,
     PointCloudOctreeNode,
-    PointCloudOctree,
+    ThreePointCloudVisibilityTarget,
     ClipVisibilityContext
   >(
     lru,

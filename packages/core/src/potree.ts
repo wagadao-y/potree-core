@@ -4,8 +4,8 @@ import type { IVisibilityUpdateResult } from "./core/types";
 import type { LoadOctreeOptions } from "./loading/LoadInstrumentation";
 import { loadOctree } from "./loading/load-octree";
 import type { RequestManager } from "./loading/RequestManager";
-import type { PointCloudOctree } from "./point-cloud-octree";
 import { createThreePointCloudVisibilityScheduler } from "./renderer-three/create-three-point-cloud-visibility-scheduler";
+import type { ThreePointCloudVisibilityTarget } from "./renderer-three/types";
 import type { IPotree, LoadedPointCloud } from "./types";
 import { LRU } from "./utils/lru";
 
@@ -53,7 +53,7 @@ export class Potree implements IPotree<LoadedPointCloud> {
   }
 
   public updatePointCloudVisibility(
-    pointClouds: PointCloudOctree[],
+    pointClouds: ThreePointCloudVisibilityTarget[],
     input: PointCloudVisibilityUpdateInput,
   ): IVisibilityUpdateResult {
     return this.visibilityScheduler.updatePointCloudVisibility(

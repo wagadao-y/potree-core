@@ -1,15 +1,15 @@
 import { Box3, type Object3D, Points, Vector3 } from "three";
 import type { IPointCloudTreeNode } from "../../core/types";
 import type { OctreeGeometryNode } from "../../loading/OctreeGeometryNode";
-import type { PointCloudOctree } from "../../point-cloud-octree";
 import { materializeOctreeNodeGeometry } from "../geometry/octree-node-geometry";
 import { PointCloudOctreeNode } from "../geometry/point-cloud-octree-node";
 import { PointCloudMaterial } from "../materials";
 import { Box3Helper } from "../math/box3-helper";
 import { toThreeBox3 } from "../math/box3-like";
+import type { ThreePointCloudVisibilityTarget } from "../types";
 
 export function createPointCloudOctreeNode(
-  pointCloud: PointCloudOctree,
+  pointCloud: ThreePointCloudVisibilityTarget,
   geometryNode: OctreeGeometryNode,
 ): PointCloudOctreeNode {
   const points = new Points(
@@ -32,7 +32,7 @@ export function createPointCloudOctreeNode(
 }
 
 export function materializePointCloudOctreeNode(
-  pointCloud: PointCloudOctree,
+  pointCloud: ThreePointCloudVisibilityTarget,
   geometryNode: OctreeGeometryNode,
   parent?: PointCloudOctreeNode | null,
 ): PointCloudOctreeNode {
@@ -59,7 +59,7 @@ export function materializePointCloudOctreeNode(
 }
 
 export function updatePointCloudOctreeNodeVisibility(
-  pointCloud: PointCloudOctree,
+  pointCloud: ThreePointCloudVisibilityTarget,
   node: PointCloudOctreeNode,
   visibleNodes: IPointCloudTreeNode[],
 ): void {
@@ -80,7 +80,7 @@ export function updatePointCloudOctreeNodeVisibility(
 }
 
 export function resetPointCloudOctreeRenderedVisibility(
-  pointCloud: PointCloudOctree,
+  pointCloud: ThreePointCloudVisibilityTarget,
 ): void {
   const visibleNodes = pointCloud.visibleNodes;
 
@@ -94,7 +94,7 @@ export function resetPointCloudOctreeRenderedVisibility(
 }
 
 function updatePointCloudOctreeNodeBoundingBoxVisibility(
-  pointCloud: PointCloudOctree,
+  pointCloud: ThreePointCloudVisibilityTarget,
   node: PointCloudOctreeNode,
 ): void {
   if (pointCloud.showBoundingBox && !node.boundingBoxNode) {
@@ -111,7 +111,9 @@ function updatePointCloudOctreeNodeBoundingBoxVisibility(
   }
 }
 
-export function movePointCloudToOrigin(pointCloud: PointCloudOctree): void {
+export function movePointCloudToOrigin(
+  pointCloud: ThreePointCloudVisibilityTarget,
+): void {
   pointCloud.position.set(0, 0, 0);
   pointCloud.position
     .set(0, 0, 0)

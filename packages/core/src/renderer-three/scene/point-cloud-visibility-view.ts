@@ -10,11 +10,11 @@ import {
 import type { Box3Like } from "../../core/types";
 import type { VisibilityProjection } from "../../core/visibility/update-visibility";
 import type { PointCloudVisibilityView } from "../../core/visibility/visibility-structures";
-import type { PointCloudOctree } from "../../point-cloud-octree";
 import { toThreeBox3 } from "../math/box3-like";
+import type { ThreePointCloudVisibilityTarget } from "../types";
 
 export function createPointCloudVisibilityViews(
-  pointClouds: PointCloudOctree[],
+  pointClouds: ThreePointCloudVisibilityTarget[],
   camera: Camera,
 ): (PointCloudVisibilityView | undefined)[] {
   const frustumMatrix = new Matrix4();

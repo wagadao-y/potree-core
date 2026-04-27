@@ -9,7 +9,6 @@ import {
 import type { PointCloudVisibilityUpdateInput } from "../../core";
 import type { Box3Like, IPointCloudTreeNode } from "../../core/types";
 import type { OctreeGeometryNode } from "../../loading/OctreeGeometryNode";
-import type { PointCloudOctree } from "../../point-cloud-octree";
 import type { PointCloudOctreeNode } from "../geometry/point-cloud-octree-node";
 import { ClipMode } from "../materials";
 import { toThreeBox3 } from "../math/box3-like";
@@ -22,6 +21,7 @@ import {
   createVisibilityProjection as createProjection,
   createPointCloudVisibilityViews as createVisibilityViews,
 } from "../scene/point-cloud-visibility-view";
+import type { ThreePointCloudVisibilityTarget } from "../types";
 import { updatePointCloudAfterVisibility } from "./point-cloud-octree-renderer";
 
 export interface ClipVisibilityContext {
@@ -51,7 +51,7 @@ class PointCloudClipVisibilityEvaluator {
   private readonly clipContexts: (ClipVisibilityContext | undefined)[] = [];
 
   public prepare(
-    pointClouds: PointCloudOctree[],
+    pointClouds: ThreePointCloudVisibilityTarget[],
   ): (ClipVisibilityContext | undefined)[] {
     const contexts = this.clipContexts;
     contexts.length = pointClouds.length;
@@ -113,7 +113,7 @@ class PointCloudClipVisibilityEvaluator {
   }
 
   public shouldClip(
-    pointCloud: PointCloudOctree,
+    pointCloud: ThreePointCloudVisibilityTarget,
     boundingBox: Box3Like,
     clipContext: ClipVisibilityContext | undefined,
   ): boolean {
@@ -221,7 +221,7 @@ class PointCloudClipVisibilityEvaluator {
 
   private isEntirelyInsideAnyClipBox(
     nodeWorldBox: Box3,
-    pointCloud: PointCloudOctree,
+    pointCloud: ThreePointCloudVisibilityTarget,
     clipContext: ClipVisibilityContext,
   ): boolean {
     if (clipContext.clipBoxCount === 0) {
@@ -276,7 +276,10 @@ export class ThreePointCloudVisibilityAdapter {
 
   private readonly rendererSize = new Vector2();
 
-  public createViews(pointClouds: PointCloudOctree[], camera: Camera) {
+  public createViews(
+    pointClouds: ThreePointCloudVisibilityTarget[],
+    camera: Camera,
+  ) {
     return createVisibilityViews(pointClouds, camera);
   }
 
@@ -285,7 +288,7 @@ export class ThreePointCloudVisibilityAdapter {
   }
 
   public createVisibilityInput(
-    pointClouds: PointCloudOctree[],
+    pointClouds: ThreePointCloudVisibilityTarget[],
     camera: Camera,
     renderer: WebGLRenderer,
   ): PointCloudVisibilityUpdateInput {
@@ -301,18 +304,20 @@ export class ThreePointCloudVisibilityAdapter {
     };
   }
 
-  public resetRenderedVisibility(pointCloud: PointCloudOctree): void {
+  public resetRenderedVisibility(
+    pointCloud: ThreePointCloudVisibilityTarget,
+  ): void {
     resetPointCloudOctreeRenderedVisibility(pointCloud);
   }
 
   public prepareClipVisibility(
-    pointClouds: PointCloudOctree[],
+    pointClouds: ThreePointCloudVisibilityTarget[],
   ): (ClipVisibilityContext | undefined)[] {
     return this.clipVisibility.prepare(pointClouds);
   }
 
   public shouldClip(
-    pointCloud: PointCloudOctree,
+    pointCloud: ThreePointCloudVisibilityTarget,
     boundingBox: Box3Like,
     clipContext: ClipVisibilityContext | undefined,
   ): boolean {
@@ -320,7 +325,7 @@ export class ThreePointCloudVisibilityAdapter {
   }
 
   public materializeLoadedGeometryNode(
-    pointCloud: PointCloudOctree,
+    pointCloud: ThreePointCloudVisibilityTarget,
     geometryNode: OctreeGeometryNode,
     parent: PointCloudOctreeNode | null,
   ): PointCloudOctreeNode {
@@ -328,7 +333,7 @@ export class ThreePointCloudVisibilityAdapter {
   }
 
   public updateTreeNodeVisibility(
-    pointCloud: PointCloudOctree,
+    pointCloud: ThreePointCloudVisibilityTarget,
     node: PointCloudOctreeNode,
     visibleNodes: IPointCloudTreeNode[],
   ): void {
@@ -336,7 +341,7 @@ export class ThreePointCloudVisibilityAdapter {
   }
 
   public updateAfterVisibility(
-    pointCloud: PointCloudOctree,
+    pointCloud: ThreePointCloudVisibilityTarget,
     camera: Camera,
     renderer: WebGLRenderer,
   ): void {
@@ -344,7 +349,7 @@ export class ThreePointCloudVisibilityAdapter {
   }
 
   public updatePointCloudsAfterVisibility(
-    pointClouds: PointCloudOctree[],
+    pointClouds: ThreePointCloudVisibilityTarget[],
     camera: Camera,
     renderer: WebGLRenderer,
   ): void {

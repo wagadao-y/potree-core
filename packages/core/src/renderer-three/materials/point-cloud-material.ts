@@ -19,9 +19,9 @@ import {
   WebGLRenderTarget,
 } from "three";
 import { getBox3Size } from "../../core/box3-like-utils";
-import type { PointCloudOctree } from "../../point-cloud-octree";
 import { PERSPECTIVE_CAMERA } from "../constants";
 import type { PointCloudOctreeNode } from "../geometry/point-cloud-octree-node";
+import type { ThreePointCloudVisibilityTarget } from "../types";
 import { DEFAULT_CLASSIFICATION } from "./classification";
 import { ClipMode, type IClipBox, type IClipSphere } from "./clipping";
 import {
@@ -509,7 +509,7 @@ export class PointCloudMaterial extends RawShaderMaterial {
   }
 
   updateMaterial(
-    octree: PointCloudOctree,
+    octree: ThreePointCloudVisibilityTarget,
     visibleNodes: PointCloudOctreeNode[],
     camera: Camera,
     renderer: WebGLRenderer,
@@ -590,7 +590,7 @@ export class PointCloudMaterial extends RawShaderMaterial {
   }
 
   static makeOnBeforeRender(
-    _octree: PointCloudOctree,
+    _octree: ThreePointCloudVisibilityTarget,
     node: PointCloudOctreeNode,
     pcIndex?: number,
   ) {
