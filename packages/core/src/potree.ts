@@ -3,14 +3,13 @@ import { DEFAULT_POINT_BUDGET } from "./core/constants";
 import type { IVisibilityUpdateResult } from "./core/types";
 import type { LoadOctreeOptions } from "./loading/LoadInstrumentation";
 import { loadOctree } from "./loading/load-octree";
-import type { OctreeGeometry } from "./loading/OctreeGeometry";
 import type { RequestManager } from "./loading/RequestManager";
-import { PointCloudOctree } from "./point-cloud-octree";
+import type { PointCloudOctree } from "./point-cloud-octree";
 import { createThreePointCloudVisibilityScheduler } from "./renderer-three/create-three-point-cloud-visibility-scheduler";
-import type { IPotree } from "./types";
+import type { IPotree, LoadedPointCloud } from "./types";
 import { LRU } from "./utils/lru";
 
-export class Potree implements IPotree {
+export class Potree implements IPotree<LoadedPointCloud> {
   public lru = new LRU(DEFAULT_POINT_BUDGET);
 
   private readonly visibilityScheduler: ReturnType<
@@ -21,17 +20,17 @@ export class Potree implements IPotree {
     url: string,
     baseUrl: string,
     options?: LoadOctreeOptions,
-  ): Promise<PointCloudOctree>;
+  ): Promise<LoadedPointCloud>;
   public async loadPointCloud(
     url: string,
     requestManager: RequestManager,
     options?: LoadOctreeOptions,
-  ): Promise<PointCloudOctree>;
+  ): Promise<LoadedPointCloud>;
   public async loadPointCloud(
     url: string,
     reqManager: string | RequestManager,
     options?: LoadOctreeOptions,
-  ): Promise<PointCloudOctree> {
+  ): Promise<LoadedPointCloud> {
     if (typeof reqManager === "string") {
       // Handle baseUrl case
       const baseUrl = reqManager;
@@ -46,11 +45,7 @@ export class Potree implements IPotree {
       const requestManager = reqManager;
 
       if (url.endsWith("metadata.json")) {
-        return await loadOctree(url, requestManager, options).then(
-          (geometry: OctreeGeometry) => {
-            return new PointCloudOctree(this, geometry);
-          },
-        );
+        return await loadOctree(url, requestManager, options);
       }
 
       throw new Error("Unsupported file type. Use metadata.json.");

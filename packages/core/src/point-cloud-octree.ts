@@ -12,7 +12,6 @@ import type {
   IPointCloudTreeNode,
   IPointCloudVisibilityTarget,
 } from "./core/types";
-import type { OctreeGeometry } from "./loading/OctreeGeometry";
 import type { OctreeGeometryNode } from "./loading/OctreeGeometryNode";
 import { pointCloudOctreeRendererAdapter } from "./renderer-three/adapters/point-cloud-octree-renderer";
 import type { PointCloudOctreeNode } from "./renderer-three/geometry/point-cloud-octree-node";
@@ -28,7 +27,7 @@ import {
 } from "./renderer-three/picking/point-cloud-octree-picker";
 import { PointCloudTree } from "./renderer-three/scene/point-cloud-tree";
 import type { PickPoint } from "./renderer-three/types";
-import type { IPotree } from "./types";
+import type { IPotree, LoadedPointCloud } from "./types";
 
 /**
  * Public Three.js facade for an octree-backed point cloud.
@@ -60,7 +59,7 @@ export class PointCloudOctree
    *
    * This contains the root node and other properties related to the point cloud geometry.
    */
-  public pcoGeometry: OctreeGeometry;
+  public pcoGeometry: LoadedPointCloud;
 
   /**
    * The bounding box of the point cloud octree.
@@ -185,7 +184,7 @@ export class PointCloudOctree
 
   public constructor(
     potree: IPotree,
-    pcoGeometry: OctreeGeometry,
+    pcoGeometry: LoadedPointCloud,
     material?: PointCloudMaterial,
   ) {
     super();

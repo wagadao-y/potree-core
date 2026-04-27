@@ -1,6 +1,6 @@
 import type { LoadOctreeOptions } from "./loading/LoadInstrumentation";
+import type { OctreeGeometry } from "./loading/OctreeGeometry";
 import type { RequestManager } from "./loading/RequestManager";
-import type { PointCloudOctree } from "./point-cloud-octree";
 import type { LRU } from "./utils/lru";
 
 export type {
@@ -9,7 +9,9 @@ export type {
   PointCloudHit,
 } from "./core/types";
 
-export interface IPotree {
+export type LoadedPointCloud = OctreeGeometry;
+
+export interface IPotree<TPointCloud = LoadedPointCloud> {
   pointBudget: number;
   maxNumNodesLoading: number;
   maxLoadsToGPU: number;
@@ -19,10 +21,10 @@ export interface IPotree {
     url: string,
     baseUrl: string,
     options?: LoadOctreeOptions,
-  ): Promise<PointCloudOctree>;
+  ): Promise<TPointCloud>;
   loadPointCloud(
     url: string,
     requestManager: RequestManager,
     options?: LoadOctreeOptions,
-  ): Promise<PointCloudOctree>;
+  ): Promise<TPointCloud>;
 }

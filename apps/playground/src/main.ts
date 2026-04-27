@@ -1,3 +1,4 @@
+import type { LoadedPointCloud } from "potree-core";
 import {
   type IVisibilityUpdateResult,
   LocalPotreeRequestManager,
@@ -10,6 +11,7 @@ import {
   ClipMode,
   createClipBox,
   createClipSphere,
+  createPointCloudOctree,
   PointColorType,
   PointShape,
   PointSizeType,
@@ -727,7 +729,7 @@ document.body.onload = () => {
   }
 
   async function loadPointCloudFromSource(
-    load: () => Promise<PointCloudOctree>,
+    load: () => Promise<LoadedPointCloud>,
     options: {
       position?: Vector3;
       rotation?: Euler;
@@ -743,7 +745,8 @@ document.body.onload = () => {
     },
   ) {
     try {
-      const pco = await load();
+      const pointCloud = await load();
+      const pco = createPointCloudOctree(potree, pointCloud);
       clearPointCloudScene();
       applyPointCloudSettings(pco);
 
