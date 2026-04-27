@@ -1,5 +1,7 @@
 # packages/core ライブラリレビュー 2026-04-26
 
+> 2026-04-27 追記: 本文中の renderer-three 実装は package 分離により現在は `packages/renderer-three/src/*` にある。あわせて playground の直接 source import は `potree-renderer-three` 利用へ移行済みである。
+
 ## 概要
 
 このリポジトリは、`PointCloudOctree` を Three.js の scene graph に載せる `Object3D` として公開し、`Potree` が Potree データの読込と visibility scheduling を担い、必要に応じて `PotreeRenderer` が EDL 描画を補助する構成になっている。
@@ -141,7 +143,7 @@ interface PotreeDatasetSource {
 
 - 重要度: Medium
 - 対象ファイル・該当箇所:
-  - `packages/core/src/renderer-three/picking/point-cloud-octree-picker.ts`
+  - `packages/renderer-three/src/picking/point-cloud-octree-picker.ts`
     - ray から pixelPosition を導出する処理
   - `apps/playground/src/main.ts`
     - `Potree.pick()` の利用例
@@ -209,9 +211,9 @@ if (isRangeRequest && response.status !== 206) {
 
 - 重要度: Medium
 - 対象ファイル・該当箇所:
-  - `packages/core/src/renderer-three/picking/pick-render-target.ts`
+  - `packages/renderer-three/src/picking/pick-render-target.ts`
     - `depthTest`、`depthWrite`、`blending`、`scissor`、render target の直接変更
-  - `packages/core/src/renderer-three/picking/point-cloud-octree-picker.ts`
+  - `packages/renderer-three/src/picking/point-cloud-octree-picker.ts`
     - pick 前後の state 保存と復元
 - 問題の内容:
   - pick 中に renderer の内部状態を直接変更する一方で、確実に復元しているのは render target 程度に留まる。
@@ -233,7 +235,7 @@ try {
 }
 ```
 
-### 7. examples が公開 package surface ではなく内部 source に依存しており、配布 API を検証できていない
+### 7. examples の公開 package surface 利用を継続的に維持すべき
 
 - 重要度: Medium
 - 対象ファイル・該当箇所:
@@ -244,17 +246,18 @@ try {
   - `packages/core/package.json`
     - `exports`
 - 問題の内容:
-  - playground が公開 export ではなく内部 source ファイルへ直接依存している。
+  - 当時は playground が公開 export ではなく内部 source ファイルへ直接依存していた。
 - なぜ問題なのか:
   - 実際の npm 利用者が使う API 面と、リポジトリ内で検証している面が一致しない。
   - export 漏れや公開 API の破壊的変更が、example では見逃される。
+  - 2026-04-27 時点ではこの問題は解消済みだが、今後も regression を防ぐ観点で維持すべき論点である。
 - 推奨される修正方針:
-  - examples は必ず `potree-core` および `exports` に定義したサブパスだけを利用する。
+  - examples は必ず `potree-core`、`potree-renderer-three`、および `exports` に定義した公開面だけを利用する。
   - 必要な内部ユーティリティは、正式に export するか example 側で自前実装する。
 - 可能な修正例または疑似コード:
 
 ```ts
-import { somePublicHelper } from "potree-core/renderer-three";
+import { somePublicHelper } from "potree-renderer-three";
 ```
 
 ### 8. 読込、LOD、pick、dispose、エラー系を守る自動テストが実質存在しない
@@ -286,7 +289,7 @@ it("loads a zstd-encoded node", async () => {
 
 - 重要度: Low
 - 対象ファイル・該当箇所:
-  - `packages/core/src/renderer-three/adapters/point-cloud-octree-renderer.ts`
+  - `packages/renderer-three/src/adapters/point-cloud-octree-renderer.ts`
     - `bbroot` を親 object へ自動追加する処理
 - 問題の内容:
   - `showBoundingBox` を有効にすると、`PointCloudOctree` 自身ではなく親 object 配下へ `bbroot` を固定名で追加し、その children を差し替える。
@@ -308,7 +311,7 @@ scene.add(overlay);
 
 - `Potree` が loader と visibility policy の中心、`PointCloudOctree` が scene object 兼ユーザー向け facade という構図はわかりやすい。
 - ただし、`RequestManager` の責務は Potree データセット単位ではなく URL 単位に閉じており、公開 API と将来要件が噛み合っていない。
-- examples が内部 source へ直接依存しているため、利用者向け API 面の完成度評価が難しくなっている。
+- examples の公開 package surface 利用は 2026-04-27 時点で是正されたが、継続的な検証が必要である。
 
 ### Three.js との統合設計
 
@@ -413,8 +416,8 @@ scene.add(overlay);
 - `packages/core/src/loading/decode-octree-node.ts`
 - `packages/core/src/core/point-cloud-visibility-scheduler.ts`
 - `packages/core/src/core/visibility/update-visibility.ts`
-- `packages/core/src/renderer-three/picking/point-cloud-octree-picker.ts`
-- `packages/core/src/renderer-three/picking/pick-render-target.ts`
+- `packages/renderer-three/src/picking/point-cloud-octree-picker.ts`
+- `packages/renderer-three/src/picking/pick-render-target.ts`
 - `packages/core/src/rendering/potree-renderer.ts`
 - `packages/core/package.json`
 - `packages/core/README.md`

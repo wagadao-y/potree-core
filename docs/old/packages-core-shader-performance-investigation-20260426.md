@@ -70,7 +70,7 @@ tokei packages/core/src/materials/shaders
 補足:
 
 - 2026-04-26 の計測では、JS heap 悪化の主因はシェーダーではなく renderer-side geometry materialization だった。
-- `packages/core/src/renderer-three/geometry/octree-node-geometry.ts` で、normal 属性が無い node に zero-filled normal 配列を全点分追加していたため、position+rgb データでも main-thread heap が約 1.0 GB まで膨らんでいた。
+- 現在の `packages/renderer-three/src/geometry/octree-node-geometry.ts` に相当する当時の実装で、normal 属性が無い node に zero-filled normal 配列を全点分追加していたため、position+rgb データでも main-thread heap が約 1.0 GB まで膨らんでいた。
 - この不要配列を削除した結果、同一 preset / 同一視点で JS heap は約 `1.02 GB -> 0.66 GB` まで低下し、GPU time はほぼ不変だった。
 - したがって、シェーダー改善と並行して、renderer / geometry materialization 側の不要配列や二次バッファも継続的に疑う必要がある。
 

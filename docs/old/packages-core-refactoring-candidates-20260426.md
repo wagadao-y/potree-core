@@ -1,6 +1,8 @@
 # packages/core リファクタリング候補 2026-04-26
 
 > 2026-04-26 時点で優先度 A と優先度 B は完了したため、本書は履歴メモとして `docs/old/` に移した。現行の構造前提は `docs/packages-core-layer-separation-inventory-20260425.md` を優先する。
+>
+> 2026-04-27 追記: 本文中の `renderer-three` は当時 `packages/core/src/renderer-three` を指していたが、現在は package 分離により主に `packages/renderer-three/src` へ移っている。
 
 > 本文書は `tokei packages/core/src --sort code -f` の結果を起点に、当時の `packages/core/src` で次に進めるリファクタリング候補を整理したものである。既存方針は `docs/old/packages-core-refactoring-plan-20260425.md` と `docs/packages-core-layer-separation-inventory-20260425.md` を前提にし、本書では「今の行数偏りと責務の残り方」から着手順を決める。
 
@@ -134,7 +136,7 @@ tokei packages/core/src --sort code -f
 提案構造:
 
 ```text
-packages/core/src/renderer-three/
+packages/renderer-three/src/
   index.ts
   adapters/
     point-cloud-visibility-adapter.ts
