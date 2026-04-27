@@ -1,20 +1,22 @@
-import type { PointCloudVisibilityUpdateInput } from "./core";
-import { DEFAULT_POINT_BUDGET } from "./core/constants";
-import type { IVisibilityUpdateResult } from "./core/types";
+import {
+  DEFAULT_MAX_LOADS_TO_GPU,
+  DEFAULT_MAX_NUM_NODES_LOADING,
+  DEFAULT_POINT_BUDGET,
+} from "./core/constants";
 import type { LoadOctreeOptions } from "./loading/LoadInstrumentation";
 import { loadOctree } from "./loading/load-octree";
 import type { RequestManager } from "./loading/RequestManager";
-import { createThreePointCloudVisibilityScheduler } from "./renderer-three/create-three-point-cloud-visibility-scheduler";
-import type { ThreePointCloudVisibilityTarget } from "./renderer-three/types";
 import type { IPotree, LoadedPointCloud } from "./types";
 import { LRU } from "./utils/lru";
 
 export class Potree implements IPotree<LoadedPointCloud> {
   public lru = new LRU(DEFAULT_POINT_BUDGET);
 
-  private readonly visibilityScheduler: ReturnType<
-    typeof createThreePointCloudVisibilityScheduler
-  > = createThreePointCloudVisibilityScheduler(this.lru);
+  private _pointBudget = DEFAULT_POINT_BUDGET;
+
+  private _maxNumNodesLoading = DEFAULT_MAX_NUM_NODES_LOADING;
+
+  private _maxLoadsToGPU = DEFAULT_MAX_LOADS_TO_GPU;
 
   public async loadPointCloud(
     url: string,
@@ -52,37 +54,33 @@ export class Potree implements IPotree<LoadedPointCloud> {
     }
   }
 
-  public updatePointCloudVisibility(
-    pointClouds: ThreePointCloudVisibilityTarget[],
-    input: PointCloudVisibilityUpdateInput,
-  ): IVisibilityUpdateResult {
-    return this.visibilityScheduler.updatePointCloudVisibility(
-      pointClouds,
-      input,
-    );
-  }
-
   public get pointBudget(): number {
-    return this.visibilityScheduler.pointBudget;
+    return this._pointBudget;
   }
 
   public set pointBudget(value: number) {
-    this.visibilityScheduler.setPointBudget(value);
+    if (value === this._pointBudget) {
+      return;
+    }
+
+    this._pointBudget = value;
+    this.lru.pointBudget = value;
+    this.lru.freeMemory();
   }
 
   public get maxNumNodesLoading(): number {
-    return this.visibilityScheduler.maxNumNodesLoading;
+    return this._maxNumNodesLoading;
   }
 
   public set maxNumNodesLoading(value: number) {
-    this.visibilityScheduler.maxNumNodesLoading = value;
+    this._maxNumNodesLoading = value;
   }
 
   public get maxLoadsToGPU(): number {
-    return this.visibilityScheduler.maxLoadsToGPU;
+    return this._maxLoadsToGPU;
   }
 
   public set maxLoadsToGPU(value: number) {
-    this.visibilityScheduler.maxLoadsToGPU = value;
+    this._maxLoadsToGPU = value;
   }
 }

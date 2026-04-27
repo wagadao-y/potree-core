@@ -1,3 +1,4 @@
+export * from "../point-cloud-octree";
 export * from "./create-point-cloud-octree";
 export * from "./features";
 export * from "./geometry/point-cloud-octree-node";

@@ -2,7 +2,6 @@ import type { LoadedPointCloud } from "potree-core";
 import {
   type IVisibilityUpdateResult,
   LocalPotreeRequestManager,
-  type PointCloudOctree,
   Potree,
   type PotreeLoadMeasurement,
   type PotreeLoadStage,
@@ -12,6 +11,7 @@ import {
   createClipBox,
   createClipSphere,
   createPointCloudOctree,
+  type PointCloudOctree,
   PointColorType,
   PointShape,
   PointSizeType,
