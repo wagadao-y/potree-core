@@ -8,21 +8,19 @@ import {
   Sphere,
   type WebGLRenderer,
 } from "three";
-import type {
-  IPointCloudTreeNode,
-  IPointCloudVisibilityTarget,
-} from "../core/types";
+import type { IPointCloudVisibilityTarget } from "../core/types";
 import type { OctreeGeometryNode } from "../loading/OctreeGeometryNode";
 import type { IPotree, LoadedPointCloud } from "../types";
 import { pointCloudOctreeRendererAdapter } from "./adapters/point-cloud-octree-renderer";
 import type { PointCloudOctreeNode } from "./geometry/point-cloud-octree-node";
 import type { PointCloudMaterial, PointSizeType } from "./materials";
 import { toThreeBox3, toThreeVector3 } from "./math/box3-like";
+import type { PickParams } from "./picking/point-cloud-octree-picker";
 import {
-  disposePointCloudOctreePicker,
-  type PickParams,
-  pickPointCloud,
-} from "./picking/point-cloud-octree-picker";
+  disposePointCloudOctree,
+  pickPointCloudOctree,
+  raycastPointCloudOctree,
+} from "./point-cloud-octree-operations";
 import { PointCloudTree } from "./scene/point-cloud-tree";
 import type { PickPoint } from "./types";
 
@@ -205,23 +203,7 @@ export class PointCloudOctree
    * Releases geometry, material, picker, and cached renderer-side state.
    */
   public dispose(): void {
-    if (this.root) {
-      this.root.dispose();
-    }
-
-    this.pcoGeometry.root.traverse((n: IPointCloudTreeNode) => {
-      return this.potree.lru.remove(n);
-    });
-    this.pcoGeometry.dispose();
-    this.material.dispose();
-
-    this.visibleNodes = [];
-    this.visibleGeometry = [];
-
-    disposePointCloudOctreePicker(this);
-    pointCloudOctreeRendererAdapter.dispose(this);
-
-    this.disposed = true;
+    disposePointCloudOctree(this);
   }
 
   public get material(): PointCloudMaterial {
@@ -335,7 +317,7 @@ export class PointCloudOctree
     ray: Ray,
     params: Partial<PickParams> = {},
   ): PickPoint | null {
-    return pickPointCloud(this, renderer, camera, ray, params);
+    return pickPointCloudOctree(this, renderer, camera, ray, params);
   }
 
   /**
@@ -353,12 +335,7 @@ export class PointCloudOctree
    * double-counting of intersections.
    */
   public raycast(raycaster: Raycaster, intersects: Intersection[]): void {
-    for (const node of this.visibleNodes) {
-      const sceneNode = node.sceneNode;
-      if (sceneNode && !sceneNode.layers.test(raycaster.layers)) {
-        sceneNode.raycast(raycaster, intersects);
-      }
-    }
+    raycastPointCloudOctree(this, raycaster, intersects);
   }
 
   /**

@@ -20,6 +20,6 @@
     "types": ["vite/client"],
     "lib": ["es2022", "dom", "esnext.disposable"]
   },
-  "include": ["src"],
+  "include": ["src/**/*"],
   "exclude": ["node_modules", "src/**/*.test.ts"]
 }
