@@ -1,6 +1,4 @@
-import type { LoadedPointCloud } from "potree-core";
 import {
-  type IVisibilityUpdateResult,
   LocalPotreeRequestManager,
   Potree,
   type PotreeLoadMeasurement,
@@ -8,9 +6,12 @@ import {
 } from "potree-core";
 import {
   ClipMode,
+  collectPointCloudDiagnostics,
   createClipBox,
   createClipSphere,
   createPointCloudOctree,
+  type IVisibilityUpdateResult,
+  type LoadedPointCloud,
   type PointCloudOctree,
   PointColorType,
   PointShape,
@@ -1773,20 +1774,11 @@ function createPerformancePanel() {
 
     const { pointClouds, renderer, renderInfo, visibilityResult } = metrics;
     const rendererSize = renderer.getSize(new Vector2());
-    const visibleGeometryCount = sumPointCloudValue(
+    const diagnostics = collectPointCloudDiagnostics(
+      pointClouds[0]?.potree,
       pointClouds,
-      (pointCloud) => pointCloud.visibleGeometry.length,
+      visibilityResult,
     );
-    const loadingNodeCount = sumPointCloudValue(
-      pointClouds,
-      (pointCloud) => pointCloud.pcoGeometry.numNodesLoading,
-    );
-    const maxLoadingNodeCount = sumPointCloudValue(
-      pointClouds,
-      (pointCloud) => pointCloud.pcoGeometry.maxNumNodesLoading,
-    );
-    const pointBudget = pointClouds[0]?.potree.pointBudget ?? 0;
-    const lru = pointClouds[0]?.potree.lru;
     const heap = getHeapUsage();
     const octreeRead = metrics.loadMetrics["octree-slice-read"];
     const hierarchyLoad = metrics.loadMetrics["hierarchy-load"];
@@ -1807,11 +1799,6 @@ function createPerformancePanel() {
     const networkEvents =
       octreeRead.totalFetchCount + hierarchyLoad.totalFetchCount;
     const networkMs = octreeRead.totalMs + hierarchyLoad.totalMs;
-    const pointBudgetUse =
-      pointBudget > 0 ? visibilityResult.numVisiblePoints / pointBudget : 0;
-    const lruBudgetUse =
-      pointBudget > 0 && lru ? lru.numPoints / pointBudget : 0;
-
     setValue("fps", formatNumber(1000 / frameSummary.rafMs.avg, 1));
     setValue("activePreset", activePreset);
     setValue("sizeType", metrics.sizeType);
@@ -1844,7 +1831,10 @@ function createPerformancePanel() {
       "visibleNodes",
       formatInteger(visibilityResult.visibleNodes.length),
     );
-    setValue("visibleGeometry", formatInteger(visibleGeometryCount));
+    setValue(
+      "visibleGeometry",
+      formatInteger(diagnostics.visibleGeometryCount),
+    );
     const densityLODEnabled = metrics.pointClouds.some(
       (pointCloud) => pointCloud.screenSpaceDensityLODEnabled,
     );
@@ -1872,13 +1862,28 @@ function createPerformancePanel() {
     );
     setValue(
       "loadingNodes",
-      `${formatInteger(loadingNodeCount)} / ${formatInteger(maxLoadingNodeCount)}`,
+      `${formatInteger(diagnostics.loadingNodeCount)} / ${formatInteger(
+        diagnostics.maxLoadingNodeCount,
+      )}`,
     );
-    setValue("pointBudget", formatInteger(pointBudget));
-    setValue("pointBudgetUse", formatPercent(pointBudgetUse));
-    setValue("lruPoints", lru ? formatInteger(lru.numPoints) : "-");
-    setValue("lruNodes", lru ? formatInteger(lru.size) : "-");
-    setValue("lruBudgetUse", lru ? formatPercent(lruBudgetUse) : "-");
+    setValue("pointBudget", formatInteger(diagnostics.pointBudget));
+    setValue("pointBudgetUse", formatPercent(diagnostics.pointBudgetUse));
+    setValue(
+      "lruPoints",
+      diagnostics.lruPoints !== null
+        ? formatInteger(diagnostics.lruPoints)
+        : "-",
+    );
+    setValue(
+      "lruNodes",
+      diagnostics.lruNodes !== null ? formatInteger(diagnostics.lruNodes) : "-",
+    );
+    setValue(
+      "lruBudgetUse",
+      diagnostics.lruBudgetUse !== null
+        ? formatPercent(diagnostics.lruBudgetUse)
+        : "-",
+    );
     setValue("gpuGeometries", formatInteger(renderInfo.memory.geometries));
     setValue("gpuTextures", formatInteger(renderInfo.memory.textures));
     setValue("jsHeap", heap);
@@ -2246,16 +2251,6 @@ function createGpuTimer(renderer: WebGLRenderer) {
       };
     },
   };
-}
-
-function sumPointCloudValue(
-  pointClouds: PointCloudOctree[],
-  getValue: (pointCloud: PointCloudOctree) => number,
-) {
-  return pointClouds.reduce(
-    (total, pointCloud) => total + getValue(pointCloud),
-    0,
-  );
 }
 
 function formatInteger(value: number) {
