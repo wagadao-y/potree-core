@@ -1,65 +1,21 @@
-import {
-  PointCloudVisibilityScheduler,
-  type PointCloudVisibilityUpdateInput,
-} from "./core";
-import {
-  DEFAULT_MAX_LOADS_TO_GPU,
-  DEFAULT_MAX_NUM_NODES_LOADING,
-  DEFAULT_POINT_BUDGET,
-} from "./core/constants";
+import type { PointCloudVisibilityUpdateInput } from "./core";
+import { DEFAULT_POINT_BUDGET } from "./core/constants";
 import type { IVisibilityUpdateResult } from "./core/types";
 import type { LoadOctreeOptions } from "./loading/LoadInstrumentation";
 import { loadOctree } from "./loading/load-octree";
 import type { OctreeGeometry } from "./loading/OctreeGeometry";
-import type { OctreeGeometryNode } from "./loading/OctreeGeometryNode";
 import type { RequestManager } from "./loading/RequestManager";
 import { PointCloudOctree } from "./point-cloud-octree";
-import {
-  type ClipVisibilityContext,
-  ThreePointCloudVisibilityAdapter,
-} from "./renderer-three/adapters/point-cloud-visibility-adapter";
-import type { PointCloudOctreeNode } from "./renderer-three/geometry/point-cloud-octree-node";
-import type { IPotree } from "./renderer-three/types";
+import { createThreePointCloudVisibilityScheduler } from "./renderer-three/create-three-point-cloud-visibility-scheduler";
+import type { IPotree } from "./types";
 import { LRU } from "./utils/lru";
 
 export class Potree implements IPotree {
   public lru = new LRU(DEFAULT_POINT_BUDGET);
 
-  private readonly visibilityAdapter = new ThreePointCloudVisibilityAdapter();
-
-  private readonly visibilityScheduler = new PointCloudVisibilityScheduler<
-    OctreeGeometryNode,
-    PointCloudOctreeNode,
-    PointCloudOctree,
-    ClipVisibilityContext
-  >(
-    this.lru,
-    {
-      resetRenderedVisibility: (pointCloud) =>
-        this.visibilityAdapter.resetRenderedVisibility(pointCloud),
-      prepareClipVisibilityContexts: (pointClouds) =>
-        this.visibilityAdapter.prepareClipVisibility(pointClouds),
-      shouldClip: (pointCloud, boundingBox, clipContext) =>
-        this.visibilityAdapter.shouldClip(pointCloud, boundingBox, clipContext),
-      updateTreeNodeVisibility: (pointCloud, node, visibleNodes) =>
-        this.visibilityAdapter.updateTreeNodeVisibility(
-          pointCloud,
-          node,
-          visibleNodes,
-        ),
-      materializeLoadedGeometryNode: (pointCloud, geometryNode, parent) =>
-        this.visibilityAdapter.materializeLoadedGeometryNode(
-          pointCloud,
-          geometryNode,
-          parent,
-        ),
-    },
-    {
-      pointBudget: DEFAULT_POINT_BUDGET,
-      maxNumNodesLoading: DEFAULT_MAX_NUM_NODES_LOADING,
-      maxLoadsToGPU: DEFAULT_MAX_LOADS_TO_GPU,
-    },
-  );
+  private readonly visibilityScheduler: ReturnType<
+    typeof createThreePointCloudVisibilityScheduler
+  > = createThreePointCloudVisibilityScheduler(this.lru);
 
   public async loadPointCloud(
     url: string,

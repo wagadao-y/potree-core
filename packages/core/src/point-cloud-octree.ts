@@ -27,7 +27,8 @@ import {
   pickPointCloud,
 } from "./renderer-three/picking/point-cloud-octree-picker";
 import { PointCloudTree } from "./renderer-three/scene/point-cloud-tree";
-import type { IPotree, PickPoint } from "./renderer-three/types";
+import type { PickPoint } from "./renderer-three/types";
+import type { IPotree } from "./types";
 
 /**
  * Public Three.js facade for an octree-backed point cloud.
