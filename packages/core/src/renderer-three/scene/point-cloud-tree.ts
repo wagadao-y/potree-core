@@ -1,15 +1,26 @@
 import { Object3D } from "three";
 import { PointCloudTreeModel } from "../../core/point-cloud-tree-model";
+import type {
+  IPointCloudGeometryNode,
+  IPointCloudRenderedNode,
+} from "../../core/types";
 import type { IPointCloudTreeNode } from "../../types";
 
 /**
  * Represents a point cloud tree structure backed by a THREE.Object3D.
  */
-export class PointCloudTree extends Object3D {
-  public readonly treeModel: PointCloudTreeModel;
+export class PointCloudTree<
+  TGeometryNode extends IPointCloudGeometryNode = IPointCloudGeometryNode,
+  TRenderedNode extends
+    IPointCloudRenderedNode<TGeometryNode> = IPointCloudRenderedNode<TGeometryNode>,
+> extends Object3D {
+  public readonly treeModel: PointCloudTreeModel<TGeometryNode, TRenderedNode>;
 
   public constructor(
-    treeModel: PointCloudTreeModel = new PointCloudTreeModel(),
+    treeModel: PointCloudTreeModel<
+      TGeometryNode,
+      TRenderedNode
+    > = new PointCloudTreeModel<TGeometryNode, TRenderedNode>(),
   ) {
     super();
     this.treeModel = treeModel;

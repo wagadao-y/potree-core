@@ -6,3 +6,4 @@ export * from "./picking/point-cloud-octree-picker";
 export * from "./rendering/potree-renderer";
 export * from "./scene/point-cloud-tree";
 export * from "./types";
+export * from "./update-point-clouds";

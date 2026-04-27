@@ -1,18 +1,22 @@
 import {
-  ClipMode,
-  createClipBox,
-  createClipSphere,
   type IVisibilityUpdateResult,
   LocalPotreeRequestManager,
   type PointCloudOctree,
-  PointColorType,
-  PointShape,
-  PointSizeType,
   Potree,
   type PotreeLoadMeasurement,
   type PotreeLoadStage,
-  PotreeRenderer,
 } from "potree-core";
+import {
+  ClipMode,
+  createClipBox,
+  createClipSphere,
+  PointColorType,
+  PointShape,
+  PointSizeType,
+  PotreeRenderer,
+  pickPointClouds,
+  updatePointClouds,
+} from "potree-core/renderer-three";
 import Stats from "stats.js";
 import {
   AmbientLight,
@@ -586,7 +590,7 @@ document.body.onload = () => {
 
   canvas.ondblclick = (event) => {
     const ray = raycaster.ray;
-    const potreePick = Potree.pick(pointClouds, renderer, camera, ray);
+    const potreePick = pickPointClouds(pointClouds, renderer, camera, ray);
     const intersects = raycaster.intersectObjects(pointClouds, true);
     let pickedPco: PointCloudOctree | null = null;
 
@@ -1303,7 +1307,8 @@ document.body.onload = () => {
     stats.begin();
 
     const updateStart = performance.now();
-    const visibilityResult = potree.updatePointClouds(
+    const visibilityResult = updatePointClouds(
+      potree,
       pointClouds,
       camera,
       renderer,

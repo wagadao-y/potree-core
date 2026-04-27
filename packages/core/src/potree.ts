@@ -1,4 +1,3 @@
-import type { Camera, Ray, WebGLRenderer } from "three";
 import {
   PointCloudVisibilityScheduler,
   type PointCloudVisibilityUpdateInput,
@@ -19,20 +18,11 @@ import {
   type ClipVisibilityContext,
   ThreePointCloudVisibilityAdapter,
 } from "./renderer-three/adapters/point-cloud-visibility-adapter";
-import { getFeatures } from "./renderer-three/features";
 import type { PointCloudOctreeNode } from "./renderer-three/geometry/point-cloud-octree-node";
-import {
-  type PickParams,
-  pickPointClouds,
-} from "./renderer-three/picking/point-cloud-octree-picker";
-import type { IPotree, PickPoint } from "./renderer-three/types";
+import type { IPotree } from "./renderer-three/types";
 import { LRU } from "./utils/lru";
 
 export class Potree implements IPotree {
-  public get features() {
-    return getFeatures();
-  }
-
   public lru = new LRU(DEFAULT_POINT_BUDGET);
 
   private readonly visibilityAdapter = new ThreePointCloudVisibilityAdapter();
@@ -111,29 +101,6 @@ export class Potree implements IPotree {
     }
   }
 
-  public updatePointClouds(
-    pointClouds: PointCloudOctree[],
-    camera: Camera,
-    renderer: WebGLRenderer,
-  ): IVisibilityUpdateResult {
-    const result = this.updatePointCloudVisibility(
-      pointClouds,
-      this.visibilityAdapter.createVisibilityInput(
-        pointClouds,
-        camera,
-        renderer,
-      ),
-    );
-
-    this.visibilityAdapter.updatePointCloudsAfterVisibility(
-      pointClouds,
-      camera,
-      renderer,
-    );
-
-    return result;
-  }
-
   public updatePointCloudVisibility(
     pointClouds: PointCloudOctree[],
     input: PointCloudVisibilityUpdateInput,
@@ -142,16 +109,6 @@ export class Potree implements IPotree {
       pointClouds,
       input,
     );
-  }
-
-  public static pick(
-    pointClouds: PointCloudOctree[],
-    renderer: WebGLRenderer,
-    camera: Camera,
-    ray: Ray,
-    params: Partial<PickParams> = {},
-  ): PickPoint | null {
-    return pickPointClouds(pointClouds, renderer, camera, ray, params);
   }
 
   public get pointBudget(): number {

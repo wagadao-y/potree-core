@@ -1,5 +1,4 @@
-import type { Camera, Vector3, WebGLRenderer } from "three";
-import type { IVisibilityUpdateResult } from "../core/types";
+import type { Vector3 } from "three";
 import type { LoadOctreeOptions } from "../loading/LoadInstrumentation";
 import type { RequestManager } from "../loading/RequestManager";
 import type { PointCloudOctree } from "../point-cloud-octree";
@@ -21,12 +20,6 @@ export interface IPotree {
     requestManager: RequestManager,
     options?: LoadOctreeOptions,
   ): Promise<PointCloudOctree>;
-
-  updatePointClouds(
-    pointClouds: PointCloudOctree[],
-    camera: Camera,
-    renderer: WebGLRenderer,
-  ): IVisibilityUpdateResult;
 }
 
 export interface PickPoint {

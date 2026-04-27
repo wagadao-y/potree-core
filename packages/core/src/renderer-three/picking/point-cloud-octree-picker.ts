@@ -7,10 +7,10 @@ import {
   type WebGLRenderTarget,
 } from "three";
 import type { PointCloudOctree } from "../../point-cloud-octree";
-import type { PickPoint } from "../../types";
 import { clamp } from "../../utils/math";
 import { DEFAULT_PICK_WINDOW_SIZE } from "../constants";
 import { ClipMode, PointCloudMaterial, PointColorType } from "../materials";
+import type { PickPoint } from "../types";
 import {
   makePickRenderTarget,
   preparePickRender,

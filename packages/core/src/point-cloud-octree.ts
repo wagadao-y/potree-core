@@ -8,7 +8,6 @@ import {
   Sphere,
   type WebGLRenderer,
 } from "three";
-import { DEFAULT_MIN_NODE_PIXEL_SIZE } from "./core/constants";
 import type {
   IPointCloudTreeNode,
   IPointCloudVisibilityTarget,
@@ -39,7 +38,7 @@ import type { IPotree, PickPoint } from "./renderer-three/types";
  * interact with material, transforms, picking, bounds, and lifecycle methods.
  */
 export class PointCloudOctree
-  extends PointCloudTree
+  extends PointCloudTree<OctreeGeometryNode, PointCloudOctreeNode>
   implements
     IPointCloudVisibilityTarget<OctreeGeometryNode, PointCloudOctreeNode>
 {
@@ -88,22 +87,46 @@ export class PointCloudOctree
    *
    * This is used to limit the depth of the octree when rendering or processing.
    */
-  public maxLevel: number = Infinity;
+  public get maxLevel(): number {
+    return this.treeModel.maxLevel;
+  }
+
+  public set maxLevel(value: number) {
+    this.treeModel.maxLevel = value;
+  }
 
   /**
    * The minimum radius of a node's bounding sphere on the screen in order to be displayed.
    */
-  public minNodePixelSize: number = DEFAULT_MIN_NODE_PIXEL_SIZE;
+  public get minNodePixelSize(): number {
+    return this.treeModel.minNodePixelSize;
+  }
+
+  public set minNodePixelSize(value: number) {
+    this.treeModel.minNodePixelSize = value;
+  }
 
   /**
    * If enabled, child LOD nodes that are already too dense in screen space are not expanded.
    */
-  public screenSpaceDensityLODEnabled: boolean = false;
+  public get screenSpaceDensityLODEnabled(): boolean {
+    return this.treeModel.screenSpaceDensityLODEnabled;
+  }
+
+  public set screenSpaceDensityLODEnabled(value: boolean) {
+    this.treeModel.screenSpaceDensityLODEnabled = value;
+  }
 
   /**
    * Maximum number of points per projected pixel before child LOD expansion stops.
    */
-  public maxPointsPerPixel: number = 1;
+  public get maxPointsPerPixel(): number {
+    return this.treeModel.maxPointsPerPixel;
+  }
+
+  public set maxPointsPerPixel(value: number) {
+    this.treeModel.maxPointsPerPixel = value;
+  }
 
   /**
    * Bounding box nodes for visualization.
@@ -115,21 +138,39 @@ export class PointCloudOctree
    *
    * These nodes are currently visible in the scene and can be rendered.
    */
-  public visibleNodes: PointCloudOctreeNode[] = [];
+  public get visibleNodes(): PointCloudOctreeNode[] {
+    return this.treeModel.visibleNodes;
+  }
+
+  public set visibleNodes(value: PointCloudOctreeNode[]) {
+    this.treeModel.visibleNodes = value;
+  }
 
   /**
    * An array of visible geometry nodes in the point cloud octree.
    *
    * These nodes contain the geometry data for rendering and are currently visible.
    */
-  public visibleGeometry: OctreeGeometryNode[] = [];
+  public get visibleGeometry(): OctreeGeometryNode[] {
+    return this.treeModel.visibleGeometry;
+  }
+
+  public set visibleGeometry(value: OctreeGeometryNode[]) {
+    this.treeModel.visibleGeometry = value;
+  }
 
   /**
    * The number of visible points in the point cloud octree.
    *
    * This is used to keep track of how many points are currently visible in the scene.
    */
-  public numVisiblePoints: number = 0;
+  public get numVisiblePoints(): number {
+    return this.treeModel.numVisiblePoints;
+  }
+
+  public set numVisiblePoints(value: number) {
+    this.treeModel.numVisiblePoints = value;
+  }
 
   /**
    * Indicates whether the bounding box should be shown in the scene.

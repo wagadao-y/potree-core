@@ -3,6 +3,7 @@ import type { PointCloudOctree } from "../../point-cloud-octree";
 import type { Potree } from "../../potree";
 import type { IVisibilityUpdateResult } from "../../types";
 import type { PointCloudMaterial } from "../materials/point-cloud-material";
+import { updatePointClouds } from "../update-point-clouds";
 import { EDLPass } from "./edl-pass";
 
 /**
@@ -44,7 +45,7 @@ export type PotreeRendererRenderParams = {
  * Thin helper that renders Potree point clouds.
  *
  * Why this exists:
- * - Without EDL, users typically do: `potree.updatePointClouds(...)` then `renderer.render(scene, camera)`.
+ * - Without EDL, users typically do: `updatePointClouds(potree, ...)` then `renderer.render(scene, camera)`.
  * - With EDL enabled, users previously had to manually:
  *   1) keep point-cloud objects on a dedicated layer, and
  *   2) run `EDLPass.render(...)` instead of `renderer.render(...)`.
@@ -234,7 +235,7 @@ export class PotreeRenderer {
     renderer.render(scene, camera);
   }
 
-  /** Convenience helper: `updatePointClouds()` followed by {@link render}. */
+  /** Convenience helper: `updatePointClouds(potree, ...)` followed by {@link render}. */
   public updateAndRender(
     potree: Potree,
     pointClouds: PointCloudOctree[],
@@ -242,7 +243,7 @@ export class PotreeRenderer {
     renderer: WebGLRenderer,
     scene: Object3D,
   ): IVisibilityUpdateResult {
-    const result = potree.updatePointClouds(pointClouds, camera, renderer);
+    const result = updatePointClouds(potree, pointClouds, camera, renderer);
     this.render({ renderer, scene, camera, pointClouds });
     return result;
   }

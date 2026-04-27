@@ -4,7 +4,17 @@
     "module": "esnext",
     "lib": ["ES2023", "DOM"],
     "types": ["vite/client", "node"],
+    "ignoreDeprecations": "6.0",
     "skipLibCheck": true,
+    "useDefineForClassFields": false,
+    "experimentalDecorators": true,
+    "baseUrl": ".",
+    "paths": {
+      "potree-core": ["../../packages/core/src/index.ts"],
+      "potree-core/renderer-three": [
+        "../../packages/core/src/renderer-three/index.ts"
+      ]
+    },
 
     /* Bundler mode */
     "moduleResolution": "bundler",
