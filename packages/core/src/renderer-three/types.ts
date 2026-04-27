@@ -1,10 +1,10 @@
 import type { Box3, Matrix4, Object3D, Vector3 } from "three";
 import type { IPointCloudVisibilityTarget } from "../core/types";
 import type { OctreeGeometryNode } from "../loading/OctreeGeometryNode";
-import type { PointCloudOctree } from "../point-cloud-octree";
 import type { LoadedPointCloud } from "../types";
 import type { PointCloudOctreeNode } from "./geometry/point-cloud-octree-node";
 import type { PointCloudMaterial } from "./materials";
+import type { PointCloudOctree } from "./point-cloud-octree";
 
 export type { IPotree } from "../types";
 

@@ -1,7 +1,7 @@
 import { Points, type Ray, Sphere } from "three";
-import type { PointCloudOctree } from "../../point-cloud-octree";
 import type { PointCloudOctreeNode } from "../geometry/point-cloud-octree-node";
 import { PointCloudMaterial } from "../materials";
+import type { PointCloudOctree } from "../point-cloud-octree";
 
 const helperSphere = new Sphere();
 

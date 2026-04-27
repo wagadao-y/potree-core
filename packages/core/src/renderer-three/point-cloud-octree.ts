@@ -11,23 +11,20 @@ import {
 import type {
   IPointCloudTreeNode,
   IPointCloudVisibilityTarget,
-} from "./core/types";
-import type { OctreeGeometryNode } from "./loading/OctreeGeometryNode";
-import { pointCloudOctreeRendererAdapter } from "./renderer-three/adapters/point-cloud-octree-renderer";
-import type { PointCloudOctreeNode } from "./renderer-three/geometry/point-cloud-octree-node";
-import type {
-  PointCloudMaterial,
-  PointSizeType,
-} from "./renderer-three/materials";
-import { toThreeBox3, toThreeVector3 } from "./renderer-three/math/box3-like";
+} from "../core/types";
+import type { OctreeGeometryNode } from "../loading/OctreeGeometryNode";
+import type { IPotree, LoadedPointCloud } from "../types";
+import { pointCloudOctreeRendererAdapter } from "./adapters/point-cloud-octree-renderer";
+import type { PointCloudOctreeNode } from "./geometry/point-cloud-octree-node";
+import type { PointCloudMaterial, PointSizeType } from "./materials";
+import { toThreeBox3, toThreeVector3 } from "./math/box3-like";
 import {
   disposePointCloudOctreePicker,
   type PickParams,
   pickPointCloud,
-} from "./renderer-three/picking/point-cloud-octree-picker";
-import { PointCloudTree } from "./renderer-three/scene/point-cloud-tree";
-import type { PickPoint } from "./renderer-three/types";
-import type { IPotree, LoadedPointCloud } from "./types";
+} from "./picking/point-cloud-octree-picker";
+import { PointCloudTree } from "./scene/point-cloud-tree";
+import type { PickPoint } from "./types";
 
 /**
  * Public Three.js facade for an octree-backed point cloud.
@@ -359,12 +356,8 @@ export class PointCloudOctree
     for (const node of this.visibleNodes) {
       const sceneNode = node.sceneNode;
       if (sceneNode && !sceneNode.layers.test(raycaster.layers)) {
-        // Node is on a layer the raycaster cannot see (e.g. EDL dedicated layer).
-        // Call raycast() directly, bypassing the layer check, so picks still work.
         sceneNode.raycast(raycaster, intersects);
       }
-      // If sceneNode.layers.test(raycaster.layers) is true, the recursive traversal
-      // from intersectObject() will process this node normally — no action needed here.
     }
   }
 
