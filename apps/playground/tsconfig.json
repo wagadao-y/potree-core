@@ -11,9 +11,8 @@
     "baseUrl": ".",
     "paths": {
       "potree-core": ["../../packages/core/src/index.ts"],
-      "potree-core/renderer-three": [
-        "../../packages/core/src/renderer-three/index.ts"
-      ]
+      "potree-core/core": ["../../packages/core/src/core/index.ts"],
+      "potree-renderer-three": ["../../packages/renderer-three/src/index.ts"]
     },
 
     /* Bundler mode */

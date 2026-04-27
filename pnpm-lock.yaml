@@ -33,9 +33,9 @@ importers:
 
   apps/playground:
     dependencies:
-      potree-core:
+      potree-renderer-three:
         specifier: workspace:*
-        version: link:../../packages/core
+        version: link:../../packages/renderer-three
       stats.js:
         specifier: ^0.17.0
         version: 0.17.0
@@ -80,6 +80,28 @@ importers:
       typedoc:
         specifier: 0.28.19
         version: 0.28.19(typescript@6.0.3)
+      typescript:
+        specifier: 6.0.3
+        version: 6.0.3
+      vite:
+        specifier: ^8.0.9
+        version: 8.0.9(@types/node@25.6.0)(terser@5.46.1)(yaml@2.8.3)
+
+  packages/renderer-three:
+    dependencies:
+      potree-core:
+        specifier: workspace:*
+        version: link:../core
+    devDependencies:
+      '@types/node':
+        specifier: ^25.6.0
+        version: 25.6.0
+      '@types/three':
+        specifier: ^0.184.0
+        version: 0.184.0
+      three:
+        specifier: ^0.184.0
+        version: 0.184.0
       typescript:
         specifier: 6.0.3
         version: 6.0.3

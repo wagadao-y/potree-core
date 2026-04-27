@@ -29,7 +29,7 @@ import {
    createPointCloudOctree,
    Potree,
    updatePointClouds,
-} from 'potree-core/renderer-three';
+} from 'potree-renderer-three';
 
 const scene = new Scene();
 const camera = new PerspectiveCamera(60, 1, 0.1, 10000);
@@ -74,7 +74,7 @@ loop();
  - Set the desired `ClipMode` on the material and pass the clip boxes to `setClipBoxes()`.
 
 ```javascript
-import { ClipMode, createClipBox } from 'potree-core/renderer-three';
+import { ClipMode, createClipBox } from 'potree-renderer-three';
 import { Vector3 } from 'three';
 
 // Create a 5×5×5 clip box centered at world position (2, 0, 0)
@@ -97,7 +97,7 @@ pco.material.setClipBoxes([clipBox]);
  - Clip boxes and clip spheres can be used together; a point is considered "inside" if it falls inside any box or any sphere.
 
 ```javascript
-import { ClipMode, createClipSphere } from 'potree-core/renderer-three';
+import { ClipMode, createClipSphere } from 'potree-renderer-three';
 import { Vector3 } from 'three';
 
 // Create a sphere of radius 3 centered at world position (0, 1, 0)

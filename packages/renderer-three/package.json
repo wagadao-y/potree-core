@@ -1,7 +1,7 @@
 {
-  "name": "potree-core",
+  "name": "potree-renderer-three",
   "version": "2.0.15",
-  "description": "Potree wrapper for three.js applications",
+  "description": "Three.js renderer integration for potree-core",
   "repository": {
     "type": "git",
     "url": "https://github.com/tentone/potree-core.git"
@@ -16,18 +16,12 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
-    },
-    "./core": {
-      "types": "./dist/core/index.d.ts",
-      "import": "./dist/core/index.js"
     }
   },
   "scripts": {
     "clean": "node -e \"require('node:fs').rmSync('dist', { recursive: true, force: true })\"",
-    "build": "pnpm run clean && vite build && tsc --project tsconfig.json",
-    "typecheck": "tsc --noEmit --emitDeclarationOnly false --project tsconfig.json",
-    "docs": "typedoc src/** --out docs --tsconfig tsconfig.json --theme default --excludeExternals --excludeNotDocumented",
-    "pub": "npm run build && npm run docs && npm publish --access public ."
+    "build": "pnpm --filter potree-core build && pnpm run clean && vite build && tsc --project tsconfig.json",
+    "typecheck": "pnpm --filter potree-core build && tsc --noEmit --emitDeclarationOnly false --project tsconfig.json"
   },
   "keywords": [
     "three",
@@ -37,6 +31,9 @@
   ],
   "author": "Tentone",
   "license": "MIT",
+  "dependencies": {
+    "potree-core": "workspace:*"
+  },
   "peerDependencies": {
     "three": ">0.125.0"
   },
@@ -44,12 +41,7 @@
     "@types/node": "^25.6.0",
     "@types/three": "^0.184.0",
     "three": "^0.184.0",
-    "typedoc": "0.28.19",
     "typescript": "6.0.3",
     "vite": "^8.0.9"
-  },
-  "dependencies": {
-    "brotli-dec-wasm": "^2.3.2",
-    "zstddec": "^0.2.0"
   }
 }

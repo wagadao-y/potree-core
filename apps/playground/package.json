@@ -10,7 +10,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "potree-core": "workspace:*",
+    "potree-renderer-three": "workspace:*",
     "stats.js": "^0.17.0"
   },
   "devDependencies": {

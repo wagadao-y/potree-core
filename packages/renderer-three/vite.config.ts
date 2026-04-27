@@ -6,13 +6,12 @@ export default defineConfig({
     lib: {
       entry: {
         index: resolve(__dirname, "src/index.ts"),
-        "core/index": resolve(__dirname, "src/core/index.ts"),
       },
       formats: ["es"],
       fileName: (_, entryName) => `${entryName}.js`,
     },
     rollupOptions: {
-      external: ["three"],
+      external: ["three", "potree-core", "potree-core/core"],
     },
     sourcemap: false,
   },

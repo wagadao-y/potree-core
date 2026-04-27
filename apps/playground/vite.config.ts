@@ -5,12 +5,18 @@ export default defineConfig({
   resolve: {
     alias: [
       {
-        find: /^potree-core\/renderer-three$/,
+        find: /^potree-renderer-three$/,
         replacement: fileURLToPath(
           new URL(
-            "../../packages/core/src/renderer-three/index.ts",
+            "../../packages/renderer-three/src/index.ts",
             import.meta.url,
           ),
+        ),
+      },
+      {
+        find: /^potree-core\/core$/,
+        replacement: fileURLToPath(
+          new URL("../../packages/core/src/core/index.ts", import.meta.url),
         ),
       },
       {
