@@ -25,7 +25,11 @@
  - Bellow its a fully functional example of how to use this wrapper to load potree point clouds to a three.js project
 
 ```javascript
-import { createPointCloudOctree, updatePointClouds } from 'potree-core/renderer-three';
+import {
+   createPointCloudOctree,
+   Potree,
+   updatePointClouds,
+} from 'potree-core/renderer-three';
 
 const scene = new Scene();
 const camera = new PerspectiveCamera(60, 1, 0.1, 10000);

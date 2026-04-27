@@ -1,3 +1,6 @@
+export * from "../loading/LoadInstrumentation";
+export * from "../loading/LocalPotreeRequestManager";
+export * from "../potree";
 export * from "./create-point-cloud-octree";
 export * from "./diagnostics";
 export * from "./features";

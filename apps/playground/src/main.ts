@@ -1,10 +1,4 @@
 import {
-  LocalPotreeRequestManager,
-  Potree,
-  type PotreeLoadMeasurement,
-  type PotreeLoadStage,
-} from "potree-core";
-import {
   ClipMode,
   collectPointCloudDiagnostics,
   createClipBox,
@@ -12,10 +6,14 @@ import {
   createPointCloudOctree,
   type IVisibilityUpdateResult,
   type LoadedPointCloud,
+  LocalPotreeRequestManager,
   type PointCloudOctree,
   PointColorType,
   PointShape,
   PointSizeType,
+  Potree,
+  type PotreeLoadMeasurement,
+  type PotreeLoadStage,
   PotreeRenderer,
   pickPointClouds,
   updatePointClouds,
