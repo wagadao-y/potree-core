@@ -113,9 +113,30 @@ pco.material.setClipSpheres([clipSphere]);
  - `ClipMode.CLIP_INSIDE` – only points outside the sphere are rendered.
  - `ClipMode.HIGHLIGHT_INSIDE` – all points rendered; points inside the sphere are highlighted.
 
+## Picking
+ - Point picking APIs live on the renderer-three side, for example via `PointCloudOctree.pick()` or `pickPointClouds()`.
+ - When passing `pixelPosition`, use framebuffer pixel coordinates, not DOM client coordinates.
+ - If your pointer comes from a canvas event, convert it using the current device pixel ratio before passing it to the picking API.
+
+```javascript
+const rect = canvas.getBoundingClientRect();
+const dpr = window.devicePixelRatio;
+const framebufferPosition = new Vector3(
+   (event.clientX - rect.left) * dpr,
+   (event.clientY - rect.top) * dpr,
+   0,
+);
+
+const hit = pointCloud.pick(renderer, camera, ray, {
+   pixelPosition: framebufferPosition,
+});
+```
+
 ## Custom Request Manager
    - The potree core library uses a custom request manager to handle the loading of point cloud data.
    - The request manager can be replaced by a custom implementation, for example to use a custom caching system or to handle requests in a different way.
+    - Potree v2 loading expects successful metadata fetches and HTTP range responses for `hierarchy.bin` / `octree.bin` reads.
+    - Remote servers should support byte-range requests and return a valid `Content-Range` header for partial responses.
 
    ```javascript
    class CustomRequestManager implements RequestManager 

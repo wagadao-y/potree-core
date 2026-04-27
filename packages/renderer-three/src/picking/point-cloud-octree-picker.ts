@@ -12,9 +12,11 @@ import { ClipMode, PointCloudMaterial, PointColorType } from "../materials";
 import type { PointCloudOctree } from "../point-cloud-octree";
 import type { PickPoint } from "../types";
 import {
+  capturePickRenderState,
   makePickRenderTarget,
   preparePickRender,
   readPickPixels,
+  restorePickRenderState,
   updatePickRenderTarget,
 } from "./pick-render-target";
 import { createTempNodes, nodesOnRay } from "./pick-scene";
@@ -34,6 +36,13 @@ let sharedPointCloudOctreePicker: PointCloudOctreePicker | undefined;
 export interface PickParams {
   pickWindowSize: number;
   pickOutsideClipRegion: boolean;
+  /**
+   * Pick center in framebuffer pixel coordinates.
+   *
+   * This uses the renderer's drawing-buffer space, not DOM client coordinates.
+   * For canvas-space coordinates, callers should first convert them using the
+   * current device pixel ratio and the drawing buffer origin expected by the renderer.
+   */
   pixelPosition: Vector3;
   onBeforePickRender: (
     material: PointCloudMaterial,
@@ -103,31 +112,37 @@ export class PointCloudOctreePicker {
     const x = Math.floor(clamp(pixelPosition.x - halfPickWndSize, 0, width));
     const y = Math.floor(clamp(pixelPosition.y - halfPickWndSize, 0, height));
 
-    const prevRenderTarget = renderer.getRenderTarget();
+    const previousRenderTarget = renderer.getRenderTarget();
+    const previousRenderState = capturePickRenderState(renderer);
 
-    preparePickRender(
-      renderer,
-      pickState.renderTarget,
-      x,
-      y,
-      pickWndSize,
-      pickMaterial.depthTest,
-      pickMaterial.depthWrite,
-    );
+    let pixels: Uint8Array;
+    let renderedNodes: RenderedNode[];
+    try {
+      preparePickRender(
+        renderer,
+        pickState.renderTarget,
+        x,
+        y,
+        pickWndSize,
+        pickMaterial.depthTest,
+        pickMaterial.depthWrite,
+      );
 
-    const renderedNodes = PointCloudOctreePicker.render(
-      renderer,
-      camera,
-      pickMaterial,
-      octrees,
-      ray,
-      pickState,
-      params,
-    );
+      renderedNodes = PointCloudOctreePicker.render(
+        renderer,
+        camera,
+        pickMaterial,
+        octrees,
+        ray,
+        pickState,
+        params,
+      );
 
-    const pixels = readPickPixels(renderer, x, y, pickWndSize);
-
-    renderer.setRenderTarget(prevRenderTarget);
+      pixels = readPickPixels(renderer, x, y, pickWndSize);
+    } finally {
+      renderer.setRenderTarget(previousRenderTarget);
+      restorePickRenderState(renderer, previousRenderState);
+    }
 
     const hit = findPointCloudPickHit(pixels, pickWndSize);
     return getPointCloudPickPoint(hit, renderedNodes);

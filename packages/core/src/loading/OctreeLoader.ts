@@ -26,6 +26,7 @@ import {
   planOctreeLoadBatch,
 } from "./plan-octree-load-batch";
 import type { RequestManager } from "./RequestManager";
+import { validateMetadataResponse } from "./validate-fetch-response";
 import { WorkerPool } from "./WorkerPool";
 
 /**
@@ -299,9 +300,9 @@ export class OctreeLoader {
     requestManager: RequestManager,
     options?: LoadOctreeOptions,
   ) {
-    const response = await requestManager.fetch(
-      await requestManager.getUrl(url),
-    );
+    const metadataUrl = await requestManager.getUrl(url);
+    const response = await requestManager.fetch(metadataUrl);
+    validateMetadataResponse(response, metadataUrl);
     const metadata: Metadata = await response.json();
 
     const attributes = OctreeLoader.parseAttributes(metadata.attributes);
@@ -324,7 +325,7 @@ export class OctreeLoader {
         createVec3(...metadata.boundingBox.max),
       ),
     );
-    octree.url = await requestManager.getUrl(url);
+    octree.url = metadataUrl;
     octree.spacing = metadata.spacing;
     octree.scale = metadata.scale;
 

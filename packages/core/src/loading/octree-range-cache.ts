@@ -1,4 +1,5 @@
 import type { RequestManager } from "./RequestManager";
+import { validateRangeResponse } from "./validate-fetch-response";
 
 const MAX_MERGED_OCTREE_RANGE_BYTES = BigInt(2 * 1024 * 1024);
 const MAX_MERGED_OCTREE_RANGE_GAP_BYTES = BigInt(0);
@@ -99,7 +100,10 @@ export class OctreeRangeCache {
           Range: `bytes=${start}-${endExclusive - BigInt(1)}`,
         },
       })
-      .then((response) => response.arrayBuffer());
+      .then((response) => {
+        validateRangeResponse(response, urlOctree, start, endExclusive);
+        return response.arrayBuffer();
+      });
 
     const cache: OctreeReadCacheEntry = {
       url: urlOctree,

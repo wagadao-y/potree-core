@@ -2,6 +2,7 @@ import type { PotreeLoadMeasurement } from "./LoadInstrumentation";
 import type { OctreeGeometryNode } from "./OctreeGeometryNode";
 import { parseOctreeHierarchy } from "./parse-octree-hierarchy";
 import type { RequestManager } from "./RequestManager";
+import { validateRangeResponse } from "./validate-fetch-response";
 
 interface LoadOctreeHierarchyOptions {
   url: string;
@@ -39,6 +40,7 @@ export async function loadOctreeHierarchy({
       Range: `bytes=${first}-${last}`,
     },
   });
+  validateRangeResponse(response, hierarchyPath, first, last + BigInt(1));
 
   const buffer = await response.arrayBuffer();
   emitMeasurement({

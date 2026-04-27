@@ -4,12 +4,20 @@ import {
   NearestFilter,
   NoBlending,
   RGBAFormat,
+  Vector4,
   type WebGLRenderer,
   WebGLRenderTarget,
 } from "three";
 import { COLOR_BLACK } from "../constants";
 
 const clearColor = new Color();
+
+export interface PickRenderStateSnapshot {
+  clearColor: Color;
+  clearAlpha: number;
+  scissor: Vector4;
+  scissorTest: boolean;
+}
 
 export function makePickRenderTarget(): WebGLRenderTarget {
   return new WebGLRenderTarget(1, 1, {
@@ -64,6 +72,38 @@ export function preparePickRender(
   renderer.setClearColor(clearColor, oldClearAlpha);
 }
 
+export function capturePickRenderState(
+  renderer: WebGLRenderer,
+): PickRenderStateSnapshot {
+  const previousClearColor = new Color();
+  const previousScissor = new Vector4();
+
+  renderer.getClearColor(previousClearColor);
+  renderer.getScissor(previousScissor);
+
+  return {
+    clearColor: previousClearColor,
+    clearAlpha: renderer.getClearAlpha(),
+    scissor: previousScissor,
+    scissorTest: renderer.getScissorTest(),
+  };
+}
+
+export function restorePickRenderState(
+  renderer: WebGLRenderer,
+  snapshot: PickRenderStateSnapshot,
+): void {
+  renderer.setClearColor(snapshot.clearColor, snapshot.clearAlpha);
+  renderer.setScissor(
+    snapshot.scissor.x,
+    snapshot.scissor.y,
+    snapshot.scissor.z,
+    snapshot.scissor.w,
+  );
+  renderer.setScissorTest(snapshot.scissorTest);
+  renderer.resetState();
+}
+
 export function readPickPixels(
   renderer: WebGLRenderer,
   x: number,
@@ -79,7 +119,5 @@ export function readPickPixels(
     pickWindowSize,
     pixels,
   );
-  renderer.setScissorTest(false);
-  renderer.setRenderTarget(null!);
   return pixels;
 }
