@@ -33,6 +33,7 @@ const dataset = await potree.loadPointCloud(
 import {
    Potree,
    LocalPotreeRequestManager,
+   SignedUrlPotreeRequestManager,
 } from 'potree-core';
 ```
 
@@ -43,6 +44,8 @@ import {
 - `LoadedPointCloud`
 - `LoadOctreeOptions` と load instrumentation 関連型
 - `LocalPotreeRequestManager`
+- `SignedUrlPotreeRequestManager`
+- `RequestManager` と `PotreeResourceKind`
 - point budget などの安定した public constant
 
 ### Advanced exports: `potree-core/core`
@@ -80,6 +83,36 @@ const dataset = await potree.loadPointCloud('metadata.json', requestManager);
 
 `LocalPotreeRequestManager` は `metadata.json`、`hierarchy.bin`、`octree.bin` の 3 ファイルを前提にします。
 
+## SignedUrlPotreeRequestManager
+
+metadata、hierarchy、octree を別々の署名付き URL で配信する場合は `SignedUrlPotreeRequestManager` を使えます。
+
+```javascript
+import {
+   Potree,
+   SignedUrlPotreeRequestManager,
+} from 'potree-core';
+
+const requestManager = new SignedUrlPotreeRequestManager({
+   metadata: 'https://example.com/metadata.json?signature=meta',
+   hierarchy: 'https://example.com/hierarchy.bin?signature=hier',
+   octree: 'https://example.com/octree.bin?signature=oct',
+});
+
+const potree = new Potree();
+const dataset = await potree.loadPointCloud('metadata.json', requestManager);
+```
+
+期限切れごとに URL を再発行したい場合は、固定文字列の代わりに resolver 関数も渡せます。
+
+```javascript
+const requestManager = new SignedUrlPotreeRequestManager({
+   metadata: async () => getFreshSignedUrl('metadata'),
+   hierarchy: async () => getFreshSignedUrl('hierarchy'),
+   octree: async () => getFreshSignedUrl('octree'),
+});
+```
+
 ## カスタム Request Manager
 
 独自キャッシュや独自の取得経路を組み込みたい場合は、custom request manager を実装できます。
@@ -94,7 +127,7 @@ class CustomRequestManager implements RequestManager {
       throw new Error('Method not implemented.');
    }
 
-   async getUrl(url: string): Promise<string> {
+   async getUrl(kind: PotreeResourceKind, url: string): Promise<string> {
       return url;
    }
 }

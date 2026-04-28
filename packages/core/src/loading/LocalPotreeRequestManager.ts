@@ -1,4 +1,4 @@
-import type { RequestManager } from "./RequestManager";
+import type { PotreeResourceKind, RequestManager } from "./RequestManager";
 
 type LocalPotreeFileName = "metadata.json" | "hierarchy.bin" | "octree.bin";
 
@@ -28,7 +28,7 @@ export class LocalPotreeRequestManager implements RequestManager {
     init?: RequestInit,
   ): Promise<Response> {
     const resourceUrl = this.extractUrl(input);
-    const fileName = this.resolveFileName(resourceUrl);
+    const fileName = this.resolveFetchFileName(resourceUrl);
     const file = this.files[fileName];
 
     if (fileName === "metadata.json") {
@@ -56,8 +56,8 @@ export class LocalPotreeRequestManager implements RequestManager {
     });
   }
 
-  public async getUrl(url: string): Promise<string> {
-    const fileName = this.resolveFileName(url);
+  public async getUrl(kind: PotreeResourceKind, url: string): Promise<string> {
+    const fileName = this.resolveFileName(kind, url);
     return new URL(fileName, this.baseUrl).toString();
   }
 
@@ -108,7 +108,33 @@ export class LocalPotreeRequestManager implements RequestManager {
     return input.url;
   }
 
-  private resolveFileName(url: string): LocalPotreeFileName {
+  private resolveFileName(
+    kind: PotreeResourceKind,
+    url: string,
+  ): LocalPotreeFileName {
+    const expectedFileName = LocalPotreeRequestManager.kindToFileName(kind);
+    const normalizedUrl = url.startsWith(this.baseUrl)
+      ? url
+      : new URL(url, this.baseUrl).toString();
+    const fileName = new URL(normalizedUrl).pathname.split("/").at(-1);
+
+    if (fileName === undefined) {
+      throw new Error(`Unsupported local Potree resource: ${url}`);
+    }
+
+    if (
+      LocalPotreeRequestManager.isRequiredFileName(fileName) &&
+      fileName !== expectedFileName
+    ) {
+      throw new Error(
+        `Mismatched local Potree resource kind: expected ${expectedFileName}, got ${fileName}`,
+      );
+    }
+
+    return expectedFileName;
+  }
+
+  private resolveFetchFileName(url: string): LocalPotreeFileName {
     const normalizedUrl = url.startsWith(this.baseUrl)
       ? url
       : new URL(url, this.baseUrl).toString();
@@ -122,6 +148,17 @@ export class LocalPotreeRequestManager implements RequestManager {
     }
 
     return fileName;
+  }
+
+  private static kindToFileName(kind: PotreeResourceKind): LocalPotreeFileName {
+    switch (kind) {
+      case "metadata":
+        return "metadata.json";
+      case "hierarchy":
+        return "hierarchy.bin";
+      case "octree":
+        return "octree.bin";
+    }
   }
 
   private parseRangeHeader(headers?: HeadersInit) {

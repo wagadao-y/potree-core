@@ -1,20 +1,18 @@
 import type { PotreeLoadMeasurement } from "./LoadInstrumentation";
 import type { OctreeGeometryNode } from "./OctreeGeometryNode";
+import type { PotreeDatasetSource } from "./PotreeDatasetSource";
 import { parseOctreeHierarchy } from "./parse-octree-hierarchy";
-import type { RequestManager } from "./RequestManager";
 import { validateRangeResponse } from "./validate-fetch-response";
 
 interface LoadOctreeHierarchyOptions {
-  url: string;
   node: OctreeGeometryNode;
-  requestManager: RequestManager;
+  datasetSource: PotreeDatasetSource;
   emitMeasurement: (measurement: PotreeLoadMeasurement) => void;
 }
 
 export async function loadOctreeHierarchy({
-  url,
   node,
-  requestManager,
+  datasetSource,
   emitMeasurement,
 }: LoadOctreeHierarchyOptions): Promise<void> {
   const { hierarchyByteOffset, hierarchyByteSize } = node;
@@ -25,21 +23,17 @@ export async function loadOctreeHierarchy({
     );
   }
 
-  const hierarchyPath = (await requestManager.getUrl(url)).replace(
-    "/metadata.json",
-    "/hierarchy.bin",
-  );
+  const hierarchyPath = await datasetSource.getResourceUrl("hierarchy");
 
   const first = hierarchyByteOffset;
   const last = first + hierarchyByteSize - BigInt(1);
 
   const hierarchyLoadStartedAt = performance.now();
-  const response = await requestManager.fetch(hierarchyPath, {
-    headers: {
-      "content-type": "multipart/byteranges",
-      Range: `bytes=${first}-${last}`,
-    },
-  });
+  const response = await datasetSource.fetchRange(
+    "hierarchy",
+    first,
+    last + BigInt(1),
+  );
   validateRangeResponse(response, hierarchyPath, first, last + BigInt(1));
 
   const buffer = await response.arrayBuffer();

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { loadOctreeHierarchy } from "./load-octree-hierarchy";
-import type { RequestManager } from "./RequestManager";
+import type { PotreeDatasetSource } from "./PotreeDatasetSource";
 import { PotreeFetchError } from "./validate-fetch-response";
 
 function makeResponse(status: number, headers?: HeadersInit): Response {
@@ -12,11 +12,21 @@ function makeResponse(status: number, headers?: HeadersInit): Response {
 
 describe("loadOctreeHierarchy", () => {
   it("rejects invalid range responses before parsing hierarchy data", async () => {
-    const requestManager: RequestManager = {
-      getUrl: vi
-        .fn<RequestManager["getUrl"]>()
-        .mockResolvedValue("https://example.test/metadata.json"),
-      fetch: vi.fn<RequestManager["fetch"]>().mockResolvedValue(
+    const datasetSource: PotreeDatasetSource = {
+      getResourceUrl: vi
+        .fn<PotreeDatasetSource["getResourceUrl"]>()
+        .mockImplementation(async (kind) => {
+          switch (kind) {
+            case "metadata":
+              return "https://example.test/metadata.json";
+            case "hierarchy":
+              return "https://example.test/hierarchy.bin";
+            case "octree":
+              return "https://example.test/octree.bin";
+          }
+        }),
+      fetchMetadata: vi.fn<PotreeDatasetSource["fetchMetadata"]>(),
+      fetchRange: vi.fn<PotreeDatasetSource["fetchRange"]>().mockResolvedValue(
         makeResponse(200, {
           "Content-Range": "bytes 10-19/100",
         }),
@@ -26,27 +36,23 @@ describe("loadOctreeHierarchy", () => {
 
     await expect(
       loadOctreeHierarchy({
-        url: "https://example.test/metadata.json",
         node: {
           name: "r",
           hierarchyByteOffset: BigInt(10),
           hierarchyByteSize: BigInt(10),
           numPoints: 123,
         } as never,
-        requestManager,
+        datasetSource,
         emitMeasurement,
       }),
     ).rejects.toBeInstanceOf(PotreeFetchError);
 
-    expect(requestManager.fetch).toHaveBeenCalledWith(
-      "https://example.test/hierarchy.bin",
-      {
-        headers: {
-          "content-type": "multipart/byteranges",
-          Range: "bytes=10-19",
-        },
-      },
+    expect(datasetSource.fetchRange).toHaveBeenCalledWith(
+      "hierarchy",
+      BigInt(10),
+      BigInt(20),
     );
+    expect(datasetSource.getResourceUrl).toHaveBeenCalledWith("hierarchy");
     expect(emitMeasurement).not.toHaveBeenCalled();
   });
 });

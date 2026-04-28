@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { OctreeLoader } from "./OctreeLoader";
-import type { RequestManager } from "./RequestManager";
+import type { PotreeDatasetSource } from "./PotreeDatasetSource";
 import { PotreeFetchError } from "./validate-fetch-response";
 
 describe("OctreeLoader", () => {
@@ -12,24 +12,23 @@ describe("OctreeLoader", () => {
       status: 404,
       json,
     } as Response;
-    const requestManager: RequestManager = {
-      getUrl: vi
-        .fn<RequestManager["getUrl"]>()
+    const datasetSource: PotreeDatasetSource = {
+      getResourceUrl: vi
+        .fn<PotreeDatasetSource["getResourceUrl"]>()
         .mockResolvedValue("https://example.test/metadata.json"),
-      fetch: vi.fn<RequestManager["fetch"]>().mockResolvedValue(response),
+      fetchMetadata: vi
+        .fn<PotreeDatasetSource["fetchMetadata"]>()
+        .mockResolvedValue(response),
+      fetchRange: vi.fn<PotreeDatasetSource["fetchRange"]>(),
     };
     const loader = new OctreeLoader();
 
-    await expect(
-      loader.load("https://example.test/metadata.json", requestManager),
-    ).rejects.toBeInstanceOf(PotreeFetchError);
+    await expect(loader.load(datasetSource)).rejects.toBeInstanceOf(
+      PotreeFetchError,
+    );
 
-    expect(requestManager.getUrl).toHaveBeenCalledWith(
-      "https://example.test/metadata.json",
-    );
-    expect(requestManager.fetch).toHaveBeenCalledWith(
-      "https://example.test/metadata.json",
-    );
+    expect(datasetSource.getResourceUrl).toHaveBeenCalledWith("metadata");
+    expect(datasetSource.fetchMetadata).toHaveBeenCalledWith();
     expect(json).not.toHaveBeenCalled();
   });
 });

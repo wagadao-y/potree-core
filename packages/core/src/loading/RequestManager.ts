@@ -3,6 +3,8 @@
  *
  * This interface defines methods for fetching resources and resolving URLs.
  */
+export type PotreeResourceKind = "metadata" | "hierarchy" | "octree";
+
 export interface RequestManager {
   /**
    * Fetches a resource from the network.
@@ -15,7 +17,8 @@ export interface RequestManager {
   /**
    * Get the URL for a given resource.
    *
+   * @param kind - The Potree dataset resource kind to resolve.
    * @param url - The URL of the resource to resolve.
    */
-  getUrl(url: string): Promise<string>;
+  getUrl(kind: PotreeResourceKind, url: string): Promise<string>;
 }

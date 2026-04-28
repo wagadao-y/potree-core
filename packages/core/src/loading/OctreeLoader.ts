@@ -21,11 +21,11 @@ import {
   PointAttributes,
   PointAttributeTypes,
 } from "./PointAttributes";
+import type { PotreeDatasetSource } from "./PotreeDatasetSource";
 import {
   markLoadableOctreeNodes,
   planOctreeLoadBatch,
 } from "./plan-octree-load-batch";
-import type { RequestManager } from "./RequestManager";
 import { validateMetadataResponse } from "./validate-fetch-response";
 import { WorkerPool } from "./WorkerPool";
 
@@ -53,12 +53,11 @@ export class NodeLoader {
   private readonly octreeRangeCache: OctreeRangeCache;
 
   constructor(
-    public url: string,
+    public datasetSource: PotreeDatasetSource,
     public workerPool: WorkerPool,
     public metadata: Metadata,
-    public requestManager: RequestManager,
   ) {
-    this.octreeRangeCache = new OctreeRangeCache(url, requestManager);
+    this.octreeRangeCache = new OctreeRangeCache(datasetSource);
   }
 
   public dispose(): void {
@@ -131,9 +130,8 @@ export class NodeLoader {
 
   async loadHierarchy(node: OctreeGeometryNode) {
     await loadOctreeHierarchy({
-      url: this.url,
       node,
-      requestManager: this.requestManager,
+      datasetSource: this.datasetSource,
       emitMeasurement: (measurement) => this.emitMeasurement(measurement),
     });
   }
@@ -289,30 +287,23 @@ export class OctreeLoader {
   }
 
   /**
-   * Loads an octree geometry from a given URL using the provided RequestManager.
+   * Loads an octree geometry from a given dataset source.
    *
-   * @param url - The URL from which to load the octree geometry metadata.
-   * @param requestManager - The RequestManager instance used to handle HTTP requests.
+   * @param datasetSource - The dataset source used to resolve resources and read data.
    * @returns Geometry object containing the loaded octree geometry.
    */
   public async load(
-    url: string,
-    requestManager: RequestManager,
+    datasetSource: PotreeDatasetSource,
     options?: LoadOctreeOptions,
   ) {
-    const metadataUrl = await requestManager.getUrl(url);
-    const response = await requestManager.fetch(metadataUrl);
+    const metadataUrl = await datasetSource.getResourceUrl("metadata");
+    const response = await datasetSource.fetchMetadata();
     validateMetadataResponse(response, metadataUrl);
     const metadata: Metadata = await response.json();
 
     const attributes = OctreeLoader.parseAttributes(metadata.attributes);
 
-    const loader = new NodeLoader(
-      url,
-      this.workerPool,
-      metadata,
-      requestManager,
-    );
+    const loader = new NodeLoader(datasetSource, this.workerPool, metadata);
     loader.attributes = attributes;
     loader.scale = metadata.scale;
     loader.offset = metadata.offset;

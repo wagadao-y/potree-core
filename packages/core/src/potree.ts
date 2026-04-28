@@ -6,6 +6,7 @@ import {
 import type { LoadOctreeOptions } from "./loading/LoadInstrumentation";
 import { loadOctree } from "./loading/load-octree";
 import type { RequestManager } from "./loading/RequestManager";
+import { resolvePotreeResourceUrl } from "./loading/resolve-potree-resource-url";
 import type { IPotree, LoadedPointCloud } from "./types";
 import { LRU } from "./utils/lru";
 
@@ -38,7 +39,8 @@ export class Potree implements IPotree<LoadedPointCloud> {
       const baseUrl = reqManager;
 
       const requestManager: RequestManager = {
-        getUrl: async (relativeUrl) => `${baseUrl}${relativeUrl}`,
+        getUrl: async (kind, relativeUrl) =>
+          resolvePotreeResourceUrl(kind, relativeUrl, baseUrl),
         fetch: async (input, init) => fetch(input, init),
       };
       return this.loadPointCloud(url, requestManager, options);

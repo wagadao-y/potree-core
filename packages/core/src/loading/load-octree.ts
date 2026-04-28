@@ -1,5 +1,6 @@
 import type { LoadOctreeOptions } from "./LoadInstrumentation";
 import { OctreeLoader } from "./OctreeLoader";
+import { RequestManagerDatasetSource } from "./PotreeDatasetSource";
 import type { RequestManager } from "./RequestManager";
 
 /**
@@ -15,7 +16,10 @@ export async function loadOctree(
   options?: LoadOctreeOptions,
 ) {
   const loader = new OctreeLoader();
-  const { geometry } = await loader.load(url, requestManager, options);
+  const { geometry } = await loader.load(
+    new RequestManagerDatasetSource(url, requestManager),
+    options,
+  );
 
   return geometry;
 }

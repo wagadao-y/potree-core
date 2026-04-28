@@ -1,4 +1,4 @@
-import type { RequestManager } from "./RequestManager";
+import type { PotreeDatasetSource } from "./PotreeDatasetSource";
 import { validateRangeResponse } from "./validate-fetch-response";
 
 const MAX_MERGED_OCTREE_RANGE_BYTES = BigInt(2 * 1024 * 1024);
@@ -31,15 +31,10 @@ export class OctreeRangeCache {
 
   private octreeReadCaches: OctreeReadCacheEntry[] = [];
 
-  public constructor(
-    private readonly url: string,
-    private readonly requestManager: RequestManager,
-  ) {}
+  public constructor(private readonly datasetSource: PotreeDatasetSource) {}
 
   public async getOctreeUrl() {
-    this.octreeUrlPromise ??= this.requestManager
-      .getUrl(this.url)
-      .then((url) => url.replace("/metadata.json", "/octree.bin"));
+    this.octreeUrlPromise ??= this.datasetSource.getResourceUrl("octree");
 
     return this.octreeUrlPromise;
   }
@@ -93,13 +88,8 @@ export class OctreeRangeCache {
     start: bigint,
     endExclusive: bigint,
   ) {
-    const fetchPromise = this.requestManager
-      .fetch(urlOctree, {
-        headers: {
-          "content-type": "multipart/byteranges",
-          Range: `bytes=${start}-${endExclusive - BigInt(1)}`,
-        },
-      })
+    const fetchPromise = this.datasetSource
+      .fetchRange("octree", start, endExclusive)
       .then((response) => {
         validateRangeResponse(response, urlOctree, start, endExclusive);
         return response.arrayBuffer();
