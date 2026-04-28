@@ -1,28 +1,22 @@
 # Potree Core 2.0
 
 [![npm version](https://badge.fury.io/js/potree-core.svg)](https://badge.fury.io/js/potree-core)
-[![GitHub version](https://badge.fury.io/gh/tentone%2Fpotree-core.svg)](https://badge.fury.io/gh/tentone%2Fpotree-core)
 
- - This project was originally based on [Potree Viewer 1.6](https://github.com/potree/potree) and is now since version 2.0 based on the [shiukaheng fork](https://github.com/shiukaheng/potree-loader) of the [Potree-Loader](https://github.com/pnext/three-loader).
- - Potree is a web based pouint cloud visualizer project created by Markus Schütz.
- - This project contains only the main parts of the potree project adapted to be more easily used as a independent library, the code was adapted from the original repositorys.
- - Support for pointclouds from LAS, LAZ, Binary files.
- - Some features require support for the following GL extensions
-   - EXT_frag_depth, WEBGL_depth_texture, OES_vertex_array_object
-
-## Demo
- - Live demo at https://tentone.github.io/potree-core/
- - Double click the models to raycast the scene and create marker points.
-
-<img src="https://raw.githubusercontent.com/tentone/potree-core/master/screenshot.png" width="700">
+ - このリポジトリは [tentone/potree-core](https://github.com/tentone/potree-core) をベースに取り込んだ fork です。
+ - 元実装を出発点にしつつ、このワークスペースでは core と three.js renderer の責務分離、公開 API の整理、テスト整備を進めています。
+ - Potree は Markus Schütz によって作られた Web ベースの点群ビジュアライザであり、本プロジェクトではその点群処理の中核部分を独立したライブラリとして扱いやすい形に再構成しています。
+ - 点群データの読み込みや可視性制御などの中核ロジックは potree-core に集約し、three.js との描画統合は potree-renderer-three 側で扱います。
+ - LAS、LAZ、Binary 形式の点群をサポートします。
+ - 一部機能では次の GL extension の対応が必要です。
+    - EXT_frag_depth, WEBGL_depth_texture, OES_vertex_array_object
 
 
-## Example
- - The project can be build running the commands `npm install` and `npm run build`.
- - Download the potree build from the build folder or add it to your project using NPM.
- - Include it alonside the worker folder in your project (can be found on the source folder).
- - The build is a ES module, that can be imported to other projects, threejs should be available as a peer dependency.
- - Bellow its a fully functional example of how to use this wrapper to load potree point clouds to a three.js project
+## 使用例
+ - このプロジェクトは `npm install` と `npm run build` でビルドできます。
+ - build フォルダの成果物を使うか、NPM 経由でプロジェクトへ追加してください。
+ - worker フォルダもあわせて配置してください。worker フォルダは source フォルダ内にあります。
+ - ビルド成果物は ES module です。他プロジェクトから import できます。three.js は peer dependency として利用可能である必要があります。
+ - 以下は、このライブラリを three.js プロジェクトで使って Potree 点群を読み込む最小構成の例です。
 
 ```javascript
 import {
@@ -68,55 +62,57 @@ function loop()
 loop();
 ```
 
-## Clip Boxes
- - Clip boxes restrict the rendered region of a point cloud to a box-shaped volume.
- - Use the `createClipBox(size, position)` helper to build an `IClipBox` from a size and world-space position.
- - Set the desired `ClipMode` on the material and pass the clip boxes to `setClipBoxes()`.
+## クリップボックス
+ - クリップボックスは、点群の描画領域を箱状のボリュームに制限します。
+ - `createClipBox(size, position)` ヘルパーを使うと、サイズとワールド座標から `IClipBox` を作成できます。
+ - `ClipMode` を material に設定し、`setClipBoxes()` にボックスを渡してください。
 
 ```javascript
 import { ClipMode, createClipBox } from 'potree-renderer-three';
 import { Vector3 } from 'three';
 
-// Create a 5×5×5 clip box centered at world position (2, 0, 0)
+// ワールド座標 (2, 0, 0) を中心とする 5×5×5 のクリップボックスを作成
 const clipBox = createClipBox(new Vector3(5, 5, 5), new Vector3(2, 0, 0));
 
-// Highlight points inside the box (other modes: CLIP_OUTSIDE, CLIP_INSIDE, DISABLED)
+// ボックス内の点をハイライトする
+// 他のモード: CLIP_OUTSIDE, CLIP_INSIDE, DISABLED
 pco.material.clipMode = ClipMode.HIGHLIGHT_INSIDE;
 pco.material.setClipBoxes([clipBox]);
 ```
 
- - `ClipMode.DISABLED` – no clipping.
- - `ClipMode.CLIP_OUTSIDE` – only points inside the box are rendered.
- - `ClipMode.CLIP_INSIDE` – only points outside the box are rendered.
- - `ClipMode.HIGHLIGHT_INSIDE` – all points rendered; points inside the box are highlighted.
+ - `ClipMode.DISABLED` - クリッピングしません。
+ - `ClipMode.CLIP_OUTSIDE` - ボックス内の点のみ描画します。
+ - `ClipMode.CLIP_INSIDE` - ボックス外の点のみ描画します。
+ - `ClipMode.HIGHLIGHT_INSIDE` - すべて描画しつつ、ボックス内の点をハイライトします。
 
-## Clip Spheres
- - Clip spheres restrict the rendered region of a point cloud to a sphere-shaped volume.
- - Use the `createClipSphere(center, radius)` helper to build an `IClipSphere` from a center position and radius.
- - Set the desired `ClipMode` on the material and pass the clip spheres to `setClipSpheres()`.
- - Clip boxes and clip spheres can be used together; a point is considered "inside" if it falls inside any box or any sphere.
+## クリップスフィア
+ - クリップスフィアは、点群の描画領域を球状のボリュームに制限します。
+ - `createClipSphere(center, radius)` ヘルパーを使うと、中心座標と半径から `IClipSphere` を作成できます。
+ - `ClipMode` を material に設定し、`setClipSpheres()` に球を渡してください。
+ - クリップボックスとクリップスフィアは併用できます。いずれかのボリューム内に入っていれば「内側」とみなされます。
 
 ```javascript
 import { ClipMode, createClipSphere } from 'potree-renderer-three';
 import { Vector3 } from 'three';
 
-// Create a sphere of radius 3 centered at world position (0, 1, 0)
+// ワールド座標 (0, 1, 0) を中心とする半径 3 のスフィアを作成
 const clipSphere = createClipSphere(new Vector3(0, 1, 0), 3);
 
-// Highlight points inside the sphere (other modes: CLIP_OUTSIDE, CLIP_INSIDE, DISABLED)
+// 球内の点をハイライトする
+// 他のモード: CLIP_OUTSIDE, CLIP_INSIDE, DISABLED
 pco.material.clipMode = ClipMode.HIGHLIGHT_INSIDE;
 pco.material.setClipSpheres([clipSphere]);
 ```
 
- - `ClipMode.DISABLED` – no clipping.
- - `ClipMode.CLIP_OUTSIDE` – only points inside the sphere are rendered.
- - `ClipMode.CLIP_INSIDE` – only points outside the sphere are rendered.
- - `ClipMode.HIGHLIGHT_INSIDE` – all points rendered; points inside the sphere are highlighted.
+ - `ClipMode.DISABLED` - クリッピングしません。
+ - `ClipMode.CLIP_OUTSIDE` - 球内の点のみ描画します。
+ - `ClipMode.CLIP_INSIDE` - 球外の点のみ描画します。
+ - `ClipMode.HIGHLIGHT_INSIDE` - すべて描画しつつ、球内の点をハイライトします。
 
 ## Picking
- - Point picking APIs live on the renderer-three side, for example via `PointCloudOctree.pick()` or `pickPointClouds()`.
- - When passing `pixelPosition`, use framebuffer pixel coordinates, not DOM client coordinates.
- - If your pointer comes from a canvas event, convert it using the current device pixel ratio before passing it to the picking API.
+ - 点の picking API は renderer-three 側にあります。たとえば `PointCloudOctree.pick()` や `pickPointClouds()` を利用します。
+ - `pixelPosition` に渡す座標は DOM client 座標ではなく、framebuffer のピクセル座標です。
+ - canvas event 由来の座標を渡す場合は、現在の device pixel ratio を使って変換してから picking API に渡してください。
 
 ```javascript
 const rect = canvas.getBoundingClientRect();
@@ -132,11 +128,54 @@ const hit = pointCloud.pick(renderer, camera, ray, {
 });
 ```
 
-## Custom Request Manager
-   - The potree core library uses a custom request manager to handle the loading of point cloud data.
-   - The request manager can be replaced by a custom implementation, for example to use a custom caching system or to handle requests in a different way.
-    - Potree v2 loading expects successful metadata fetches and HTTP range responses for `hierarchy.bin` / `octree.bin` reads.
-    - Remote servers should support byte-range requests and return a valid `Content-Range` header for partial responses.
+## 公開 API
+ - `potree-core` の root export は、データセット読み込みと Potree 制御のための安定した user-facing API です。
+ - `potree-core/core` は、renderer 統合や高度な利用者向けの lower-level な core primitive を公開します。
+ - 描画、picking、material、scene integration には `potree-renderer-three` を優先してください。
+
+### Root exports: `potree-core`
+アプリケーション側の統合では、まず root entry を使ってください。
+
+```javascript
+import {
+   Potree,
+   LocalPotreeRequestManager,
+} from 'potree-core';
+```
+
+root entry は主に次を対象としています。
+
+ - `Potree`
+ - `IPotree`
+ - `LoadedPointCloud`
+ - `LoadOctreeOptions` と load instrumentation 関連型
+ - `LocalPotreeRequestManager`
+ - point budget の既定値など、安定した public constant
+
+### Advanced exports: `potree-core/core`
+`./core` サブパスは、renderer adapter や低レベル統合を実装する場合にのみ利用してください。
+
+```javascript
+import {
+   PointCloudVisibilityScheduler,
+   OctreeGeometryNode,
+} from 'potree-core/core';
+```
+
+この entry には、たとえば次の lower-level な構成要素が含まれます。
+
+ - visibility scheduler と visibility structures
+ - tree model と tree-node type
+ - octree geometry node type
+ - renderer 実装で使う math / utility helper
+
+`./core` entry も利用可能ですが、package root より低レベルな面として扱ってください。
+
+## カスタム Request Manager
+   - potree core library は、点群データの読み込みを処理するために custom request manager を利用します。
+   - custom implementation に差し替えることで、独自キャッシュや独自の request 処理を組み込めます。
+   - Potree v2 の loading では、metadata fetch の成功と `hierarchy.bin` / `octree.bin` の HTTP range response を前提にしています。
+   - リモートサーバーは byte-range request をサポートし、partial response に対して妥当な `Content-Range` header を返す必要があります。
 
    ```javascript
    class CustomRequestManager implements RequestManager 
@@ -151,37 +190,8 @@ const hit = pointCloud.pick(renderer, camera, ray, {
    }
    ```   
 
-## Notes
- - Since potree-core is meant to be used as library and not as a full software as potree some features are not available.
- - EDL shading is not supported by potree core.
- - Removed Arena 4D point cloud support.
- - Removed Entwine Point Tile file support.
- - GUI elements were removed from the library
-   - PotreeViewer
-   - Controls, Input, GUI, Tools
-   - Anotations, Actions, ProfileRequest
-   - Potree.startQuery, Potree.endQuery and Potree.resolveQueries
-   - Potree.timerQueries
-   - Potree.MOUSE, Potree.CameraMode
-   - PotreeRenderer, RepRenderer, Potree.Renderer
-     - JQuery, TWEEN and Proj4 dependencies
-
-
 ## Potree Converter
- - Use the (Potree Converter)[https://github.com/potree/PotreeConverter/releases] tool to create point cloud data from LAS, ZLAS or BIN point cloud files
- - Potree Converter 1.8 creates a multi file structure with each node as an individual file.
- - Potree Converter 2.1 creates a single file for all points and separates files for hierarchy index, its faster to create files. Requires a HTTP server configured for file streaming.
- - Tool to create hierarquical structure used for point-cloud rendering using potree-core.
- - There are two main versions 2.1 witch generates 4 contained files with point data, hierarchy, 
- - To generate a folder output from a input file run the command `.\PotreeConverter '..\input.laz' -o ../output`
-
-
-### TXT2LAS
- - The potree converter tool only supports las and laz files, so textural file formats such as .pts, .xyz, have to be first converted into a supported format.
- - The TXT2LAS tool from the (LASTools)[https://github.com/LAStools/LAStools] repository can be used for this effect.
- - To run the tool use the command `.\txt2las64 -i input.pts -ipts -parse xyziRGB  -set_scale 0.001 0.001 0.001 -set_version 1.4 -o output.laz`
-
-
- ### To Do
- - Supports logarithmic depth buffer (just by enabling it on the threejs renderer), useful for large scale visualization.
- - Point clouds are automatically updated, frustum culling is used to avoid unnecessary updates (better update performance for multiple point clouds).
+ - このプロジェクトで扱う点群データは、[Potree Converter](https://github.com/potree/PotreeConverter/releases) 2.x 系が生成する形式を前提にしています。
+ - 入力点群は基本的に LAS / LAZ を想定しています。
+ - 読み込み時には `metadata.json`、`hierarchy.bin`、`octree.bin` を含む PotreeConverter 2.x 系の出力が必要です。
+ - 入力ファイルから出力フォルダを生成するには `./PotreeConverter ../input.laz -o ../output` のように実行します。
