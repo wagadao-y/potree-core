@@ -83,6 +83,32 @@ function createPointCloud(root: TestGeometryNode): TestPointCloud {
   };
 }
 
+function createRenderedNode(
+  geometryNode: TestGeometryNode,
+  overrides?: Partial<TestRenderedNode>,
+): TestRenderedNode {
+  return {
+    id: geometryNode.id + 100,
+    name: `${geometryNode.name}-rendered`,
+    level: geometryNode.level,
+    index: geometryNode.index,
+    spacing: geometryNode.spacing,
+    boundingBox: geometryNode.boundingBox,
+    boundingSphere: geometryNode.boundingSphere,
+    loaded: true,
+    numPoints: geometryNode.numPoints,
+    isGeometryNode: false,
+    isTreeNode: true,
+    children: [],
+    isLeafNode: geometryNode.isLeafNode,
+    geometryNode,
+    parent: null,
+    dispose() {},
+    traverse() {},
+    ...overrides,
+  };
+}
+
 function createCallbacks() {
   return {
     resetRenderedVisibility: vi.fn(),
@@ -188,6 +214,62 @@ describe("updateVisibility", () => {
     expect(result.nodeLoadFailed).toBe(true);
     expect(result.visibleNodes).toEqual([]);
     expect(pointCloud.visibleGeometry).toEqual([]);
+    expect(callbacks.loadGeometryNodes).toHaveBeenCalledWith([], []);
+  });
+
+  it("materializes loaded geometry nodes and forwards the rendered node to child visibility updates", () => {
+    const root = createGeometryNode({ numPoints: 10, loaded: true });
+    const pointCloud = createPointCloud(root);
+    const callbacks = createCallbacks();
+    const renderedNode = createRenderedNode(root);
+    callbacks.materializeLoadedGeometryNode.mockReturnValue(renderedNode);
+    callbacks.updateTreeNodeVisibility.mockImplementation(
+      (_pointCloud, node, visibleNodes) => {
+        visibleNodes.push(node);
+      },
+    );
+
+    const result = updateVisibility({
+      pointClouds: [pointCloud],
+      views: [
+        {
+          intersectsBox: () => true,
+          cameraPosition,
+        },
+      ],
+      projection,
+      viewport: {
+        height: 100,
+        pixelRatio: 1,
+      },
+      pointBudget: 100,
+      maxNumNodesLoading: 4,
+      maxLoadsToGPU: 1,
+      callbacks,
+    });
+
+    expect(callbacks.materializeLoadedGeometryNode).toHaveBeenCalledWith(
+      pointCloud,
+      root,
+      null,
+    );
+    expect(callbacks.updateTreeNodeVisibility).toHaveBeenCalledWith(
+      pointCloud,
+      renderedNode,
+      result.visibleNodes,
+    );
+    expect(callbacks.updateChildVisibility).toHaveBeenCalledWith(
+      expect.objectContaining({ node: root }),
+      pointCloud,
+      renderedNode,
+      cameraPosition,
+      projection,
+      50,
+      { culledNodes: 0, culledPoints: 0 },
+      expect.any(Function),
+    );
+    expect(result.visibleNodes).toEqual([renderedNode]);
+    expect(pointCloud.visibleGeometry).toEqual([root]);
     expect(callbacks.loadGeometryNodes).toHaveBeenCalledWith([], []);
   });
 });
