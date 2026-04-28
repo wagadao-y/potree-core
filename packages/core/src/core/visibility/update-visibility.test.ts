@@ -122,6 +122,70 @@ function createCallbacks() {
 }
 
 describe("updateVisibility", () => {
+  it("skips nodes that are clipped by the caller callback", () => {
+    const root = createGeometryNode({ numPoints: 10, loaded: false });
+    const pointCloud = createPointCloud(root);
+    const callbacks = createCallbacks();
+    callbacks.shouldClip.mockReturnValue(true);
+
+    const result = updateVisibility({
+      pointClouds: [pointCloud],
+      views: [
+        {
+          intersectsBox: () => true,
+          cameraPosition,
+        },
+      ],
+      projection,
+      viewport: {
+        height: 100,
+        pixelRatio: 1,
+      },
+      pointBudget: 100,
+      maxNumNodesLoading: 4,
+      maxLoadsToGPU: 1,
+      callbacks,
+    });
+
+    expect(result.numVisiblePoints).toBe(0);
+    expect(result.visibleNodes).toEqual([]);
+    expect(pointCloud.visibleGeometry).toEqual([]);
+    expect(callbacks.loadGeometryNodes).toHaveBeenCalledWith([], []);
+  });
+
+  it("skips nodes above the point cloud maxLevel", () => {
+    const root = createGeometryNode({ level: 1, numPoints: 10, loaded: false });
+    const pointCloud = {
+      ...createPointCloud(root),
+      maxLevel: 0,
+    };
+    const callbacks = createCallbacks();
+
+    const result = updateVisibility({
+      pointClouds: [pointCloud],
+      views: [
+        {
+          intersectsBox: () => true,
+          cameraPosition,
+        },
+      ],
+      projection,
+      viewport: {
+        height: 100,
+        pixelRatio: 1,
+      },
+      pointBudget: 100,
+      maxNumNodesLoading: 4,
+      maxLoadsToGPU: 1,
+      callbacks,
+    });
+
+    expect(result.numVisiblePoints).toBe(0);
+    expect(result.visibleNodes).toEqual([]);
+    expect(pointCloud.visibleGeometry).toEqual([]);
+    expect(callbacks.loadGeometryNodes).toHaveBeenCalledWith([], []);
+  });
+
   it("stops before processing nodes that exceed the point budget", () => {
     const root = createGeometryNode({ numPoints: 10, loaded: false });
     const pointCloud = createPointCloud(root);
