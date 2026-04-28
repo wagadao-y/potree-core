@@ -1,7 +1,6 @@
 import type { LoadOctreeOptions } from "./LoadInstrumentation";
 import { OctreeLoader } from "./OctreeLoader";
-import { RequestManagerDatasetSource } from "./PotreeDatasetSource";
-import type { RequestManager } from "./RequestManager";
+import type { PotreeDatasetSource } from "./PotreeDatasetSource";
 
 /**
  * Loads an octree geometry from a specified URL using the provided request manager.
@@ -11,15 +10,11 @@ import type { RequestManager } from "./RequestManager";
  * @returns A promise that resolves to the loaded octree geometry.
  */
 export async function loadOctree(
-  url: string,
-  requestManager: RequestManager,
+  datasetSource: PotreeDatasetSource,
   options?: LoadOctreeOptions,
 ) {
   const loader = new OctreeLoader();
-  const { geometry } = await loader.load(
-    new RequestManagerDatasetSource(url, requestManager),
-    options,
-  );
+  const { geometry } = await loader.load(datasetSource, options);
 
   return geometry;
 }

@@ -1,5 +1,6 @@
 import type { LoadOctreeOptions } from "./loading/LoadInstrumentation";
 import type { OctreeGeometry } from "./loading/OctreeGeometry";
+import type { PotreeDatasetSource } from "./loading/PotreeDatasetSource";
 import type { RequestManager } from "./loading/RequestManager";
 import type { LRU } from "./utils/lru";
 
@@ -25,6 +26,11 @@ export interface IPotree<TPointCloud = LoadedPointCloud> {
   loadPointCloud(
     url: string,
     requestManager: RequestManager,
+    options?: LoadOctreeOptions,
+  ): Promise<TPointCloud>;
+  loadPointCloud(
+    url: string,
+    datasetSource: PotreeDatasetSource,
     options?: LoadOctreeOptions,
   ): Promise<TPointCloud>;
 }

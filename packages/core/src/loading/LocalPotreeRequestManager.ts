@@ -124,6 +124,7 @@ export class LocalPotreeRequestManager implements RequestManager {
 
     if (
       LocalPotreeRequestManager.isRequiredFileName(fileName) &&
+      fileName !== "metadata.json" &&
       fileName !== expectedFileName
     ) {
       throw new Error(

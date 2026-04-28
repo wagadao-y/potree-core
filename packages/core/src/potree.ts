@@ -5,6 +5,10 @@ import {
 } from "./core/constants";
 import type { LoadOctreeOptions } from "./loading/LoadInstrumentation";
 import { loadOctree } from "./loading/load-octree";
+import {
+  type PotreeDatasetSource,
+  RequestManagerDatasetSource,
+} from "./loading/PotreeDatasetSource";
 import type { RequestManager } from "./loading/RequestManager";
 import { resolvePotreeResourceUrl } from "./loading/resolve-potree-resource-url";
 import type { IPotree, LoadedPointCloud } from "./types";
@@ -31,29 +35,30 @@ export class Potree implements IPotree<LoadedPointCloud> {
   ): Promise<LoadedPointCloud>;
   public async loadPointCloud(
     url: string,
-    reqManager: string | RequestManager,
+    datasetSource: PotreeDatasetSource,
+    options?: LoadOctreeOptions,
+  ): Promise<LoadedPointCloud>;
+  public async loadPointCloud(
+    url: string,
+    reqManager: string | RequestManager | PotreeDatasetSource,
     options?: LoadOctreeOptions,
   ): Promise<LoadedPointCloud> {
-    if (typeof reqManager === "string") {
-      // Handle baseUrl case
-      const baseUrl = reqManager;
+    const datasetSource =
+      typeof reqManager === "string"
+        ? new RequestManagerDatasetSource(url, {
+            getUrl: async (kind, relativeUrl) =>
+              resolvePotreeResourceUrl(kind, relativeUrl, reqManager),
+            fetch: async (input, init) => fetch(input, init),
+          })
+        : isPotreeDatasetSource(reqManager)
+          ? reqManager
+          : new RequestManagerDatasetSource(url, reqManager);
 
-      const requestManager: RequestManager = {
-        getUrl: async (kind, relativeUrl) =>
-          resolvePotreeResourceUrl(kind, relativeUrl, baseUrl),
-        fetch: async (input, init) => fetch(input, init),
-      };
-      return this.loadPointCloud(url, requestManager, options);
-    } else {
-      // Handle RequestManager case
-      const requestManager = reqManager;
-
-      if (url.endsWith("metadata.json")) {
-        return await loadOctree(url, requestManager, options);
-      }
-
-      throw new Error("Unsupported file type. Use metadata.json.");
+    if (url.endsWith("metadata.json")) {
+      return await loadOctree(datasetSource, options);
     }
+
+    throw new Error("Unsupported file type. Use metadata.json.");
   }
 
   public get pointBudget(): number {
@@ -85,4 +90,14 @@ export class Potree implements IPotree<LoadedPointCloud> {
   public set maxLoadsToGPU(value: number) {
     this._maxLoadsToGPU = value;
   }
+}
+
+function isPotreeDatasetSource(
+  value: RequestManager | PotreeDatasetSource,
+): value is PotreeDatasetSource {
+  return (
+    typeof (value as PotreeDatasetSource).getResourceUrl === "function" &&
+    typeof (value as PotreeDatasetSource).fetchMetadata === "function" &&
+    typeof (value as PotreeDatasetSource).fetchRange === "function"
+  );
 }

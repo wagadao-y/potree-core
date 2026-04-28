@@ -33,6 +33,7 @@ const dataset = await potree.loadPointCloud(
 import {
    Potree,
    LocalPotreeRequestManager,
+   OpfsPotreeDatasetSource,
    SignedUrlPotreeRequestManager,
 } from 'potree-core';
 ```
@@ -44,8 +45,9 @@ import {
 - `LoadedPointCloud`
 - `LoadOctreeOptions` と load instrumentation 関連型
 - `LocalPotreeRequestManager`
+- `OpfsPotreeDatasetSource`
 - `SignedUrlPotreeRequestManager`
-- `RequestManager` と `PotreeResourceKind`
+- `PotreeDatasetSource`、`RequestManager` と `PotreeResourceKind`
 - point budget などの安定した public constant
 
 ### Advanced exports: `potree-core/core`
@@ -112,6 +114,28 @@ const requestManager = new SignedUrlPotreeRequestManager({
    octree: async () => getFreshSignedUrl('octree'),
 });
 ```
+
+## OpfsPotreeDatasetSource
+
+OPFS 上の `metadata.json`、`hierarchy.bin`、`octree.bin` を読む場合は `OpfsPotreeDatasetSource` を使えます。
+
+```javascript
+import {
+   OpfsPotreeDatasetSource,
+   Potree,
+} from 'potree-core';
+
+const root = await navigator.storage.getDirectory();
+const datasetDir = await root.getDirectoryHandle('pump');
+const datasetSource = await OpfsPotreeDatasetSource.fromDirectoryHandle(
+   datasetDir,
+);
+
+const potree = new Potree();
+const dataset = await potree.loadPointCloud('metadata.json', datasetSource);
+```
+
+`OpfsPotreeDatasetSource` は metadata を全文読込し、hierarchy と octree は `getFile().slice()` で必要 range だけを返します。
 
 ## カスタム Request Manager
 

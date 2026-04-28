@@ -7,6 +7,7 @@ import {
   type IVisibilityUpdateResult,
   type LoadedPointCloud,
   LocalPotreeRequestManager,
+  OpfsPotreeDatasetSource,
   type PointCloudOctree,
   PointColorType,
   PointShape,
@@ -342,9 +343,22 @@ document.body.onload = () => {
     Composite: PointColorType.COMPOSITE,
   };
   let localFileInput: HTMLInputElement | null = null;
+  type PotreeDatasetFileName = "metadata.json" | "hierarchy.bin" | "octree.bin";
+  type PotreeDatasetFiles = Record<PotreeDatasetFileName, File>;
+  type PlaygroundDatasetProvider = {
+    label: string;
+    getFiles: () => Promise<PotreeDatasetFiles>;
+  };
+  const requiredDatasetFileNames: readonly PotreeDatasetFileName[] = [
+    "metadata.json",
+    "hierarchy.bin",
+    "octree.bin",
+  ];
+  const playgroundOpfsDirectoryName = "potree-playground-current-dataset";
   const BENCHMARK_PRESET_1_KEY = "potree-core.playground.benchmarkPreset1";
   let gui: GUI | null = null;
   let isApplyingPreset = false;
+  let currentDatasetProvider: PlaygroundDatasetProvider | null = null;
 
   // State
   const params = {
@@ -388,6 +402,12 @@ document.body.onload = () => {
     loadLocalDataset: () => {
       localFileInput?.click();
     },
+    saveCurrentDatasetToOpfs: async () => {
+      await saveCurrentDatasetToOpfs();
+    },
+    loadDatasetFromOpfs: async () => {
+      await loadDatasetFromOpfs();
+    },
   };
   params.pointBudgetMP = Math.max(
     1,
@@ -399,6 +419,166 @@ document.body.onload = () => {
   function setLocalDatasetStatus(status: string) {
     params.localDatasetStatus = status;
     localDatasetStatusController?.updateDisplay();
+  }
+
+  function collectRequiredFiles(fileList: FileList | Iterable<File>) {
+    const files = {} as Partial<PotreeDatasetFiles>;
+
+    for (const file of Array.from(fileList)) {
+      if (isRequiredDatasetFileName(file.name)) {
+        files[file.name] = file;
+      }
+    }
+
+    for (const fileName of requiredDatasetFileNames) {
+      if (!(files[fileName] instanceof File)) {
+        throw new Error(`Required file is missing: ${fileName}`);
+      }
+    }
+
+    return files as PotreeDatasetFiles;
+  }
+
+  function isRequiredDatasetFileName(
+    fileName: string,
+  ): fileName is PotreeDatasetFileName {
+    return requiredDatasetFileNames.includes(fileName as PotreeDatasetFileName);
+  }
+
+  async function fetchDatasetFilesFromBaseUrl(
+    baseUrl: string,
+  ): Promise<PotreeDatasetFiles> {
+    const entries = await Promise.all(
+      requiredDatasetFileNames.map(async (fileName) => {
+        const url = new URL(
+          fileName,
+          window.location.origin + baseUrl,
+        ).toString();
+        const response = await fetch(url);
+
+        if (!response.ok) {
+          throw new Error(`Failed to fetch ${fileName}: ${response.status}`);
+        }
+
+        const buffer = await response.arrayBuffer();
+        const file = new File([buffer], fileName, {
+          type:
+            fileName === "metadata.json"
+              ? "application/json"
+              : "application/octet-stream",
+        });
+
+        return [fileName, file] as const;
+      }),
+    );
+
+    return Object.fromEntries(entries) as PotreeDatasetFiles;
+  }
+
+  async function getOpfsDatasetDirectory(create: boolean) {
+    if (typeof navigator.storage?.getDirectory !== "function") {
+      throw new Error("このブラウザでは OPFS を利用できません。");
+    }
+
+    const root = await navigator.storage.getDirectory();
+    return root.getDirectoryHandle(playgroundOpfsDirectoryName, { create });
+  }
+
+  async function saveDatasetFilesToOpfs(files: PotreeDatasetFiles) {
+    const directoryHandle = await getOpfsDatasetDirectory(true);
+
+    for (const fileName of requiredDatasetFileNames) {
+      const fileHandle = await directoryHandle.getFileHandle(fileName, {
+        create: true,
+      });
+      const writable = await fileHandle.createWritable();
+      try {
+        await writable.write(files[fileName]);
+      } finally {
+        await writable.close();
+      }
+    }
+
+    return directoryHandle;
+  }
+
+  async function saveCurrentDatasetToOpfs() {
+    if (currentDatasetProvider === null) {
+      setLocalDatasetStatus("保存対象のデータセットがありません。");
+      return;
+    }
+
+    setLocalDatasetStatus(
+      `${currentDatasetProvider.label} を OPFS に保存中です...`,
+    );
+
+    try {
+      const files = await currentDatasetProvider.getFiles();
+      await saveDatasetFilesToOpfs(files);
+      setLocalDatasetStatus(
+        `${currentDatasetProvider.label} を OPFS に保存しました。`,
+      );
+    } catch (error) {
+      setLocalDatasetStatus(`OPFS 保存に失敗しました: ${formatError(error)}`);
+    }
+  }
+
+  async function loadDatasetFromOpfs() {
+    setLocalDatasetStatus("OPFS からデータセットを読み込み中です...");
+    loadMetrics.reset();
+
+    try {
+      const directoryHandle = await getOpfsDatasetDirectory(false);
+      const datasetSource =
+        await OpfsPotreeDatasetSource.fromDirectoryHandle(directoryHandle);
+
+      await loadPointCloudFromSource(
+        () =>
+          potree.loadPointCloud("metadata.json", datasetSource, {
+            instrumentation: loadMetrics.instrumentation,
+          }),
+        defaultPointCloudPlacement(),
+        {
+          label: "OPFS データセット",
+          datasetProvider: {
+            label: "OPFS データセット",
+            getFiles: async () => {
+              const files = await Promise.all(
+                requiredDatasetFileNames.map(async (fileName) => {
+                  const fileHandle =
+                    await directoryHandle.getFileHandle(fileName);
+                  return [fileName, await fileHandle.getFile()] as const;
+                }),
+              );
+
+              return Object.fromEntries(files) as PotreeDatasetFiles;
+            },
+          },
+          onSuccess: () => {
+            setLocalDatasetStatus(
+              "OPFS の Potree データセットを読み込みました。",
+            );
+          },
+          onError: (error) => {
+            setLocalDatasetStatus(
+              `OPFS 読込に失敗しました: ${formatError(error)}`,
+            );
+          },
+        },
+      );
+    } catch (error) {
+      setLocalDatasetStatus(`OPFS 読込に失敗しました: ${formatError(error)}`);
+    }
+  }
+
+  function defaultPointCloudPlacement() {
+    return {
+      position: new Vector3(0, -1.5, 3),
+      rotation: new Euler(-Math.PI / 2, 0, 0),
+      scale: new Vector3(2, 2, 2),
+      applyClipBox: true,
+      applyClipPlanes: true,
+    };
   }
 
   // EDL
@@ -464,6 +644,8 @@ document.body.onload = () => {
     setLocalDatasetStatus("ローカル Potree ファイルを読み込み中です...");
     loadMetrics.reset();
 
+    const datasetFiles = collectRequiredFiles(files);
+
     void loadPointCloudFromSource(
       () =>
         potree.loadPointCloud(
@@ -471,15 +653,13 @@ document.body.onload = () => {
           LocalPotreeRequestManager.fromFileList(files),
           { instrumentation: loadMetrics.instrumentation },
         ),
-      {
-        position: new Vector3(0, -1.5, 3),
-        rotation: new Euler(-Math.PI / 2, 0, 0),
-        scale: new Vector3(2, 2, 2),
-        applyClipBox: true,
-        applyClipPlanes: true,
-      },
+      defaultPointCloudPlacement(),
       {
         label: "ローカルファイル",
+        datasetProvider: {
+          label: "ローカルファイル",
+          getFiles: async () => datasetFiles,
+        },
         onSuccess: () => {
           setLocalDatasetStatus(
             "ローカル Potree ファイルを読み込みました。以後のノード取得はローカルファイルから行います。",
@@ -686,15 +866,13 @@ document.body.onload = () => {
       potree.loadPointCloud("metadata.json", "/data/pump/", {
         instrumentation: loadMetrics.instrumentation,
       }),
-    {
-      position: new Vector3(0, -1.5, 3),
-      rotation: new Euler(-Math.PI / 2, 0, 0),
-      scale: new Vector3(2, 2, 2),
-      applyClipBox: true,
-      applyClipPlanes: true,
-    },
+    defaultPointCloudPlacement(),
     {
       label: "サンプルデータセット",
+      datasetProvider: {
+        label: "サンプルデータセット",
+        getFiles: async () => fetchDatasetFilesFromBaseUrl("/data/pump/"),
+      },
       onSuccess: () => {
         setLocalDatasetStatus(
           "初期データセットを表示中です。ローカル読込で差し替えできます。",
@@ -739,6 +917,7 @@ document.body.onload = () => {
     },
     hooks: {
       label: string;
+      datasetProvider?: PlaygroundDatasetProvider;
       onSuccess?: () => void;
       onError?: (error: unknown) => void;
     },
@@ -808,6 +987,7 @@ document.body.onload = () => {
 
       scene.add(pco);
       pointClouds.push(pco);
+      currentDatasetProvider = hooks.datasetProvider ?? null;
       hooks.onSuccess?.();
     } catch (error) {
       console.error(`${hooks.label} load failed`, error);
@@ -1016,6 +1196,10 @@ document.body.onload = () => {
   localDatasetFolder
     .add(params, "loadLocalDataset")
     .name("ローカルファイルを選択");
+  localDatasetFolder
+    .add(params, "saveCurrentDatasetToOpfs")
+    .name("現在データを OPFS に保存");
+  localDatasetFolder.add(params, "loadDatasetFromOpfs").name("OPFS から読込");
   localDatasetStatusController = localDatasetFolder
     .add(params, "localDatasetStatus")
     .name("Status")
