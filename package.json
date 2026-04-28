@@ -6,6 +6,8 @@
     "dev": "pnpm --filter playground dev",
     "benchmark:decode": "pnpm --filter benchmark-decode dev",
     "build": "pnpm --filter playground build",
+    "test": "pnpm -r --if-present test",
+    "test:core": "pnpm --filter potree-core test",
     "typecheck": "pnpm --filter potree-core typecheck && pnpm --filter potree-renderer-three typecheck && pnpm --filter playground typecheck",
     "lint": "biome lint .",
     "lint:fix": "biome lint --write .",
