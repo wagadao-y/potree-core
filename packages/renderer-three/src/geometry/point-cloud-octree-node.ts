@@ -1,7 +1,7 @@
-import type { OctreeGeometryNode } from "potree-core";
 import type {
   IPointCloudRenderedNode,
   IPointCloudTreeNode,
+  OctreeGeometryNode,
 } from "potree-core/core";
 import {
   type Box3,

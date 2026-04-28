@@ -1,4 +1,4 @@
-import type { OctreeGeometryNode } from "potree-core";
+import type { OctreeGeometryNode } from "potree-core/core";
 import {
   Box3,
   type Camera,

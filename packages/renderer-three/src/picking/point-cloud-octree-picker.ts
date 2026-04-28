@@ -1,4 +1,4 @@
-import { clamp } from "potree-core";
+import { clamp } from "potree-core/core";
 import {
   type Camera,
   type Ray,

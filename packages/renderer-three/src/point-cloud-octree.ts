@@ -1,9 +1,8 @@
+import type { IPotree, LoadedPointCloud } from "potree-core";
 import type {
-  IPotree,
-  LoadedPointCloud,
+  IPointCloudVisibilityTarget,
   OctreeGeometryNode,
-} from "potree-core";
-import type { IPointCloudVisibilityTarget } from "potree-core/core";
+} from "potree-core/core";
 import {
   type Box3,
   type Camera,

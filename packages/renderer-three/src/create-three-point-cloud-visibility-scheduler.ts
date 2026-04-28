@@ -1,10 +1,13 @@
-import type { LRU, OctreeGeometryNode } from "potree-core";
 import {
   DEFAULT_MAX_LOADS_TO_GPU,
   DEFAULT_MAX_NUM_NODES_LOADING,
   DEFAULT_POINT_BUDGET,
 } from "potree-core";
-import { PointCloudVisibilityScheduler } from "potree-core/core";
+import {
+  type LRU,
+  type OctreeGeometryNode,
+  PointCloudVisibilityScheduler,
+} from "potree-core/core";
 import {
   type ClipVisibilityContext,
   ThreePointCloudVisibilityAdapter,

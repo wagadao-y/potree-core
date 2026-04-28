@@ -1,5 +1,4 @@
-import type { OctreeGeometryNode } from "potree-core";
-import type { IPointCloudTreeNode } from "potree-core/core";
+import type { IPointCloudTreeNode, OctreeGeometryNode } from "potree-core/core";
 import { Box3, type Object3D, Points, Vector3 } from "three";
 import { materializeOctreeNodeGeometry } from "../geometry/octree-node-geometry";
 import { PointCloudOctreeNode } from "../geometry/point-cloud-octree-node";

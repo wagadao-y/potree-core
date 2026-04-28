@@ -1,4 +1,4 @@
-import type { OctreeGeometryNode } from "potree-core";
+import type { OctreeGeometryNode } from "potree-core/core";
 import { BufferAttribute, BufferGeometry } from "three";
 import { toThreeBox3 } from "../math/box3-like";
 

@@ -1,4 +1,4 @@
-import { byLevelAndIndex } from "potree-core";
+import { byLevelAndIndex } from "potree-core/core";
 import { Color, NearestFilter, type Texture } from "three";
 import type { PointCloudOctreeNode } from "../geometry/point-cloud-octree-node";
 import { generateDataTexture } from "./texture-generation";

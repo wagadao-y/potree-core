@@ -1,3 +1,7 @@
+export * from "../loading/OctreeGeometryNode";
+export * from "../utils/lru";
+export * from "../utils/math";
+export * from "../utils/utils";
 export * from "./box3-like-utils";
 export * from "./point-cloud-tree-model";
 export * from "./point-cloud-visibility-scheduler";

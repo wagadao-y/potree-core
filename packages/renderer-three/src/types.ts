@@ -1,5 +1,8 @@
-import type { LoadedPointCloud, OctreeGeometryNode } from "potree-core";
-import type { IPointCloudVisibilityTarget } from "potree-core/core";
+import type { LoadedPointCloud } from "potree-core";
+import type {
+  IPointCloudVisibilityTarget,
+  OctreeGeometryNode,
+} from "potree-core/core";
 import type { Box3, Matrix4, Object3D, Vector3 } from "three";
 import type { PointCloudOctreeNode } from "./geometry/point-cloud-octree-node";
 import type { PointCloudMaterial } from "./materials";

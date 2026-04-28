@@ -1,4 +1,4 @@
-import { isBrowser } from "potree-core";
+import { isBrowser } from "potree-core/core";
 import {
   CanvasTexture,
   type Color,
