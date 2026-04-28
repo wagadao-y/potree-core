@@ -1,5 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
-import { OctreeRangeCache } from "./octree-range-cache";
+import {
+  createMergedOctreeRanges,
+  OctreeRangeCache,
+} from "./octree-range-cache";
 import type { RequestManager } from "./RequestManager";
 import { PotreeFetchError } from "./validate-fetch-response";
 
@@ -60,5 +63,43 @@ describe("OctreeRangeCache", () => {
     );
 
     expect(Array.from(new Uint8Array(cached!))).toEqual([5, 6, 7, 8]);
+  });
+
+  it("merges contiguous pending node ranges into a single request range", () => {
+    const ranges = createMergedOctreeRanges([
+      {
+        node: "b",
+        byteOffset: BigInt(4),
+        byteSize: BigInt(4),
+        endExclusive: BigInt(8),
+      },
+      {
+        node: "a",
+        byteOffset: BigInt(0),
+        byteSize: BigInt(4),
+        endExclusive: BigInt(4),
+      },
+    ]);
+
+    expect(ranges).toEqual([
+      {
+        start: BigInt(0),
+        endExclusive: BigInt(8),
+        nodes: [
+          {
+            node: "a",
+            byteOffset: BigInt(0),
+            byteSize: BigInt(4),
+            endExclusive: BigInt(4),
+          },
+          {
+            node: "b",
+            byteOffset: BigInt(4),
+            byteSize: BigInt(4),
+            endExclusive: BigInt(8),
+          },
+        ],
+      },
+    ]);
   });
 });
