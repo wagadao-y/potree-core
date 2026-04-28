@@ -1,5 +1,5 @@
 # リポジトリ指示
 
 - コミットメッセージは必ず日本語で書くこと。
-- タスク完了時には`pnpm run check:write`, `pnpm run typecheck`を実施し、作業箇所のエラーがないことを確認すること。
+- タスク完了時には`pnpm run check:write`, `pnpm run typecheck`, `pnpm run test`を実施し、作業箇所のエラーがないことを確認すること。
 - ソースコードの行数測定には`tokei`を使用すること。
